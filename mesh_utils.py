@@ -52,7 +52,9 @@ def compile_h5(directory_path, overwrite=False):
 
         # Sort from base to apex
         label = "pss0" if "pss0" in data else "PVM_SPackArrSliceOffset"
-        sorted_indexes = np.argsort([np.abs(data[label][k]) for k in range(len(data[label]))])
+        sorted_indexes = np.argsort(
+            [np.abs(data[label][k]) for k in range(len(data[label]))]
+        )
         data = {key: [data[key][i] for i in sorted_indexes] for key in data.keys()}
 
         # Compute necessary arrays and matrices
@@ -74,7 +76,7 @@ def compile_h5(directory_path, overwrite=False):
             "image_matrix_size": I,
             "number_of_slices": K,
             "temporal_resolution": data["TR"][0],
-            "slice_thickness": data["SliceThickness"][0]/10,
+            "slice_thickness": data["SliceThickness"][0] / 10,
             "resolution": data["Resolution"][0],
             "TED": list(TED),
             "TES": list(TES),
@@ -163,7 +165,9 @@ def update_h5_file(h5_path, datasets={}, attrs={}):
 
 # %%
 def pre_process_mask(
-    h5_path, save_flag=False, slice_number=5, num_itr_slice_1=1, num_itr_slice_2=3
+    h5_path,
+    save_flag=False,
+    settings: dict = dict(slice_number=6, num_itr_slice_1=0, num_itr_slice_2=1),
 ):
     datasets, attrs = load_from_h5(h5_path)
     K, I, T_end = attrs["number_of_slices"], attrs["image_matrix_size"], attrs["T_end"]
@@ -178,10 +182,14 @@ def pre_process_mask(
     for t in range(T_end):
         for k in range(K):
             mask_t = mask[k, :, :, t]
-            if k < K - slice_number:
-                mask_closed[k, :, :, t] = close_gaps(mask_t, num_itr_slice_1)
+            if k < K - settings["slice_number"]:
+                mask_closed[k, :, :, t] = close_gaps(
+                    mask_t, settings["num_itr_slice_1"]
+                )
             else:
-                mask_closed[k, :, :, t] = close_gaps(mask_t, num_itr_slice_2)
+                mask_closed[k, :, :, t] = close_gaps(
+                    mask_t, settings["num_itr_slice_2"]
+                )
             if save_flag:
                 image_comparison = show_image(mask_t, mask_closed[k, :, :, t])
                 img_path = output_dir / f"{t+1}_{k+1}.tiff"
