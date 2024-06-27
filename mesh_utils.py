@@ -215,18 +215,3 @@ def close_gaps(mask_t, itr):
     img_dilated = cv.dilate(img_array, kernel, iterations=itr)
     img_dilated_eroded = cv.erode(img_dilated, kernel, iterations=itr)
     return img_dilated_eroded
-
-
-# %%
-def get_mesh_fname(meshdir, mesh_fname = None):
-    meshdir = Path(meshdir)
-    # find the msh file in the meshdir
-    mesh_files = list(meshdir.glob("*.msh"))
-    if len(mesh_files) > 1:
-        logger.warning(
-            f'There are {len(mesh_files)} mesh files in the folder. The first mesh "{mesh_files[0].as_posix()}" is being used. Otherwise, specify mesh_fname.'
-        )
-
-    if mesh_fname is None:
-        mesh_fname = mesh_files[0].as_posix()
-    return mesh_fname
