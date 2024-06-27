@@ -6,9 +6,11 @@ from meshing import create_mesh
 from create_geometry import create_geometry
 from unloading import unloader
 
+
 logger = get_logger()
 
 
+# %%
 def get_mask_settings(mask_settings, sample_name=None):
     # Use provided mask_settings or default ones if not provided
     default_mask_settings = get_default_mask_settings(sample_name)
@@ -88,8 +90,8 @@ def get_default_mesh_settings(sample_name):
 # main(directory_path)
 
 # directory_path,
-#%%
-ED_pressure = 0.24
+# %%
+atrium_pressure = 0.24
 mesh_settings = None
 mask_settings = None
 sample_name = None
@@ -104,7 +106,10 @@ h5_file = pre_process_mask(h5_file, save_flag=True, settings=pre_process_mask_se
 mesh_settings = get_mesh_settings(mesh_settings, sample_name)
 LVMesh, meshdir = create_mesh(directory_path, mesh_settings, h5_file, plot_flag=True)
 geometry = create_geometry(meshdir, fiber_angles=None, mesh_fname=None, plot_flag=True)
-unloaded_geometry = unloader(meshdir, ED_pressure=ED_pressure, plot_flag=True)
+directory_path = Path("00_data/AS/3week/156_1/")
+outdir = directory_path / "00_Modeling"
+unloaded_geometry = unloader(meshdir, atrium_pressure=atrium_pressure, plot_flag=True)
+fname = outdir / "unloaded_geometry"
+unloaded_geometry.save(fname.as_posix(), overwrite_file=True)
 
-
-#%%
+# %%

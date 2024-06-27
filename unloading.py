@@ -34,7 +34,7 @@ def get_h5_fname(meshdir, h5_fname=None):
         return h5_fname
 
 
-def unloader(meshdir, ED_pressure=0.24, plot_flag=False):
+def unloader(meshdir, atrium_pressure=0.24, plot_flag=False):
     h5_fname = get_h5_fname(meshdir, h5_fname=None)
     geo = pulse.HeartGeometry.from_file(h5_fname)
     microstructure = pulse.Microstructure(f0=geo.f0, s0=geo.s0, n0=geo.n0)
