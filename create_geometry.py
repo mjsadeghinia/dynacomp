@@ -207,5 +207,5 @@ ldrb.fiber_to_xdmf(fiber, fname)
 
 geometry.microstructure = pulse.Microstructure(f0=fiber, s0=sheet, n0=sheet_normal)
 fname = mesh_fname[:-4]
-geometry.save(fname)
+geometry.save(fname, overwrite_file=True)
 # %%
