@@ -3,10 +3,10 @@ from fenics_plotly import plot
 import pulse
 import meshio
 import numpy as np
-import meshio
 import dolfin
 from pathlib import Path
 from structlog import get_logger
+import ldrb
 
 logger = get_logger()
 
@@ -149,4 +149,56 @@ for facet in facet_epi_id:
 # plotting the face function
 plot(ffun, wireframe=True)
 
+# %% Saving ffun
+fname = mesh_fname[:-4] + "_ffun.xdmf"
+with dolfin.XDMFFile(fname) as infile:
+    infile.write(ffun)
+
+marker_functions = pulse.MarkerFunctions(ffun=ffun)
+markers = {"BASE": [5, 2], "ENDO": [6, 2], "EPI": [7, 2]}
+geometry = pulse.HeartGeometry(
+    mesh=geometry.mesh, markers=markers, marker_functions=marker_functions
+)
+# %%
+# Decide on the angles you want to use
+angles = dict(
+    alpha_endo_lv=30,  # Fiber angle on the LV endocardium
+    alpha_epi_lv=-30,  # Fiber angle on the LV epicardium
+    beta_endo_lv=0,  # Sheet angle on the LV endocardium
+    beta_epi_lv=0,  # Sheet angle on the LV epicardium
+    alpha_endo_sept=60,  # Fiber angle on the Septum endocardium
+    alpha_epi_sept=-60,  # Fiber angle on the Septum epicardium
+    beta_endo_sept=0,  # Sheet angle on the Septum endocardium
+    beta_epi_sept=0,  # Sheet angle on the Septum epicardium
+    alpha_endo_rv=80,  # Fiber angle on the RV endocardium
+    alpha_epi_rv=-80,  # Fiber angle on the RV epicardium
+    beta_endo_rv=0,  # Sheet angle on the RV endocardium
+    beta_epi_rv=0,  # Sheet angle on the RV epicardium
+)
+
+# Convert markers to correct format
+markers = {
+    "base": geometry.markers["BASE"][0],
+    "lv": geometry.markers["ENDO"][0],
+    "epi": geometry.markers["EPI"][0],
+}
+# Choose space for the fiber fields
+# This is a string on the form {family}_{degree}
+fiber_space = "P_2"
+
+# Compute the microstructure
+fiber, sheet, sheet_normal = ldrb.dolfin_ldrb(
+    mesh=geometry.mesh,
+    fiber_space=fiber_space,
+    ffun=geometry.ffun,
+    markers=markers,
+    **angles,
+)
+fname = mesh_fname[:-4] + "_fiber"
+
+ldrb.fiber_to_xdmf(fiber, fname)
+
+geometry.microstructure = pulse.Microstructure(f0=fiber, s0=sheet, n0=sheet_normal)
+fname = mesh_fname[:-4]
+geometry.save(fname)
 # %%
