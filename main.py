@@ -89,11 +89,11 @@ def get_default_mesh_settings(sample_name):
 
 # directory_path,
 #%%
-ED_pressure = (0.24,)
-mesh_settings = (None,)
-mask_settings = (None,)
-sample_name = (None,)
-h5_overwrite = (True,)
+ED_pressure = 0.24
+mesh_settings = None
+mask_settings = None
+sample_name = None
+h5_overwrite = True
 
 directory_path = Path("00_data/AS/3week/156_1/")
 
@@ -105,3 +105,6 @@ mesh_settings = get_mesh_settings(mesh_settings, sample_name)
 LVMesh, meshdir = create_mesh(directory_path, mesh_settings, h5_file, plot_flag=True)
 geometry = create_geometry(meshdir, fiber_angles=None, mesh_fname=None, plot_flag=True)
 unloaded_geometry = unloader(meshdir, ED_pressure=ED_pressure, plot_flag=True)
+
+
+#%%
