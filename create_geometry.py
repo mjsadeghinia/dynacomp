@@ -1,11 +1,13 @@
 # %%
-from fenics_plotly import plot
-import pulse
-import meshio
 import numpy as np
-import dolfin
 from pathlib import Path
 from structlog import get_logger
+
+from mesh_utils import get_mesh_fname
+import meshio
+import dolfin
+import pulse
+from fenics_plotly import plot
 import ldrb
 
 logger = get_logger()
@@ -13,17 +15,8 @@ logger = get_logger()
 # %%
 dir = Path("00_data/AS/3week/156_1/")
 meshdir = dir / "06_Mesh"
-mesh_fname = None
 
-# find the msh file in the meshdir
-mesh_files = list(meshdir.glob("*.msh"))
-if len(mesh_files) > 1:
-    logger.warning(
-        f'There are {len(mesh_files)} mesh files in the folder. The first mesh "{mesh_files[0].as_posix()}" is being used. Otherwise, specify mesh_fname.'
-    )
-
-if mesh_fname is None:
-    mesh_fname = mesh_files[0].as_posix()
+mesh_fname = get_mesh_fname(meshdir, mesh_fname=None)
 # Reading the gmsh file and create a xdmf to be read by dolfin
 msh = meshio.read(mesh_fname)
 
