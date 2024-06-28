@@ -3,6 +3,7 @@
 01_results/
 # Byte-compiled / optimized / DLL files
 __pycache__/
+.DS_Store
 *.py[cod]
 *$py.class
 
