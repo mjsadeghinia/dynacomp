@@ -167,7 +167,7 @@ def create_geometry(
         area = cell.facet_area(local_index)
         facet_2_area.append(area)
 
-    if facet_1_area > facet_2_area:
+    if np.sum(facet_1_area) > np.sum(facet_2_area):
         facet_endo = facet_2
         facet_epi = facet_1
     else:
