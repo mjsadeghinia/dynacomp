@@ -53,18 +53,10 @@ def get_default_fiber_angles():
     Default fiber angles parameter for the left ventricle
     """
     angles = dict(
-        alpha_endo_lv=30,  # Fiber angle on the LV endocardium
-        alpha_epi_lv=-30,  # Fiber angle on the LV epicardium
+        alpha_endo_lv=60,  # Fiber angle on the LV endocardium
+        alpha_epi_lv=-60,  # Fiber angle on the LV epicardium
         beta_endo_lv=0,  # Sheet angle on the LV endocardium
         beta_epi_lv=0,  # Sheet angle on the LV epicardium
-        alpha_endo_sept=60,  # Fiber angle on the Septum endocardium
-        alpha_epi_sept=-60,  # Fiber angle on the Septum epicardium
-        beta_endo_sept=0,  # Sheet angle on the Septum endocardium
-        beta_epi_sept=0,  # Sheet angle on the Septum epicardium
-        alpha_endo_rv=80,  # Fiber angle on the RV endocardium
-        alpha_epi_rv=-80,  # Fiber angle on the RV epicardium
-        beta_endo_rv=0,  # Sheet angle on the RV endocardium
-        beta_epi_rv=0,  # Sheet angle on the RV epicardium
     )
     return angles
 

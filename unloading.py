@@ -57,7 +57,7 @@ def unloader(meshdir, atrium_pressure=0.24, plot_flag=False):
 
     # Suppose geometry is loaded with a pressure of 1.776 mmHg (0.24kPa) based on PV loop of D3-2
     # and create the unloader
-    unloader = pulse.FixedPointUnloader(problem=problem, pressure=ED_pressure)
+    unloader = pulse.FixedPointUnloader(problem=problem, pressure=atrium_pressure)
 
     # Unload the geometry
     unloader.unload()

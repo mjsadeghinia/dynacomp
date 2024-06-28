@@ -60,7 +60,7 @@ def get_default_mesh_settings(sample_name):
         default_mask_settings = dict(
             seed_num_base_epi=20,
             seed_num_base_endo=15,
-            num_z_sections_epi=15,
+            num_z_sections_epi=12,
             num_z_sections_endo=10,
             num_mid_layers_base=3,
             smooth_level_epi=0.1,
@@ -106,9 +106,11 @@ h5_file = pre_process_mask(h5_file, save_flag=True, settings=pre_process_mask_se
 mesh_settings = get_mesh_settings(mesh_settings, sample_name)
 LVMesh, meshdir = create_mesh(directory_path, mesh_settings, h5_file, plot_flag=True)
 geometry = create_geometry(meshdir, fiber_angles=None, mesh_fname=None, plot_flag=True)
-directory_path = Path("00_data/AS/3week/156_1/")
-outdir = directory_path / "00_Modeling"
 unloaded_geometry = unloader(meshdir, atrium_pressure=atrium_pressure, plot_flag=True)
+
+outdir = directory_path / "00_Modeling"
+fname = outdir / "geometry"
+geometry.save(fname.as_posix(), overwrite_file=True)
 fname = outdir / "unloaded_geometry"
 unloaded_geometry.save(fname.as_posix(), overwrite_file=True)
 
