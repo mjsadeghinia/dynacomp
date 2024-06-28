@@ -312,7 +312,7 @@ class HeartModelDynaComp:
 
     def apply_bcs(self):
         bcs = pulse.BoundaryConditions(
-            dirichlet=(self._fixed_base,),
+            dirichlet=(self._fixed_base_x,),
             neumann=self._neumann_bc(),
             robin=self._robin_bc(),
         )
