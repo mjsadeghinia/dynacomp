@@ -196,6 +196,15 @@ class HeartModelDynaComp:
                 True,
             )
 
+    def get_deformed_mesh(self):
+        results_u, _ = self.problem.state.split(deepcopy=True)
+        element = self.problem.state_space.sub(0).ufl_element()
+        FunSpace = dolfin.FunctionSpace(self.problem.geometry.mesh, element)
+        results_u_interp = dolfin.interpolate(results_u, FunSpace)
+        deformed_mesh = self.geometry.mesh
+        dolfin.ALE.move(deformed_mesh, results_u_interp)
+        return deformed_mesh
+
     def _compute_fiber_strain(self, u):
         F = pulse.kinematics.DeformationGradient(u) * dolfin.inv(self.F0)
         E = pulse.kinematics.GreenLagrangeStrain(F)

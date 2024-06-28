@@ -22,22 +22,26 @@ bc_params = {"pericardium_spring": 0.1}
 unloaded_geometry = pulse.HeartGeometry.from_file(mesh_fname.as_posix() + ".h5")
 heart_model = HeartModelDynaComp(geo=unloaded_geometry, bc_params=bc_params)
 
-# delet files excepts the 
+# delet files excepts the
 if outdir.is_dir():
     shutil.rmtree(outdir)
 outdir.mkdir()
 v = heart_model.compute_volume(activation_value=0, pressure_value=0)
-heart_model.save(0,outdir=outdir)
+heart_model.save(0, outdir=outdir)
 
-v = heart_model.compute_volume(activation_value=0, pressure_value=.05)
-heart_model.save(1,outdir=outdir)
+v = heart_model.compute_volume(activation_value=0, pressure_value=0.05)
+heart_model.save(1, outdir=outdir)
 
-#%%%
+# %%%
 target_activation = dolfin.Function(heart_model.activation.ufl_function_space())
 max_a = 10000
 for t, a in enumerate(np.linspace(0, max_a, 10)):
     target_activation.vector()[:] = a
     v = heart_model.compute_volume(
-        activation_value=target_activation, pressure_value=.05+a/max_a
+        activation_value=target_activation, pressure_value=0.05 + a / max_a
     )
-    heart_model.save(t+2,outdir=outdir)
+    heart_model.save(t + 2, outdir=outdir)
+
+# %%
+deformed_mesh = heart_model.get_deformed_mesh()
+# %%
