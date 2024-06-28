@@ -58,16 +58,16 @@ def get_default_mesh_settings(sample_name):
     """
     if sample_name is None or sample_name == "156_1":
         default_mask_settings = dict(
-            seed_num_base_epi=20,
-            seed_num_base_endo=15,
-            num_z_sections_epi=12,
-            num_z_sections_endo=10,
-            num_mid_layers_base=3,
+            seed_num_base_epi=15,
+            seed_num_base_endo=10,
+            num_z_sections_epi=10,
+            num_z_sections_endo=9,
+            num_mid_layers_base=1,
             smooth_level_epi=0.1,
             smooth_level_endo=0.15,
             num_lax_points=16,
-            lax_smooth_level_epi=0.1,
-            lax_smooth_level_endo=0.15,
+            lax_smooth_level_epi=1,
+            lax_smooth_level_endo=1.5,
             z_sections_flag_epi=0,
             z_sections_flag_endo=1,
             seed_num_threshold_epi=8,
@@ -107,8 +107,7 @@ mesh_settings = get_mesh_settings(mesh_settings, sample_name)
 LVMesh, meshdir = create_mesh(directory_path, mesh_settings, h5_file, plot_flag=True)
 geometry = create_geometry(meshdir, fiber_angles=None, mesh_fname=None, plot_flag=True)
 unloaded_geometry = unloader(meshdir, atrium_pressure=atrium_pressure, plot_flag=True)
-
-outdir = directory_path / "00_Modeling"
+outdir = directory_path / "Geometry"
 fname = outdir / "geometry"
 geometry.save(fname.as_posix(), overwrite_file=True)
 fname = outdir / "unloaded_geometry"
