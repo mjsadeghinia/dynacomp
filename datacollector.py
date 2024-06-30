@@ -9,8 +9,7 @@ logger = get_logger()
 
 
 class Problem(Protocol):
-    def save(self, t: float, outdir: Path) -> None:
-        ...
+    def save(self, t: float, outdir: Path) -> None: ...
 
 
 class DataCollector:
@@ -22,10 +21,11 @@ class DataCollector:
         self.problem = problem
         outdir.mkdir(exist_ok=True, parents=True)
         self.outdir = outdir
-        if hasattr(problem,'comm'):
+        if hasattr(problem, "comm"):
             self.comm = problem.comm
         else:
             from dolfin import MPI
+
             self.comm = MPI.comm_world
 
     def collect(
@@ -59,7 +59,7 @@ class DataCollector:
         return Path(self.outdir) / "results.png"
 
     def _save_csv(self):
-        with open(self.csv_file, 'w', newline="") as file:
+        with open(self.csv_file, "w", newline="") as file:
             writer = csv.writer(file)
             writer.writerow(
                 [
@@ -88,10 +88,12 @@ class DataCollector:
         axs[0, 1].set_ylabel("Pressure (kPa)")
         axs[0, 1].set_xlabel("Volume (ml)")
         ax2 = axs[0, 1].twinx()
-        pressures_mmHg = np.array(self.pressures) * 7.50062 #Convert to mmHg
+        pressures_mmHg = np.array(self.pressures) * 7.50062  # Convert to mmHg
         # Plotting the same data but converted on the second y-axis
-        ax2.plot(self.volumes, pressures_mmHg, 'r-', alpha=0)  # invisible plot just for axis
-        ax2.set_ylabel('Pressure (mmHg)')
+        ax2.plot(
+            self.volumes, pressures_mmHg, "r-", alpha=0
+        )  # invisible plot just for axis
+        ax2.set_ylabel("Pressure (mmHg)")
         axs[1, 0].plot(self.times, self.outflows)
         axs[1, 0].set_ylabel("Outflow (ml/s)")
         axs[1, 0].set_xlabel("Time (ms)")
@@ -101,17 +103,19 @@ class DataCollector:
         axs[1, 1].set_ylabel("Pressure (kPa)")
         axs[1, 1].set_xlabel("Time (ms)")
         ax4 = axs[1, 1].twinx()
-        ax4.plot(self.times, pressures_mmHg, 'r-', alpha=0)  # invisible plot just for axis
-        ax4.set_ylabel('Pressure (mmHg)')
+        ax4.plot(
+            self.times, pressures_mmHg, "r-", alpha=0
+        )  # invisible plot just for axis
+        ax4.set_ylabel("Pressure (mmHg)")
         fig.savefig(self.figure)
         plt.close(fig)
 
     def save(self, t: float) -> None:
         self.problem.save(t, self.outdir)
-        if self.comm.rank==0:
+        if self.comm.rank == 0:
             # self._plot()
             self._save_csv()
-    
+
     def read_csv(self):
         data = {
             "time": [],
@@ -119,9 +123,9 @@ class DataCollector:
             "volume": [],
             "lv_pressure": [],
             "aortic_pressure": [],
-            "outflow": []
+            "outflow": [],
         }
-        with open(self.csv_file, mode='r') as file:
+        with open(self.csv_file, mode="r") as file:
             csv_reader = csv.DictReader(file)
             for row in csv_reader:
                 data["time"].append(float(row["Time [ms]"]))
