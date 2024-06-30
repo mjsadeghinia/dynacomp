@@ -70,7 +70,12 @@ def slice_divided_data(pres_divided, vols_divided, offset = 50):
 def smooth_data(pres_divided_sliced,vols_divided_sliced, smooth_level = 1):
     pres_smooth = []
     vols_smooth = []
+    n=0
     for vols, pres in zip(vols_divided_sliced, pres_divided_sliced):
+        print(n)
+        vols = vols_divided_sliced[n]
+        pres = pres_divided_sliced[n]   
+        n+=1
         vols = np.append(vols, vols[0])
         pres = np.append(pres, pres[0])
         tck, _ = splprep([vols, pres], s=smooth_level, per=True)
@@ -85,13 +90,64 @@ def plot_data(pres, vols):
     for i in range(len(pres)):
         plt.figure()
         plt.plot(vols[i],pres[i])
-# %%P
+# %%
 pres, vols = load_pv_data(pv_data_dir)
 pres_divided, vols_divided = divide_pv_data(pres, vols)
 pres_divided_sliced, vols_divided_sliced = slice_divided_data(pres_divided, vols_divided)
-res_smooth, vols_smooth = smooth_data(pres_divided_sliced,vols_divided_sliced)
+pres_smooth, vols_smooth = smooth_data(pres_divided_sliced,vols_divided_sliced)
 
 
+#%%
+
+
+fig, ax = plt.subplots(figsize=(8, 6))
+for i in range(len(pres_divided)):
+    ax.plot(pres_divided[i])
+    print(pres_divided[i].shape)
+plt.show
+
+fig, ax = plt.subplots(figsize=(8, 6))
+for i in range(len(vols_divided)):
+    ax.plot(vols_divided[i])
+    print(vols_divided[i].shape)
+plt.show
+
+#%%
+from scipy.interpolate import interp1d
+
+# Find common x-axis range
+arrays =pres_divided
+# Determine the length of the longest array
+max_length = max(len(array) for array in arrays)
+
+# Define common x values
+common_x = np.linspace(0, max_length - 1, num=100)
+
+# Interpolate each array to the common x-axis
+interpolated_arrays = []
+for array in arrays:
+    x = np.linspace(0, len(array) - 1, num=len(array))
+    f = interp1d(x, array, kind='linear', fill_value="extrapolate")
+    interpolated_y = f(common_x)
+    interpolated_arrays.append(interpolated_y)
+
+# Convert list of arrays to a 2D NumPy array for averaging
+interpolated_arrays = np.array(interpolated_arrays)
+
+# Calculate the average along the common x-axis
+average_y = np.mean(interpolated_arrays, axis=0)
+
+
+fig, ax = plt.subplots(figsize=(8, 6))
+for i in range(len(pres_divided)):
+    ax.plot(pres_divided[i],'k', linewidth = 0.01)
+ax.plot(common_x,average_y)
+plt.show
+
+#%%
+k = 25
+vols = vols_divided_sliced[k]
+pres = pres_divided_sliced[k]
 
 #%%
 k = 29
