@@ -111,7 +111,7 @@ class HeartModelDynaComp:
         """
         if self.comm.rank == 0:
             logger.info(
-                "Computing dV/dP",
+                "Computing dV/da",
                 activation_value=activation_value,
                 pressure_value=pressure_value,
             )
@@ -127,7 +127,7 @@ class HeartModelDynaComp:
         v_i = self.get_volume()
 
         # small change in pressure and computing the volume
-        a_f = a_i * (1 + 0.001)
+        a_f = a_i +(10)
         # breakpoint()
         self.activation.assign(a_f)
         self.problem.solve()

@@ -84,10 +84,10 @@ class DataCollector:
 
     def _plot(self):
         fig, axs = plt.subplots(
-            1, 2, figsize=(12, 5)
+            1, 2, figsize=(15, 5)
         )  # Create a figure and two subplots
-        axs[1].plot(self.volumes, self.pressures, label="P-V from Simulation")
-        axs[1].scatter(self.target_volumes, self.pressures, label="P-V from Experiment")
+        axs[1].plot(self.volumes, self.pressures, 'k-', label="Simulation")
+        axs[1].scatter(self.target_volumes, self.pressures, s=10, c='r', label="Experiment")
         axs[1].set_ylabel("Pressure (kPa)")
         axs[1].set_xlabel("Volume (micro l)")
         axs[1].legend()
@@ -99,13 +99,16 @@ class DataCollector:
         )  # invisible plot just for axis
         ax2.set_ylabel("Pressure (mmHg)")
 
-        axs[0].plot(self.times, self.activations, label="Fiber Activation")
-        axs[0].set_ylabel("Activation (kPa)")
+        lns1 = axs[0].plot(self.times, self.activations, "k-", label="Fiber Activation")
+        axs[0].set_ylabel("Fiber Activation (kPa)")
         axs[0].set_xlabel("Time (-)")
-        axs[0].legend()
         ax2 = axs[0].twinx()
-        ax2.plot(self.times, self.pressures, "k--", label="LV Pressure")
-        ax2.set_ylabel("Pressure (kPa)")
+        lns2 = ax2.plot(self.times, self.pressures, "k--", label="LV Pressure")
+        ax2.set_ylabel("LV Pressure (kPa)")
+        axs[0].legend()
+        lns = lns1+lns2
+        labs = [l.get_label() for l in lns]
+        axs[0].legend(lns, labs, loc=0)
         fig.savefig(self.figure)
         plt.close(fig)
 
