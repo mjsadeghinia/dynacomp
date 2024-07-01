@@ -102,8 +102,10 @@ p_average_sliced, v_average_sliced = slice_divided_data(
     [p_average], [v_average], offset=50
 )
 # closing the average data
-v_average_sliced = np.append(v_average_sliced[0], v_average_sliced[0][0])
-p_average_sliced = np.append(p_average_sliced[0], p_average_sliced[0][0])
+# v_average_sliced = np.append(v_average_sliced[0], v_average_sliced[0][0])
+# p_average_sliced = np.append(p_average_sliced[0], p_average_sliced[0][0])
+v_average_sliced = v_average_sliced[0]
+p_average_sliced = p_average_sliced[0]
 # %%
 average_x = np.linspace(0, t_interval, len(p_average))
 fig, ax = plt.subplots(figsize=(8, 6))
@@ -137,8 +139,27 @@ for i in range(len(vols_divided)):
 ax.scatter(PV_data[1, :], PV_data[0, :])
 ax.scatter(PV_data[1, 0], PV_data[0, 0])
 plt.show
+
+
 # %%
+from scipy.interpolate import splprep, splev
+
+vols = PV_data[1, :]
+pres = PV_data[0, :]
+tck, _ = splprep([vols, pres], s=.1, per=True)
+# Evaluate the B-spline
+unew = np.linspace(0, 1.0, 50)
+data = splev(unew, tck)
+fig, ax = plt.subplots(figsize=(8, 6))
+for i in range(len(vols_divided)):
+    ax.plot(vols_divided[i], pres_divided[i], "k", linewidth=0.01)
+ax.scatter(data[0], data[1], label='Smoothed B-Spline')
+# ax.plot(PV_data[1, :], PV_data[0, :], 'r')
+
+# %%
+# %%
+PV_data_sampled = np.vstack((data[0], data[1]))
 fname = directory_path / "PV_data.csv"
 np.savetxt(fname, PV_data, delimiter=",")
 
-# %%
+#%%
