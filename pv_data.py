@@ -148,18 +148,130 @@ vols = PV_data[1, :]
 pres = PV_data[0, :]
 tck, _ = splprep([vols, pres], s=.1, per=True)
 # Evaluate the B-spline
-unew = np.linspace(0, 1.0, 50)
+unew = np.linspace(0, 1.0, 200)
 data = splev(unew, tck)
 fig, ax = plt.subplots(figsize=(8, 6))
 for i in range(len(vols_divided)):
     ax.plot(vols_divided[i], pres_divided[i], "k", linewidth=0.01)
-ax.scatter(data[0], data[1], label='Smoothed B-Spline')
-# ax.plot(PV_data[1, :], PV_data[0, :], 'r')
+ax.plot(vols, pres, label='Smoothed B-Spline')
+PV_data_sampled = np.vstack((data[1], data[0]))
+ax.scatter(PV_data_sampled[1, :], PV_data_sampled[0, :])
 
 # %%
 # %%
-PV_data_sampled = np.vstack((data[0], data[1]))
-fname = directory_path / "PV_data.csv"
-np.savetxt(fname, PV_data, delimiter=",")
+fname = pv_data_dir / "PV_data.csv"
+np.savetxt(fname, PV_data_sampled, delimiter=",")
 
 #%%
+
+import numpy as np
+from scipy.interpolate import splprep, splev
+from scipy.integrate import quad
+
+vols = PV_data[1, :]
+pres = PV_data[0, :]
+
+# Create the spline parameterization
+tck, _ = splprep([vols, pres], s=0.1, per=True)
+
+# Define the number of points to sample
+n = 20
+
+# Function to calculate the derivative of the spline
+def derivative(u, tck):
+    dxdt, dydt = splev(u, tck, der=1)
+    return np.sqrt(dxdt**2 + dydt**2)
+
+# Calculate the arc length from 0 to 1 using numerical integration
+arc_length, _ = quad(derivative, 0, 1, args=(tck,))
+
+# Generate equally spaced arc length values
+target_arc_lengths = np.linspace(0, arc_length, n)
+
+# Inverse function to find the parameter value for a given arc length
+def find_u_for_arc_length(target_length, tck):
+    def objective(u):
+        length, _ = quad(derivative, 0, u, args=(tck,))
+        return length - target_length
+    from scipy.optimize import brentq
+    return brentq(objective, 0, 1)
+
+# Find the parameter values that correspond to the equally spaced arc lengths
+u_values = [find_u_for_arc_length(target_length, tck) for target_length in target_arc_lengths]
+# Evaluate the spline at these parameter values
+sampled_points = splev(u_values, tck)
+
+# Extract the sampled volumes and pressures
+sampled_vols = sampled_points[0]
+sampled_pres = sampled_points[1]
+
+fig, ax = plt.subplots(figsize=(8, 6))
+for i in range(len(vols_divided)):
+    ax.plot(vols_divided[i], pres_divided[i], "k", linewidth=0.01)
+ax.plot(vols, pres, label='Smoothed B-Spline')
+ax.scatter(sampled_vols, sampled_pres)
+
+# %%
+import numpy as np
+from scipy.interpolate import splprep, splev
+from scipy.integrate import quad
+import matplotlib.pyplot as plt
+
+vols = PV_data[1, :]
+pres = PV_data[0, :]
+
+# Create the spline parameterization
+tck, _ = splprep([vols, pres], s=0.1, per=True)
+
+# Define the number of points to sample
+n = 20
+
+# Function to calculate the derivative of the spline
+def derivative(u, tck):
+    dxdt, dydt = splev(u, tck, der=1)
+    return np.sqrt(dxdt**2 + dydt**2)
+
+# Calculate the arc length from 0 to 1 using numerical integration
+arc_length, _ = quad(derivative, 0, 1, args=(tck,))
+
+# Generate equally spaced arc length values
+target_arc_lengths = np.linspace(0, arc_length, n)
+
+# Inverse function to find the parameter value for a given arc length
+def find_u_for_arc_length(target_length, tck):
+    def objective(u):
+        length, _ = quad(derivative, 0, u, args=(tck,))
+        return length - target_length
+    from scipy.optimize import brentq
+    return brentq(objective, 0, 1)
+
+# Find the parameter values that correspond to the equally spaced arc lengths
+u_values = [find_u_for_arc_length(target_length, tck) for target_length in target_arc_lengths]
+
+# Evaluate the spline at these parameter values
+sampled_points = splev(u_values, tck)
+
+# Extract the sampled volumes and pressures
+sampled_vols = sampled_points[0]
+sampled_pres = sampled_points[1]
+
+# Plot the original data, smoothed B-spline, and sampled points
+fig, ax = plt.subplots(figsize=(8, 6))
+
+# Plot the original data points
+# ax.plot(vols, pres, 'ro', label='Original Data')
+
+# Plot the smoothed B-spline
+spline_points = splev(np.linspace(0, 1, 1000), tck)
+ax.plot(spline_points[0], spline_points[1], label='Smoothed B-Spline')
+
+# Scatter plot of the equally spaced sampled points
+ax.scatter(sampled_vols, sampled_pres, color='blue', label='Equally Spaced Points')
+
+ax.legend()
+ax.set_xlabel('Volumes')
+ax.set_ylabel('Pressures')
+ax.set_title('Equally Spaced Points on Smoothed B-Spline')
+plt.show()
+
+# %%
