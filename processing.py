@@ -11,6 +11,7 @@ from datacollector import DataCollector
 from coupling_solver import newton_solver
 logger = get_logger()
 
+comm = dolfin.MPI.comm_world
 
 # %%
 
@@ -23,12 +24,12 @@ mesh_outdir = directory_path / "Geometry"
 mesh_fname = mesh_outdir / "unloaded_geometry"
 bc_params = {"pericardium_spring": 10}
 # delet files excepts the
-if outdir.is_dir():
+if outdir.is_dir() and comm.Get_rank() == 1:
     shutil.rmtree(outdir)
-outdir.mkdir()
+    outdir.mkdir(exist_ok=True)
 #%%
-unloaded_geometry = pulse.HeartGeometry.from_file(mesh_fname.as_posix() + ".h5")
-heart_model = HeartModelDynaComp(geo=unloaded_geometry, geo_refinement=1, bc_params=bc_params)
+unloaded_geometry = pulse.HeartGeometry.from_file(mesh_fname.as_posix() + ".h5", comm=comm)
+heart_model = HeartModelDynaComp(geo=unloaded_geometry, bc_params=bc_params, comm=comm)
 collector = DataCollector(outdir=outdir,problem=heart_model)
 # Initializing the model
 v = heart_model.compute_volume(activation_value=0, pressure_value=0)
@@ -67,6 +68,6 @@ collector = newton_solver(
     vols = volumes[1:-5],
     collector = collector,
     start_time = 2,
-    comm=None
+    comm=comm
 )
 #%%
