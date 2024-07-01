@@ -70,7 +70,8 @@ class DataCollector:
                     "Time [ms]",
                     "Activation [kPa]",
                     "Volume [microL]",
-                    "Target Volume [microL]" "LV Pressure [kPa]",
+                    "Target Volume [microL]",
+                    "LV Pressure [kPa]",
                 ]
             )
             for time, activation, vol, target_vol, pres_val in zip(
@@ -82,7 +83,7 @@ class DataCollector:
             ):
                 writer.writerow([time, activation, vol, target_vol, pres_val])
 
-    def _plot(self):
+    def _plot(self): 
         fig, axs = plt.subplots(
             1, 2, figsize=(15, 5)
         )  # Create a figure and two subplots
