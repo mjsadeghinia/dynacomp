@@ -75,10 +75,11 @@ def newton_solver(
             da = collector.activations[-1] - collector.activations[-2]
             da_sign = np.sign(da)
             da_value = min(np.abs(da), 2.0)
-            a_current = collector.pressures[-1] + da_sign * da_value
-
+            a_current = collector.activations[-1] + da_sign * da_value        
         p_current = p
-        tol = 1e-3
+        if comm.rank == 0:
+            logger.info("Updated parameters", a_current=a_current, p_current = p_current)
+        tol = 0.1
         iter = 0
         v_diff = 1.0
         while abs(v_diff) > tol and iter < 20:
