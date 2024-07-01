@@ -27,6 +27,8 @@ bc_params = {"pericardium_spring": 10}
 if outdir.is_dir() and comm.Get_rank() == 1:
     shutil.rmtree(outdir)
     outdir.mkdir(exist_ok=True)
+comm.Barrier()
+
 #%%
 unloaded_geometry = pulse.HeartGeometry.from_file(mesh_fname.as_posix() + ".h5", comm=comm)
 heart_model = HeartModelDynaComp(geo=unloaded_geometry, bc_params=bc_params, comm=comm)
