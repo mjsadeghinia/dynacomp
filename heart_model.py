@@ -18,10 +18,7 @@ class HeartModelDynaComp:
         self,
         geo: pulse.HeartGeometry,
         geo_refinement: int = None,
-        geo_params: dict = None,
-        geo_folder: Path = Path("lv"),
         bc_params: dict = None,
-        segmentation_schema: dict = None,
         comm=None,
     ):
         """
@@ -42,9 +39,8 @@ class HeartModelDynaComp:
             comm = dolfin.MPI.comm_world
         self.comm = comm
 
-        V = dolfin.FunctionSpace(self.geometry.mesh, "DG", 0)
         self.lv_pressure = dolfin.Constant(0.0, name="LV Pressure")
-        self.activation = dolfin.Function(V, name="Activation")
+        self.activation = dolfin.Constant(0.0, name="Activation")
 
         self.F0 = dolfin.Identity(self.geometry.mesh.geometric_dimension())
         self.E_ff = []
@@ -57,7 +53,7 @@ class HeartModelDynaComp:
         self.problem.solve()
 
     def compute_volume(
-        self, activation_value: Union[float, np.ndarray], pressure_value: float
+        self, activation_value: float, pressure_value: float
     ) -> float:
         """
         Computes the volume of the heart model based on activation and pressure values.
@@ -96,12 +92,12 @@ class HeartModelDynaComp:
             logger.info("Computed volume", volume_current=volume_current)
         return volume_current
 
-    def dVdp(
-        self, activation_value: Union[float, np.ndarray], pressure_value: float
+    def dVda(
+        self, activation_value: float, pressure_value: float
     ) -> float:
         """
-        Computes dV/dP, with V is the volume of the model and P is the pressure.
-        The derivation is computed as the change of volume due to a small change in the pressure at a given pressure.
+        Computes dV/da, with V is the volume of the model and a is the activation.
+        The derivation is computed as the change of volume due to a small change in the activation at a given activation.
         After computation the problem is reset to its initial state.
 
         NB! We use problem.solve() instead of pulse.iterate.iterate, as the pressure change is small and iterate may fail.
@@ -111,46 +107,44 @@ class HeartModelDynaComp:
         pressure_value (float): The pressure value to be applied.
 
         Returns:
-        float: The computed dV/dP .
+        float: The computed dV/da .
         """
         if self.comm.rank == 0:
             logger.info(
                 "Computing dV/dP",
-                activation_value=activation_value.vector()[0],
+                activation_value=activation_value,
                 pressure_value=pressure_value,
             )
         # Backing up the problem
         state_backup = self.problem.state.copy(deepcopy=True)
         pressure_backup = float(self.lv_pressure)
-        activation_backup = self.activation
+        activation_backup = float(self.activation)
         # Update the problem with the give activation and pressure and store the initial State of the problem
         self.assign_state_variables(activation_value, pressure_value)
         self.problem.solve()
 
-        # dolfin.MPI.barrier(self.comm)
-
-        p_i = self.get_pressure()
+        a_i = float(self.activation)
         v_i = self.get_volume()
 
         # small change in pressure and computing the volume
-        p_f = p_i * (1 + 0.001)
+        a_f = a_i * (1 + 0.001)
         # breakpoint()
-        self.lv_pressure.assign(p_f)
+        self.activation.assign(a_f)
         self.problem.solve()
 
         # dolfin.MPI.barrier(self.comm)
 
         v_f = self.get_volume()
 
-        dV_dP = (v_f - v_i) / (p_f - p_i)
+        dV_da = (v_f - v_i) / (a_f - a_i)
         if self.comm.rank == 0:
-            logger.info("Computed dV/dP", dV_dP=dV_dP)
+            logger.info("Computed dV/da", dV_da=dV_da)
 
         # reset the problem to its initial state
         self.problem.state.assign(state_backup)
         self.assign_state_variables(activation_backup, pressure_backup)
 
-        return dV_dP
+        return dV_da
 
     def get_pressure(self) -> float:
         return float(self.lv_pressure)
@@ -158,8 +152,8 @@ class HeartModelDynaComp:
     def get_volume(self) -> float:
         return self.problem.geometry.cavity_volume(u=self.problem.state.sub(0))
 
-    def initial_loading(self, atrium_pressure):
-        volume = self.compute_volume(activation_value=0, pressure_value=atrium_pressure)
+    def initial_loading(self, EDP):
+        volume = self.compute_volume(activation_value=0, pressure_value=EDP)
         results_u, _ = self.problem.state.split(deepcopy=True)
         self.F0 = pulse.kinematics.DeformationGradient(results_u)
         return volume
@@ -184,8 +178,10 @@ class HeartModelDynaComp:
         self._compute_fiber_strain(results_u)
         self._compute_myocardial_work(results_u)
 
+
         V = dolfin.FunctionSpace(self.geometry.mesh, "DG", 0)
-        results_activation = dolfin.project(self.activation, V)
+        results_activation = dolfin.Function(V, name="Activation")
+        results_activation.vector()[:] = float(self.activation)
         fname = outdir / "activation.xdmf"
         with dolfin.XDMFFile(fname.as_posix()) as xdmf:
             xdmf.write_checkpoint(
@@ -246,16 +242,6 @@ class HeartModelDynaComp:
     def assign_state_variables(self, activation_value, pressure_value):
         self.lv_pressure.assign(pressure_value)
         self.activation.assign(activation_value)
-
-    def create_pulse_geometry(self, geo):
-        marker_functions = pulse.MarkerFunctions(cfun=geo.cfun, ffun=geo.ffun)
-        microstructure = pulse.Microstructure(f0=geo.f0, s0=geo.s0, n0=geo.n0)
-        return pulse.HeartGeometry(
-            mesh=geo.mesh,
-            markers=geo.markers,
-            marker_functions=marker_functions,
-            microstructure=microstructure,
-        )
 
     @staticmethod
     def refine_geo(geo, geo_refinement):
