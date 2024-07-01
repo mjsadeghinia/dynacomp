@@ -17,6 +17,7 @@ class DataCollector:
         self.times = []
         self.activations = []
         self.volumes = []
+        self.target_volumes = []
         self.pressures = []
         self.problem = problem
         outdir.mkdir(exist_ok=True, parents=True)
@@ -33,6 +34,7 @@ class DataCollector:
         time: float,
         activation: float,
         volume: float,
+        target_volume: float,
         pressure: float,
     ) -> None:
         if self.comm.rank == 0:
@@ -41,12 +43,14 @@ class DataCollector:
                 time=time,
                 activation=activation,
                 volume=volume,
+                target_volume=target_volume,
                 pressure=pressure,
             )
         # print('start collecting from ', self.comm.rank)
         self.times.append(time)
         self.activations.append(activation)
         self.volumes.append(volume)
+        self.target_volumes.append(target_volume)
         self.pressures.append(pressure)
         self.save(time)
 
@@ -65,55 +69,50 @@ class DataCollector:
                 [
                     "Time [ms]",
                     "Activation [kPa]",
-                    "Volume [ml]",
-                    "LV Pressure [kPa]",
+                    "Volume [microL]",
+                    "Target Volume [microL]" "LV Pressure [kPa]",
                 ]
             )
-            for time, activation, vol, pres_val in zip(
+            for time, activation, vol, target_vol, pres_val in zip(
                 self.times,
                 self.activations,
                 self.volumes,
+                self.target_volumes,
                 self.pressures,
             ):
-                writer.writerow([time, activation, vol, pres_val])
+                writer.writerow([time, activation, vol, target_vol, pres_val])
 
     def _plot(self):
         fig, axs = plt.subplots(
-            2, 2, figsize=(10, 10)
+            1, 2, figsize=(12, 5)
         )  # Create a figure and two subplots
-        axs[0, 0].plot(self.times, self.activations)
-        axs[0, 0].set_ylabel("Activation (kPa)")
-        axs[0, 0].set_xlabel("Time (ms)")
-        axs[0, 1].plot(self.volumes, self.pressures)
-        axs[0, 1].set_ylabel("Pressure (kPa)")
-        axs[0, 1].set_xlabel("Volume (ml)")
-        ax2 = axs[0, 1].twinx()
+        axs[1].plot(self.volumes, self.pressures, label="P-V from Simulation")
+        axs[1].scatter(self.target_volumes, self.pressures, label="P-V from Experiment")
+        axs[1].set_ylabel("Pressure (kPa)")
+        axs[1].set_xlabel("Volume (micro l)")
+        axs[1].legend()
+        ax2 = axs[1].twinx()
         pressures_mmHg = np.array(self.pressures) * 7.50062  # Convert to mmHg
         # Plotting the same data but converted on the second y-axis
         ax2.plot(
             self.volumes, pressures_mmHg, "r-", alpha=0
         )  # invisible plot just for axis
         ax2.set_ylabel("Pressure (mmHg)")
-        axs[1, 0].plot(self.times, self.outflows)
-        axs[1, 0].set_ylabel("Outflow (ml/s)")
-        axs[1, 0].set_xlabel("Time (ms)")
-        axs[1, 1].plot(self.times, self.pressures, label="LV Pressure")
-        axs[1, 1].plot(self.times, self.aortic_pressures, label="Aortic Pressure")
-        axs[1, 1].legend()
-        axs[1, 1].set_ylabel("Pressure (kPa)")
-        axs[1, 1].set_xlabel("Time (ms)")
-        ax4 = axs[1, 1].twinx()
-        ax4.plot(
-            self.times, pressures_mmHg, "r-", alpha=0
-        )  # invisible plot just for axis
-        ax4.set_ylabel("Pressure (mmHg)")
+
+        axs[0].plot(self.times, self.activations, label="Fiber Activation")
+        axs[0].set_ylabel("Activation (kPa)")
+        axs[0].set_xlabel("Time (-)")
+        axs[0].legend()
+        ax2 = axs[0].twinx()
+        ax2.plot(self.times, self.pressures, "k--", label="LV Pressure")
+        ax2.set_ylabel("Pressure (kPa)")
         fig.savefig(self.figure)
         plt.close(fig)
 
     def save(self, t: float) -> None:
         self.problem.save(t, self.outdir)
         if self.comm.rank == 0:
-            # self._plot()
+            self._plot()
             self._save_csv()
 
     def read_csv(self):
