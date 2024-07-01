@@ -127,6 +127,17 @@ plt.show
 
 # %%
 PV_data = np.vstack((p_average_sliced, v_average_sliced))
+ind_ED = np.where(PV_data[1] == np.max(PV_data[1]))[0][0]
+PV_data = np.hstack((PV_data[:, ind_ED:], PV_data[:, :ind_ED]))
+# %%
+average_x = np.linspace(0, t_interval, PV_data.shape[1])
+fig, ax = plt.subplots(figsize=(8, 6))
+for i in range(len(vols_divided)):
+    ax.plot(vols_divided[i], pres_divided[i], "k", linewidth=0.01)
+ax.scatter(PV_data[1, :], PV_data[0, :])
+ax.scatter(PV_data[1, 0], PV_data[0, 0])
+plt.show
+# %%
 fname = directory_path / "PV_data.csv"
 np.savetxt(fname, PV_data, delimiter=",")
 
