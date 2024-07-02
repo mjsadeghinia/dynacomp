@@ -167,14 +167,21 @@ def update_h5_file(h5_path, datasets={}, attrs={}):
 def pre_process_mask(
     h5_path,
     save_flag=False,
+    results_folder: str = "00_Results",
     settings: dict = dict(slice_number=6, num_itr_slice_1=0, num_itr_slice_2=1),
 ):
     datasets, attrs = load_from_h5(h5_path)
     K, I, T_end = attrs["number_of_slices"], attrs["image_matrix_size"], attrs["T_end"]
     mask = datasets["LVmask"]
 
+    if results_folder is not None or results_folder == "":
+        results_folder_dir = Path(h5_path).parent / results_folder
+        results_folder_dir.mkdir(exist_ok=True)
+    else:
+        results_folder_dir = Path(h5_path).parent
+
     if save_flag:
-        output_dir = Path(h5_path).parent / "01_GapClosed"
+        output_dir = results_folder_dir / "01_GapClosed"
         output_dir.mkdir(exist_ok=True)
 
     mask_closed = np.empty((K, I, I, T_end))

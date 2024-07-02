@@ -91,23 +91,49 @@ def get_default_mesh_settings(sample_name):
 
 # directory_path,
 # %%
-atrium_pressure = 0.24
+atrium_pressure = 1.699
+mesh_settings = dict(
+    seed_num_base_epi=45,
+    seed_num_base_endo=35,
+    num_z_sections_epi=25,
+    num_z_sections_endo=22,
+    num_mid_layers_base=4,
+    num_lax_points=32,
+    seed_num_threshold_epi=12,
+    seed_num_threshold_endo=12,
+    z_sections_flag_epi=1,
+    z_sections_flag_endo=1,
+    t_mesh=-1,
+)
 mesh_settings = None
 mask_settings = None
 sample_name = None
 h5_overwrite = True
 
 directory_path = Path("00_data/AS/3week/156_1/")
+results_folder = "00_Results_LQMesh"
 
 directory_path = Path(directory_path)
 h5_file = compile_h5(directory_path, overwrite=h5_overwrite)
 pre_process_mask_settings = get_mask_settings(mask_settings, sample_name)
-h5_file = pre_process_mask(h5_file, save_flag=True, settings=pre_process_mask_settings)
+h5_file = pre_process_mask(h5_file, save_flag=True, settings=pre_process_mask_settings, results_folder=results_folder)
 mesh_settings = get_mesh_settings(mesh_settings, sample_name)
-LVMesh, meshdir = create_mesh(directory_path, mesh_settings, h5_file, plot_flag=True)
+LVMesh, meshdir = create_mesh(
+    directory_path,
+    mesh_settings,
+    h5_file,
+    plot_flag=True,
+    results_folder=results_folder,
+)
 geometry = create_geometry(meshdir, fiber_angles=None, mesh_fname=None, plot_flag=True)
 unloaded_geometry = unloader(meshdir, atrium_pressure=atrium_pressure, plot_flag=True)
-outdir = directory_path / "Geometry"
+# Saving the Geometries
+if results_folder is not None or results_folder == "":
+    results_folder_dir = directory_path / results_folder
+    results_folder_dir.mkdir(exist_ok=True)
+else:
+    results_folder_dir = directory_path
+outdir = results_folder_dir / "Geometry"
 fname = outdir / "geometry"
 geometry.save(fname.as_posix(), overwrite_file=True)
 fname = outdir / "unloaded_geometry"
