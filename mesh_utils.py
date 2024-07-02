@@ -174,7 +174,7 @@ def pre_process_mask(
     K, I, T_end = attrs["number_of_slices"], attrs["image_matrix_size"], attrs["T_end"]
     mask = datasets["LVmask"]
 
-    if results_folder is not None or results_folder == "":
+    if results_folder is not None or not results_folder == "":
         results_folder_dir = Path(h5_path).parent / results_folder
         results_folder_dir.mkdir(exist_ok=True)
     else:

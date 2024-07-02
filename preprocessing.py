@@ -128,7 +128,7 @@ LVMesh, meshdir = create_mesh(
 geometry = create_geometry(meshdir, fiber_angles=None, mesh_fname=None, plot_flag=True)
 unloaded_geometry = unloader(meshdir, atrium_pressure=atrium_pressure, plot_flag=True)
 # Saving the Geometries
-if results_folder is not None or results_folder == "":
+if results_folder is not None or not results_folder == "":
     results_folder_dir = directory_path / results_folder
     results_folder_dir.mkdir(exist_ok=True)
 else:

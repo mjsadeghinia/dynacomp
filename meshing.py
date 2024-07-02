@@ -30,7 +30,7 @@ def create_mesh(
     K = len(tck_epi[0][0])
     K_endo = len(tck_endo[0][0])
     if plot_flag:
-        if results_folder is not None or results_folder == "":
+        if results_folder is not None or not results_folder == "":
             results_folder_dir = directory_path / results_folder
             results_folder_dir.mkdir(exist_ok=True)
         else:
