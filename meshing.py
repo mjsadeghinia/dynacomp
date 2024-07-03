@@ -145,6 +145,7 @@ def create_mesh(
         points_cloud_endo,
         mesh_settings["t_mesh"],
         mesh_settings["num_mid_layers_base"],
+        scale_for_delauny = mesh_settings["scale_for_delauny"],
         save_flag=True,
         result_folder=outdir.as_posix() + "/",
     )
