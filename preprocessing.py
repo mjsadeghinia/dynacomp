@@ -93,25 +93,27 @@ def get_default_mesh_settings(sample_name):
 # %%
 atrium_pressure = 1.699
 mesh_settings = dict(
-    seed_num_base_epi=45,
-    seed_num_base_endo=35,
+    seed_num_base_epi=60,
+    seed_num_base_endo=40,
     num_z_sections_epi=25,
-    num_z_sections_endo=22,
-    num_mid_layers_base=4,
+    num_z_sections_endo=24,
+    num_mid_layers_base=5,
     num_lax_points=32,
-    seed_num_threshold_epi=12,
-    seed_num_threshold_endo=12,
+    seed_num_threshold_epi=20,
+    seed_num_threshold_endo=20,
     z_sections_flag_epi=1,
     z_sections_flag_endo=1,
     t_mesh=-1,
 )
-mesh_settings = None
+mesh_settings = dict(
+    t_mesh=0,
+)
 mask_settings = None
 sample_name = None
 h5_overwrite = True
 
 directory_path = Path("00_data/AS/3week/156_1/")
-results_folder = "00_Results_LQMesh"
+results_folder = "00_Results_LQ_ES"
 
 directory_path = Path(directory_path)
 h5_file = compile_h5(directory_path, overwrite=h5_overwrite)
@@ -126,7 +128,6 @@ LVMesh, meshdir = create_mesh(
     results_folder=results_folder,
 )
 geometry = create_geometry(meshdir, fiber_angles=None, mesh_fname=None, plot_flag=True)
-unloaded_geometry = unloader(meshdir, atrium_pressure=atrium_pressure, plot_flag=True)
 # Saving the Geometries
 if results_folder is not None or not results_folder == "":
     results_folder_dir = directory_path / results_folder
@@ -136,6 +137,7 @@ else:
 outdir = results_folder_dir / "Geometry"
 fname = outdir / "geometry"
 geometry.save(fname.as_posix(), overwrite_file=True)
+unloaded_geometry = unloader(meshdir, atrium_pressure=atrium_pressure, plot_flag=True)
 fname = outdir / "unloaded_geometry"
 unloaded_geometry.save(fname.as_posix(), overwrite_file=True)
 
