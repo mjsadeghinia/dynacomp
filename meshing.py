@@ -111,13 +111,13 @@ def create_mesh(
             fnmae = outdir.as_posix() + "/" + str(t) + ".html"
             fig.write_html(fnmae)
 
-    points_cloud_epi = mu.create_point_cloud(
+    points_cloud_epi, apex_k_epi = mu.create_point_cloud(
         tck_shax_epi,
         apex_epi,
         mesh_settings["seed_num_base_epi"],
         seed_num_threshold=mesh_settings["seed_num_threshold_epi"],
     )
-    points_cloud_endo = mu.create_point_cloud(
+    points_cloud_endo, apex_k_endo = mu.create_point_cloud(
         tck_shax_endo,
         apex_endo,
         mesh_settings["seed_num_base_endo"],
@@ -145,6 +145,8 @@ def create_mesh(
         points_cloud_endo,
         mesh_settings["t_mesh"],
         mesh_settings["num_mid_layers_base"],
+        apex_k_epi, 
+        apex_k_endo,
         scale_for_delauny = mesh_settings["scale_for_delauny"],
         save_flag=True,
         result_folder=outdir.as_posix() + "/",

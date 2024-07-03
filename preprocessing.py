@@ -72,7 +72,7 @@ def get_default_mesh_settings(sample_name):
             z_sections_flag_endo=1,
             seed_num_threshold_epi=8,
             seed_num_threshold_endo=8,
-            scale_for_delauny = 1.2,
+            scale_for_delauny=1.2,
             t_mesh=-1,
         )
     else:
@@ -100,24 +100,35 @@ mesh_settings = dict(
     num_z_sections_endo=24,
     num_mid_layers_base=5,
     num_lax_points=32,
-    seed_num_threshold_epi=20,
-    seed_num_threshold_endo=20,
+    seed_num_threshold_epi=15,
+    seed_num_threshold_endo=15,
     z_sections_flag_epi=1,
     z_sections_flag_endo=1,
+    scale_for_delauny=.5,
     t_mesh=-1,
 )
-mesh_settings = dict(scale_for_delauny = 1.5, t_mesh = -1)
+fiber_angles = dict(
+    alpha_endo_lv=60,  # Fiber angle on the LV endocardium
+    alpha_epi_lv=-60,  # Fiber angle on the LV epicardium
+    beta_endo_lv=0,  # Sheet angle on the LV endocardium
+    beta_epi_lv=0,  # Sheet angle on the LV epicardium
+)
 mask_settings = None
 sample_name = None
 h5_overwrite = True
 
 directory_path = Path("00_data/AS/3week/156_1/")
-results_folder = "00_Results_LQ"
+results_folder = "00_Results_HQ_3"
 
 directory_path = Path(directory_path)
 h5_file = compile_h5(directory_path, overwrite=h5_overwrite)
 pre_process_mask_settings = get_mask_settings(mask_settings, sample_name)
-h5_file = pre_process_mask(h5_file, save_flag=True, settings=pre_process_mask_settings, results_folder=results_folder)
+h5_file = pre_process_mask(
+    h5_file,
+    save_flag=True,
+    settings=pre_process_mask_settings,
+    results_folder=results_folder,
+)
 mesh_settings = get_mesh_settings(mesh_settings, sample_name)
 LVMesh, meshdir = create_mesh(
     directory_path,
@@ -126,7 +137,7 @@ LVMesh, meshdir = create_mesh(
     plot_flag=True,
     results_folder=results_folder,
 )
-geometry = create_geometry(meshdir, fiber_angles=None, mesh_fname=None, plot_flag=True)
+geometry = create_geometry(meshdir, fiber_angles=fiber_angles, mesh_fname=None, plot_flag=True)
 # Saving the Geometries
 if results_folder is not None or not results_folder == "":
     results_folder_dir = directory_path / results_folder
@@ -136,7 +147,7 @@ else:
 outdir = results_folder_dir / "Geometry"
 fname = outdir / "geometry"
 geometry.save(fname.as_posix(), overwrite_file=True)
-#%%
+# %%
 unloaded_geometry = unloader(meshdir, atrium_pressure=atrium_pressure, plot_flag=True)
 fname = outdir / "unloaded_geometry"
 unloaded_geometry.save(fname.as_posix(), overwrite_file=True)
