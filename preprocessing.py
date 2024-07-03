@@ -92,7 +92,7 @@ def get_default_mesh_settings(sample_name):
 
 # directory_path,
 # %%
-atrium_pressure = 1.699
+atrium_pressure = 1
 mesh_settings = dict(
     seed_num_base_epi=60,
     seed_num_base_endo=40,
@@ -106,16 +106,13 @@ mesh_settings = dict(
     z_sections_flag_endo=1,
     t_mesh=-1,
 )
-mesh_settings = dict(
-    scale_for_delauny = 3,
-    t_mesh=0,
-)
+mesh_settings = dict(scale_for_delauny = 1.5, t_mesh = -1)
 mask_settings = None
 sample_name = None
 h5_overwrite = True
 
 directory_path = Path("00_data/AS/3week/156_1/")
-results_folder = "00_Results_LQ_ES"
+results_folder = "00_Results_LQ"
 
 directory_path = Path(directory_path)
 h5_file = compile_h5(directory_path, overwrite=h5_overwrite)

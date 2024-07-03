@@ -46,7 +46,7 @@ def unloader(meshdir, atrium_pressure=0.24, plot_flag=False):
         marker_functions=marker_functions,
     )
 
-    material = pulse.NeoHookean()
+    material = pulse.NeoHookean(parameters=dict(mu=1.5))
     # Parameter for the cardiac boundary conditions
     bcs_parameters = pulse.MechanicsProblem.default_bcs_parameters()
     bcs_parameters["base_spring"] = 1.0
