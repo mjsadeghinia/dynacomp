@@ -72,6 +72,7 @@ def get_default_mesh_settings(sample_name):
             z_sections_flag_endo=1,
             seed_num_threshold_epi=8,
             seed_num_threshold_endo=8,
+            scale_for_delauny = 1.2,
             t_mesh=-1,
         )
     else:
@@ -106,6 +107,7 @@ mesh_settings = dict(
     t_mesh=-1,
 )
 mesh_settings = dict(
+    scale_for_delauny = 3,
     t_mesh=0,
 )
 mask_settings = None
@@ -137,6 +139,7 @@ else:
 outdir = results_folder_dir / "Geometry"
 fname = outdir / "geometry"
 geometry.save(fname.as_posix(), overwrite_file=True)
+#%%
 unloaded_geometry = unloader(meshdir, atrium_pressure=atrium_pressure, plot_flag=True)
 fname = outdir / "unloaded_geometry"
 unloaded_geometry.save(fname.as_posix(), overwrite_file=True)
