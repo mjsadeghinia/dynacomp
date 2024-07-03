@@ -70,7 +70,7 @@ def newton_solver(
 
         # initial guess for the current pressure pressure
         if i == 0 or i == 1:
-            a_current = a_old if a_old>0 else 10
+            a_current = a_old if a_old>0 else 100
         else:
             da = collector.activations[-1] - collector.activations[-2]
             da_sign = np.sign(da)
@@ -78,6 +78,7 @@ def newton_solver(
             a_current = collector.activations[-1] + da_sign * da_value        
         p_current = p
         if comm.rank == 0:
+            logger.info("---------------")
             logger.info("Updated parameters", a_current=a_current, p_current = p_current)
         tol = 0.1
         iter = 0
@@ -97,7 +98,17 @@ def newton_solver(
 
             # Updataing p_current based on relative error using newton method
             if abs(v_diff) > tol:
-                J = heart_model.dVda(a_current, p_current)
+                # dVda_val = 0
+                # delta_a = 10
+                # dVda_iter = 0
+                # while np.abs(dVda_val) < 1e-6 or dVda_iter<10:
+                #     dVda_val = heart_model.dVda(a_current, p_current, delta_a = delta_a)
+                #     delta_a *= 2
+                #     dVda_iter += 1
+                #     if comm.rank == 0:
+                #         logger.info(f'Recalculating the derivative, delta_a update as {delta_a}')
+                dVda_val = heart_model.dVda(a_current, p_current, delta_a_percent = 0.01)
+                J = dVda_val
                 a_current = a_current - v_diff / J
                 iter += 1
 

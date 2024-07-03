@@ -93,7 +93,7 @@ class HeartModelDynaComp:
         return volume_current
 
     def dVda(
-        self, activation_value: float, pressure_value: float
+        self, activation_value: float, pressure_value: float, delta_a_percent: float = 0.01,
     ) -> float:
         """
         Computes dV/da, with V is the volume of the model and a is the activation.
@@ -127,7 +127,7 @@ class HeartModelDynaComp:
         v_i = self.get_volume()
 
         # small change in pressure and computing the volume
-        a_f = a_i +(10)
+        a_f = a_i * (1 + delta_a_percent)
         # breakpoint()
         self.activation.assign(a_f)
         self.problem.solve()
@@ -136,7 +136,7 @@ class HeartModelDynaComp:
 
         v_f = self.get_volume()
 
-        dV_da = (v_f - v_i) / (a_f - a_i)
+        dV_da = (v_f - v_i) / (a_i * delta_a_percent)
         if self.comm.rank == 0:
             logger.info("Computed dV/da", dV_da=dV_da)
 
