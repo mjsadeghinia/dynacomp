@@ -70,7 +70,7 @@ def newton_solver(
 
         # initial guess for the current pressure pressure
         if i == 0 or i == 1:
-            a_current = a_old if a_old>0 else 100
+            a_current = a_old if a_old>0 else 1
         else:
             da = collector.activations[-1] - collector.activations[-2]
             da_sign = np.sign(da)

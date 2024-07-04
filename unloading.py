@@ -65,7 +65,6 @@ def unloader(outdir, atrium_pressure=0.24, plot_flag=False, comm=None, h5_fname=
         with dolfin.XDMFFile(comm, fname.as_posix()) as f:
             f.write(geometry.mesh)
 
-    material = pulse.NeoHookean(parameters=dict(mu=1.5))
     matparams = dict(
             a=1.726,
             a_f=7.048,
@@ -116,7 +115,10 @@ def unloader(outdir, atrium_pressure=0.24, plot_flag=False, comm=None, h5_fname=
 #%%
 directory_path = Path("00_data/AS/3week/156_1/")
 results_folder = "00_Results"
-atrium_pressure = 1.4
+fname = directory_path / "PV data/PV_data.csv"
+PV_data = np.loadtxt(fname.as_posix() ,delimiter=',')
+mmHg_to_kPa = 0.133322
+atrium_pressure = PV_data[0,0] * mmHg_to_kPa
 
 if results_folder is not None or not results_folder == "":
     results_folder_dir = directory_path / results_folder
@@ -126,21 +128,8 @@ else:
     
 outdir = results_folder_dir / "Geometry"
 
-pres = np.linspace(0,atrium_pressure,int(np.ceil(atrium_pressure/0.5))+1)[1:]
-for i, p in enumerate(pres):
-    if i==0:
-        h5_fname='geometry.h5'
-    else:
-        h5_fname='unloaded_geometry_'+ str(i-1) +'.h5'
-        
-    unloaded_geometry = unloader(outdir, atrium_pressure=p, plot_flag=False, comm=comm, h5_fname=h5_fname)
-    
-    fname = outdir.as_posix() +  '/unloaded_geometry_'+ str(i) +'.h5'
-    unloaded_geometry.save(fname, overwrite_file=True)
-
-    fname = outdir.as_posix() +  '/unloaded_geometry_ffun_'+ str(i) +'.xdmf'
-    with dolfin.XDMFFile(comm, fname) as f:
-        f.write(unloaded_geometry.mesh)
+h5_fname='geometry.h5'
+unloaded_geometry = unloader(outdir, atrium_pressure=atrium_pressure, plot_flag=False, comm=comm, h5_fname=h5_fname)
 
 fname = outdir.as_posix() +  '/unloaded_geometry.h5'
 unloaded_geometry.save(fname, overwrite_file=True)

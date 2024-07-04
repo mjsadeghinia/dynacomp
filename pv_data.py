@@ -113,7 +113,7 @@ data = splev(unew, tck)
 fig, ax = plt.subplots(figsize=(8, 6))
 for i in range(len(vols_divided)):
     ax.plot(vols_divided[i], pres_divided[i], "k", linewidth=0.01)
-ax.scatter(vols, pres, s=5, label='Smoothed B-Spline')
+# ax.scatter(vols, pres, s=5, label='Smoothed B-Spline')
 ax.plot(data[0], data[1])
 # %%
 fname = pv_data_dir / "PV_data.csv"

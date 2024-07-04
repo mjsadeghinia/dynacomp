@@ -295,7 +295,6 @@ class HeartModelDynaComp:
             a_fs=0.0,
             b_fs=0.0,
         )
-
         return pulse.HolzapfelOgden(
             activation=self.activation,
             active_model="active_stress",
@@ -388,6 +387,10 @@ class HeartModelDynaComp:
             ]
         else:
             robin_bc = []
+        if self.bc_params["base_spring"] > 0.0:
+            robin_bc += [
+                pulse.RobinBC(value=dolfin.Constant(self.bc_params["base_spring"]), marker=self.geometry.markers["BASE"][0]),
+            ]
         return robin_bc
 
     def _get_geo_params(self, geo_params):

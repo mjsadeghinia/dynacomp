@@ -17,9 +17,12 @@ comm = dolfin.MPI.comm_world
 
 # UNITS:
 # [kg]   [mm]    [s]    [mN]     [kPa]       [mN-mm]	    g = 9.806e+03
-atrium_pressure = 1
+atrium_pressure = 1.4
 directory_path = Path("00_data/AS/3week/156_1/")
-results_folder = "00_Results_LQ"
+results_folder = "00_Results"
+bc_params = {"base_spring": 1}
+
+
 if results_folder is not None or not results_folder == "":
     results_folder_dir = directory_path / results_folder
     results_folder_dir.mkdir(exist_ok=True)
@@ -28,7 +31,8 @@ else:
 outdir = results_folder_dir / "00_Modeling"
 mesh_outdir = results_folder_dir / "Geometry"
 unloaded_geometry_fname = mesh_outdir / "unloaded_geometry"
-bc_params = {"pericardium_spring": 1}
+unloaded_geometry_fname = mesh_outdir / "geometry"
+
 # delet files for saving again
 if outdir.is_dir() and comm.Get_rank() == 0:
     shutil.rmtree(outdir)
@@ -38,8 +42,7 @@ comm.Barrier()
 # %% Loading PV Data
 def caliberate_volumes(ED_geometry_fname, vols, comm=None):
     ED_geometry = pulse.HeartGeometry.from_file(ED_geometry_fname.as_posix() + ".h5", comm=comm)
-    ED_heart_model = HeartModelDynaComp(geo=ED_geometry, comm=comm)
-    v = ED_heart_model.compute_volume(activation_value=0, pressure_value=0)
+    v = ED_geometry.cavity_volume()
     RVU_to_microL = v/vols[0]
     if comm.Get_rank() == 0:
         logger.info(f'Caliberation is done, RVU to micro Liter is {RVU_to_microL}')
@@ -69,22 +72,22 @@ collector.collect(
 )
 
 # Pressurizing up to End Diastole
-v = heart_model.compute_volume(activation_value=0, pressure_value=atrium_pressure)
-collector.collect(
-    time=1,
-    pressure=pressures[0],
-    volume=v,
-    target_volume=v,
-    activation=0.0,
-)
+# v = heart_model.compute_volume(activation_value=0, pressure_value=pressures[0])
+# collector.collect(
+#    time=1,
+#    pressure=pressures[0],
+#    volume=v,
+#    target_volume=v,
+#    activation=0.0,
+# )
 
-#%%
+# %%
 collector = newton_solver(
     heart_model = heart_model,
     pres = pressures,
     vols = volumes,
     collector = collector,
-    start_time = 2,
+    start_time = 1,
     comm=comm
 )
 # %%
