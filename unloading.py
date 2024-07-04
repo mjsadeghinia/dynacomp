@@ -1,17 +1,27 @@
 # %%
+import numpy as np
 from pathlib import Path
 from structlog import get_logger
 
 from fenics_plotly import plot
 import pulse
+import dolfin
+import logging
+import warnings
+from ffc.quadrature.deprecation import QuadratureRepresentationDeprecationWarning  
+
+warnings.filterwarnings("ignore", category=QuadratureRepresentationDeprecationWarning)
+
 
 logger = get_logger()
+# logging.getLogger("pulse").setLevel(logging.WARNING)
 
+comm = dolfin.MPI.comm_world
 
 # %%
 def get_h5_fname(meshdir, h5_fname=None):
     if h5_fname is not None:
-        return h5_fname
+        return meshdir.as_posix() + '/' + h5_fname
     else:
         meshdir = Path(meshdir)
         # find the msh file in the meshdir
@@ -34,9 +44,13 @@ def get_h5_fname(meshdir, h5_fname=None):
         return h5_fname
 
 
-def unloader(meshdir, atrium_pressure=0.24, plot_flag=False):
-    h5_fname = get_h5_fname(meshdir, h5_fname=None)
-    geo = pulse.HeartGeometry.from_file(h5_fname)
+def unloader(outdir, atrium_pressure=0.24, plot_flag=False, comm=None, h5_fname=None):
+    if comm is None:
+        comm = dolfin.MPI.comm_world
+
+    h5_fname = get_h5_fname(outdir, h5_fname=h5_fname)
+    logger.info(f"Original geometry loaded {h5_fname} ...")
+    geo = pulse.HeartGeometry.from_file(h5_fname, comm=comm)
     microstructure = pulse.Microstructure(f0=geo.f0, s0=geo.s0, n0=geo.n0)
     marker_functions = pulse.MarkerFunctions(ffun=geo.ffun)
     geometry = pulse.HeartGeometry(
@@ -45,8 +59,33 @@ def unloader(meshdir, atrium_pressure=0.24, plot_flag=False):
         microstructure=microstructure,
         marker_functions=marker_functions,
     )
+    
+    fname = outdir / 'geometry_ffun.xdmf'
+    if not fname.exists():
+        with dolfin.XDMFFile(comm, fname.as_posix()) as f:
+            f.write(geometry.mesh)
 
     material = pulse.NeoHookean(parameters=dict(mu=1.5))
+    matparams = dict(
+            a=1.726,
+            a_f=7.048,
+            b=1.118,
+            b_f=0.001,
+            a_s=0.0,
+            b_s=0.0,
+            a_fs=0.0,
+            b_fs=0.0,
+        )
+
+    material =  pulse.HolzapfelOgden(
+        active_model="active_stress",
+        parameters=matparams,
+        f0=geometry.f0,
+        s0=geometry.s0,
+        n0=geometry.n0,
+    )
+    
+    
     # Parameter for the cardiac boundary conditions
     bcs_parameters = pulse.MechanicsProblem.default_bcs_parameters()
     bcs_parameters["base_spring"] = 1.0
@@ -70,5 +109,44 @@ def unloader(meshdir, atrium_pressure=0.24, plot_flag=False):
             plot(unloaded_geometry.mesh, opacity=0.5, color="grey", show=False)
         )
         fig.show()
+        # Saving ffun
 
     return unloaded_geometry
+
+#%%
+directory_path = Path("00_data/AS/3week/156_1/")
+results_folder = "00_Results"
+atrium_pressure = 1.4
+
+if results_folder is not None or not results_folder == "":
+    results_folder_dir = directory_path / results_folder
+    results_folder_dir.mkdir(exist_ok=True)
+else:
+    results_folder_dir = directory_path
+    
+outdir = results_folder_dir / "Geometry"
+
+pres = np.linspace(0,atrium_pressure,int(np.ceil(atrium_pressure/0.5))+1)[1:]
+for i, p in enumerate(pres):
+    if i==0:
+        h5_fname='geometry.h5'
+    else:
+        h5_fname='unloaded_geometry_'+ str(i-1) +'.h5'
+        
+    unloaded_geometry = unloader(outdir, atrium_pressure=p, plot_flag=False, comm=comm, h5_fname=h5_fname)
+    
+    fname = outdir.as_posix() +  '/unloaded_geometry_'+ str(i) +'.h5'
+    unloaded_geometry.save(fname, overwrite_file=True)
+
+    fname = outdir.as_posix() +  '/unloaded_geometry_ffun_'+ str(i) +'.xdmf'
+    with dolfin.XDMFFile(comm, fname) as f:
+        f.write(unloaded_geometry.mesh)
+
+fname = outdir.as_posix() +  '/unloaded_geometry.h5'
+unloaded_geometry.save(fname, overwrite_file=True)
+
+fname = outdir.as_posix() +  '/unloaded_geometry_ffun.xdmf'
+with dolfin.XDMFFile(comm, fname) as f:
+    f.write(unloaded_geometry.mesh)
+
+#%%
