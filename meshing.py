@@ -155,6 +155,6 @@ def create_mesh(
     stl_path = outdir.as_posix() + "/Mesh.stl"
     mesh_3d_path = outdir.as_posix() + "/Mesh_3D.msh"
     check_mesh_quality(LVmesh,file_path=stl_path[:-4]+'_report.txt')
-    generate_3d_mesh_from_stl(stl_path, mesh_3d_path)
+    generate_3d_mesh_from_stl(stl_path, mesh_3d_path, MeshSizeMin=mesh_settings["MeshSizeMin"], MeshSizeMax=mesh_settings["MeshSizeMax"])
 
     return LVmesh, outdir
