@@ -58,9 +58,7 @@ def compile_h5(directory_path, overwrite=False):
         sorted_indexes = np.argsort(
                 [(data[label][k]) for k in range(len(data[label]))]
             )
-        if has_positive and not has_negative:
-            sorted_indexes = sorted_indexes 
-        else:
+        if has_negative and not has_positive:
             sorted_indexes = sorted_indexes[::-1]
         data = {key: [data[key][i] for i in sorted_indexes] for key in data.keys()}
 
