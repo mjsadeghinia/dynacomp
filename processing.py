@@ -18,7 +18,7 @@ comm = dolfin.MPI.comm_world
 # UNITS:
 # [kg]   [mm]    [s]    [mN]     [kPa]       [mN-mm]	    g = 9.806e+03
 atrium_pressure = 1.4
-directory_path = Path("00_data/AS/3week/156_1/")
+directory_path = Path("00_data/SHAM/6week/OP130_2")
 results_folder = "00_Results"
 bc_params = {"base_spring": 1}
 
