@@ -26,6 +26,14 @@ def get_default_mask_settings(sample_name):
         default_mask_settings = dict(
             slice_number=6, num_itr_slice_1=0, num_itr_slice_2=1
         )
+    elif sample_name == "OP154_M3":
+        default_mask_settings = dict(
+            slice_number=3, num_itr_slice_1=2, num_itr_slice_2=1
+            )
+    elif sample_name == "OP130_2":
+        default_mask_settings = dict(
+            slice_number=3, num_itr_slice_1=2, num_itr_slice_2=1
+            )
     else:
         logger.error(f"No default mask setting is defined for {sample_name}")
     return default_mask_settings
@@ -87,6 +95,70 @@ def get_default_mesh_settings(sample_name, mesh_quality):
                 't_mesh': -1,
                 'MeshSizeMin': None,
                 'MeshSizeMax': 1
+            }
+        },
+        'OP154_M3': {
+            'fine': {
+                'seed_num_base_epi': 30,
+                'seed_num_base_endo': 26,
+                'num_z_sections_epi': 10,
+                'num_z_sections_endo': 8,
+                'num_mid_layers_base': 3,
+                'smooth_level_epi': 0.1,
+                'smooth_level_endo': 0.15,
+                'num_lax_points': 16,
+                'lax_smooth_level_epi': 1,
+                'lax_smooth_level_endo': 1.5,
+                'z_sections_flag_epi': 1,
+                'z_sections_flag_endo': 1,
+                'seed_num_threshold_epi': 8,
+                'seed_num_threshold_endo': 15,
+                'scale_for_delauny': 1.2,
+                't_mesh': -1,
+                'MeshSizeMin': None,
+                'MeshSizeMax': 1
+            }
+        },
+        'OP130_2': {
+            'coarse': {
+                'seed_num_base_epi': 15,
+                'seed_num_base_endo': 10,
+                'num_z_sections_epi': 10,
+                'num_z_sections_endo': 9,
+                'num_mid_layers_base': 1,
+                'smooth_level_epi': 0.1,
+                'smooth_level_endo': 0.15,
+                'num_lax_points': 16,
+                'lax_smooth_level_epi': 1,
+                'lax_smooth_level_endo': 1.5,
+                'z_sections_flag_epi': 0,
+                'z_sections_flag_endo': 1,
+                'seed_num_threshold_epi': 8,
+                'seed_num_threshold_endo': 8,
+                'scale_for_delauny': 1.5,
+                't_mesh': -1,
+                'MeshSizeMin': None,
+                'MeshSizeMax': None
+            },
+            'fine': {
+                'seed_num_base_epi': 45,
+                'seed_num_base_endo': 30,
+                'num_z_sections_epi': 20,
+                'num_z_sections_endo': 18,
+                'num_mid_layers_base': 3,
+                'smooth_level_epi': 0.1,
+                'smooth_level_endo': 0.15,
+                'num_lax_points': 32,
+                'lax_smooth_level_epi': 1,
+                'lax_smooth_level_endo': 2.5,
+                'z_sections_flag_epi': 1,
+                'z_sections_flag_endo': 0,
+                'seed_num_threshold_epi': 18,
+                'seed_num_threshold_endo': 12,
+                'scale_for_delauny': 1.5,
+                't_mesh': -1,
+                'MeshSizeMin': None,
+                'MeshSizeMax': .75
             }
         }
     }

@@ -87,35 +87,67 @@ def average_array(arrays):
 
 
 # %%
-directory_path = Path("00_data/AS/3week/156_1/")
+directory_path = Path("00_data/SHAM/6week/OP130_2")
+sample_name = 'OP130_2'
 pv_data_dir = directory_path / "PV data"
+settings = {
+        '156_1': {
+            'p_channel' : 1,
+            'v_channel' : 2,
+            'recording_num' : 2,
+            'smooth_level' : 0.1,
+            'skip_initial_data': 0,
+            'skip_final_data': 0,
+            'ind_ED' : 0,
+        },
+        'OP130_2': {
+            'p_channel' : 1,
+            'v_channel' : 2,
+            'recording_num' : 1,
+            'smooth_level' : .1,
+            'skip_initial_data': 0,
+            'skip_final_data': 1,
+            'ind_ED' : 75,
+        }
+}
 
-pres, vols = load_pv_data(pv_data_dir)
+
+pres, vols = load_pv_data(pv_data_dir, p_channel=settings[sample_name]['p_channel'],v_channel=settings[sample_name]['v_channel'],recording_num=settings[sample_name]['recording_num'])
 pres_divided, vols_divided = divide_pv_data(pres, vols)
-pres_average = average_array(pres_divided)
-vols_average = average_array(vols_divided)
+pres_average = average_array(pres_divided[settings[sample_name]['skip_initial_data']:-settings[sample_name]['skip_final_data']])
+vols_average = average_array(vols_divided[settings[sample_name]['skip_initial_data']:-settings[sample_name]['skip_final_data']])
 
 # Slicing the div
 p_average_sliced, v_average_sliced = slice_data(pres_average, vols_average, offset=50)
-ind_ED = np.where(v_average_sliced == np.max(v_average_sliced))[0][0]
-volumes = np.hstack((v_average_sliced[ind_ED:],v_average_sliced[:ind_ED]))
-pressures = np.hstack((p_average_sliced[ind_ED:],p_average_sliced[:ind_ED]))
+if settings[sample_name]['ind_ED'] == 0:
+    ind_ED = np.where(v_average_sliced == np.max(v_average_sliced))[0][0]
+else:
+    ind_ED = settings[sample_name]['ind_ED']
+volumes = np.hstack((v_average_sliced[ind_ED:],v_average_sliced[:ind_ED+1]))
+pressures = np.hstack((p_average_sliced[ind_ED:],p_average_sliced[:ind_ED+1]))
 
 # %%
-from scipy.interpolate import splprep, splev
+# from scipy.interpolate import splprep, splev
 
-vols = volumes
-pres = pressures
-tck, u = splprep([vols, pres], s=.1, per=True)
-# Evaluate the B-spline
-unew = np.linspace(0, 1.0, 200)
-data = splev(unew, tck)
+# vols = volumes
+# pres = pressures
+# tck, u = splprep([vols, pres], s=settings[sample_name]['smooth_level'], per=True)
+# # Evaluate the B-spline
+# unew = np.linspace(0, 1.0, 200)
+# data = splev(unew, tck)
 fig, ax = plt.subplots(figsize=(8, 6))
 for i in range(len(vols_divided)):
-    ax.plot(vols_divided[i], pres_divided[i], "k", linewidth=0.01)
-# ax.scatter(vols, pres, s=5, label='Smoothed B-Spline')
-ax.plot(data[0], data[1])
-# %%
+    ax.plot(vols_divided[i], pres_divided[i], "k", linewidth=0.02)
+ax.plot(volumes,pressures, 'k-')
+
+min_pressure = np.min(pressures)
+if min_pressure<0:
+    pressures += -min_pressure*1.1
+    ax.plot(volumes,pressures, 'b-')
+    ax.scatter(volumes[0],pressures[0])
+plt.show()
+#%%
+
 fname = pv_data_dir / "PV_data.csv"
 np.savetxt(fname, np.vstack((pressures, volumes)), delimiter=",")
 
