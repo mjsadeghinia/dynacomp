@@ -158,7 +158,7 @@ def get_default_mesh_settings(sample_name, mesh_quality):
                 'scale_for_delauny': 1.5,
                 't_mesh': -1,
                 'MeshSizeMin': None,
-                'MeshSizeMax': .5
+                'MeshSizeMax': .75
             }
         }
     }
