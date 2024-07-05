@@ -87,8 +87,14 @@ def average_array(arrays):
 
 
 # %%
-directory_path = Path("00_data/SHAM/6week/OP130_2")
-sample_name = 'OP130_2'
+paths = {
+        'OP130_2': "00_data/SHAM/6week/OP130_2",
+        '156_1':'00_data/AS/3week/156_1',
+        '138_1':'00_data/AS/12week/138_1',
+}
+         
+sample_name = '138_1'
+directory_path = Path(paths[sample_name])
 pv_data_dir = directory_path / "PV data"
 settings = {
         '156_1': {
@@ -108,6 +114,15 @@ settings = {
             'skip_initial_data': 0,
             'skip_final_data': 1,
             'ind_ED' : 75,
+        },
+        '138_1': {
+            'p_channel' : 1,
+            'v_channel' : 2,
+            'recording_num' : 1,
+            'smooth_level' : .3,
+            'skip_initial_data': 0,
+            'skip_final_data': 1,
+            'ind_ED' : 71,
         }
 }
 
@@ -144,7 +159,7 @@ min_pressure = np.min(pressures)
 if min_pressure<0:
     pressures += -min_pressure*1.1
     ax.plot(volumes,pressures, 'b-')
-    ax.scatter(volumes[0],pressures[0])
+ax.scatter(volumes[0],pressures[0])
 plt.show()
 #%%
 
