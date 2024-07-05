@@ -34,6 +34,10 @@ def get_default_mask_settings(sample_name):
         default_mask_settings = dict(
             slice_number=3, num_itr_slice_1=2, num_itr_slice_2=1
             )
+    elif sample_name == "138_1":
+        default_mask_settings = dict(
+            slice_number=3, num_itr_slice_1=3, num_itr_slice_2=1
+            )
     else:
         logger.error(f"No default mask setting is defined for {sample_name}")
     return default_mask_settings
@@ -160,7 +164,29 @@ def get_default_mesh_settings(sample_name, mesh_quality):
                 'MeshSizeMin': None,
                 'MeshSizeMax': .75
             }
-        }
+        },
+        '138_1': {
+            'fine': {
+                'seed_num_base_epi': 40,
+                'seed_num_base_endo': 25,
+                'num_z_sections_epi': 20,
+                'num_z_sections_endo': 18,
+                'num_mid_layers_base': 2,
+                'smooth_level_epi': 0.1,
+                'smooth_level_endo': 0.15,
+                'num_lax_points': 16,
+                'lax_smooth_level_epi': 1,
+                'lax_smooth_level_endo': 1.5,
+                'z_sections_flag_epi': 1,
+                'z_sections_flag_endo': 1,
+                'seed_num_threshold_epi': 20,
+                'seed_num_threshold_endo': 15,
+                'scale_for_delauny': .5,
+                't_mesh': -1,
+                'MeshSizeMin': None,
+                'MeshSizeMax': .75
+            }
+        },
     }
 
     # Check if sample_name is valid
