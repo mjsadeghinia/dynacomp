@@ -337,6 +337,7 @@ def close_gaps(mask_t, itr):
 def close_apex(
     h5_file,
     itr = 2,
+    itr_dilation = 3,
     save_flag = False,
     results_folder: str = "00_Results",
 ):
@@ -355,12 +356,13 @@ def close_apex(
         output_dir.mkdir(exist_ok=True)
         
     mask_closed_apex = np.zeros((K+1,I,I,T_end))
+    kernel = np.ones((3, 3), np.uint8)
+
     for t in range(T_end):
         mask_closed_apex[:-1,:,:,t] = mask[:,:,:,t]
-        mask_kt = mask[K-1,:,:,t]
-        mask_kt_closed = close_gaps(mask_kt,2)
-        kernel = np.ones((3, 3), np.uint8)
-        mask_kt_closed_eroded = cv.erode(mask_kt_closed, kernel, iterations=itr)
+        mask_kt = np.uint8(mask[K-1,:,:,t] * 255)
+        mask_kt_closed = cv.dilate(mask_kt, kernel, iterations=itr_dilation)
+        mask_kt_closed_eroded = cv.erode(mask_kt_closed, kernel, iterations=itr+itr_dilation)
         mask_closed_apex[-1,:,:,t] = mask_kt_closed_eroded
         if save_flag:
             img_array = np.uint8(mask_kt_closed_eroded * 255)
