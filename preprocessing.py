@@ -2,7 +2,7 @@ from pathlib import Path
 from structlog import get_logger
 
 import utils
-from mesh_utils import compile_h5, pre_process_mask, shift_slice_mask
+from mesh_utils import compile_h5, pre_process_mask, shift_slice_mask, close_apex
 from meshing import create_mesh
 from create_geometry import create_geometry
 
@@ -38,6 +38,9 @@ if sample_name == 'OP130_2':
     slice_num = 2
     slice_num_ref = 1
     h5_file = shift_slice_mask(h5_file,slice_num,slice_num_ref,save_flag = True,results_folder=results_folder)    
+
+if sample_name == '138_1':
+    h5_file = close_apex(h5_file, itr=2 ,save_flag = True,results_folder=results_folder)    
 
 mesh_settings = utils.get_mesh_settings(mesh_settings, sample_name=sample_name, mesh_quality=mesh_quality)
 LVMesh, meshdir = create_mesh(

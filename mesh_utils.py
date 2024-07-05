@@ -333,3 +333,43 @@ def close_gaps(mask_t, itr):
     img_dilated = cv.dilate(img_array, kernel, iterations=itr)
     img_dilated_eroded = cv.erode(img_dilated, kernel, iterations=itr)
     return img_dilated_eroded
+
+def close_apex(
+    h5_file,
+    itr = 2,
+    save_flag = False,
+    results_folder: str = "00_Results",
+):
+    datasets, attrs = load_from_h5(h5_file)
+    K, I, T_end = attrs["number_of_slices"], attrs["image_matrix_size"], attrs["T_end"]
+    mask = datasets["LVmask"]
+
+    if results_folder is not None or not results_folder == "":
+        results_folder_dir = Path(h5_file).parent / results_folder
+        results_folder_dir.mkdir(exist_ok=True)
+    else:
+        results_folder_dir = Path(h5_file).parent
+    
+    if save_flag:
+        output_dir = results_folder_dir / "01_GapClosed"
+        output_dir.mkdir(exist_ok=True)
+        
+    mask_closed_apex = np.zeros((K+1,I,I,T_end))
+    for t in range(T_end):
+        mask_closed_apex[:-1,:,:,t] = mask[:,:,:,t]
+        mask_kt = mask[K-1,:,:,t]
+        mask_kt_closed = close_gaps(mask_kt,2)
+        kernel = np.ones((3, 3), np.uint8)
+        mask_kt_closed_eroded = cv.erode(mask_kt_closed, kernel, iterations=itr)
+        mask_closed_apex[-1,:,:,t] = mask_kt_closed_eroded
+        if save_flag:
+            img_array = np.uint8(mask_kt_closed_eroded * 255)
+            img_path = output_dir / f"{t+1}_{K+1}.tiff"
+            cv.imwrite(img_path.as_posix(),img_array)
+            
+    
+    logger.info(f"An additional closed mask added for apex closure")
+    updated_datasets = {"LVmask": mask_closed_apex}
+    updated_attr = {'K' : K+1}
+    update_h5_file(h5_file, datasets=updated_datasets, attrs=updated_attr)
+    return h5_file
