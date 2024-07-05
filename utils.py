@@ -26,6 +26,10 @@ def get_default_mask_settings(sample_name):
         default_mask_settings = dict(
             slice_number=6, num_itr_slice_1=0, num_itr_slice_2=1
         )
+    elif sample_name == "OP154_M3":
+        default_mask_settings = dict(
+            slice_number=3, num_itr_slice_1=1, num_itr_slice_2=2
+            )
     else:
         logger.error(f"No default mask setting is defined for {sample_name}")
     return default_mask_settings

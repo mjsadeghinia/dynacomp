@@ -28,7 +28,6 @@ def create_mesh(
 
     T = len(tck_epi[0])
     K = len(tck_epi[0][0])
-    K_endo = len(tck_endo[0][0])
     if plot_flag:
         if results_folder is not None or not results_folder == "":
             results_folder_dir = directory_path / results_folder
@@ -39,6 +38,7 @@ def create_mesh(
         outdir = results_folder_dir / "02_ShaxBSpline"
         outdir.mkdir(exist_ok=True)
         for t in range(T):
+            K_endo = len(tck_endo[0][t])
             for k in range(K):
                 mu.plot_shax_with_coords(
                     mask_epi, tck_epi, t, k, resolution, new_plot=True
