@@ -52,9 +52,16 @@ def compile_h5(directory_path, overwrite=False):
 
         # Sort from base to apex
         label = "pss0" if "pss0" in data else "PVM_SPackArrSliceOffset"
+        slice_loc = [(data[label][k]) for k in range(len(data[label]))]
+        has_positive = any(x > 0 for x in slice_loc)
+        has_negative = any(x < 0 for x in slice_loc)
         sorted_indexes = np.argsort(
-            [np.abs(data[label][k]) for k in range(len(data[label]))]
-        )
+                [(data[label][k]) for k in range(len(data[label]))]
+            )
+        if has_positive and not has_negative:
+            sorted_indexes = sorted_indexes 
+        else:
+            sorted_indexes = sorted_indexes[::-1]
         data = {key: [data[key][i] for i in sorted_indexes] for key in data.keys()}
 
         # Compute necessary arrays and matrices
@@ -121,10 +128,10 @@ def prepare_datasets(K, I, S, T_array, data):
 
     return {
         "LVmask": LVmask,
-        "SeptumSector_position": data["SeptumSector_position"],
-        "RVSector": data["RVSector"],
-        "WallThickness": WallThickness,
-        "KE_SumS": data["KE_SumS"],
+        # "SeptumSector_position": data["SeptumSector_position"],
+        # "RVSector": data["RVSector"],
+        # "WallThickness": WallThickness,
+        # "KE_SumS": data["KE_SumS"],
         "T": T_array,
     }
 
@@ -206,6 +213,104 @@ def pre_process_mask(
     update_h5_file(h5_path, datasets=updated_datasets)
     return h5_path
 
+
+def calculate_center_binary_image(binary_image):
+    """
+    Calculates the center (centroid) of the True values in a binary image.
+    
+    Parameters:
+    - binary_image: numpy array of shape (H, W) with boolean values
+    
+    Returns:
+    - center: tuple (y_center, x_center) representing the coordinates of the center
+    """
+    # Get the indices of the True values
+    true_indices = np.argwhere(binary_image)
+    
+    # If there are no True values, return None or an appropriate value
+    if true_indices.size == 0:
+        return None
+    
+    # Calculate the mean of the indices to find the center
+    y_center, x_center = np.mean(true_indices, axis=0)
+    
+    return (y_center, x_center)
+
+
+def shift_binary_image(binary_image, x_shift, y_shift):
+    """
+    Shifts all the True values in a binary image by x_shift and y_shift.
+    
+    Parameters:
+    - binary_image: numpy array of shape (H, W) with boolean values
+    - x_shift: integer, shift along the x-axis (columns)
+    - y_shift: integer, shift along the y-axis (rows)
+    
+    Returns:
+    - shifted_image: numpy array of shape (H, W) with boolean values
+    """
+    # Get the shape of the input binary image
+    H, W = binary_image.shape
+    
+    # Create an empty image with the same shape
+    shifted_image = np.zeros_like(binary_image, dtype=int)
+    
+    # Compute the new positions of the True values
+    for y in range(H):
+        for x in range(W):
+            if binary_image[y, x]:
+                new_x = x + x_shift
+                new_y = y + y_shift
+                # Check if the new positions are within bounds
+                if 0 <= new_x < W and 0 <= new_y < H:
+                    shifted_image[new_y, new_x] = True
+    
+    return shifted_image
+
+def shift_slice_mask(
+    h5_file,
+    slice_num,
+    slice_num_ref,
+    save_flag = False,
+    results_folder: str = "00_Results",
+):
+    datasets, attrs = load_from_h5(h5_file)
+    K, I, T_end = attrs["number_of_slices"], attrs["image_matrix_size"], attrs["T_end"]
+    mask = datasets["LVmask"]
+
+    if results_folder is not None or not results_folder == "":
+        results_folder_dir = Path(h5_file).parent / results_folder
+        results_folder_dir.mkdir(exist_ok=True)
+    else:
+        results_folder_dir = Path(h5_file).parent
+    
+    if save_flag:
+        output_dir = results_folder_dir / "01_GapClosed"
+        output_dir.mkdir(exist_ok=True)
+        
+    mask_shifted = np.empty((K, I, I, T_end))
+
+    for t in range(T_end):
+        for k in range(K):
+            mask_kt = mask[k, :, :, t]
+            if k == slice_num:
+                (y_center, x_center) = calculate_center_binary_image(mask[slice_num_ref,:,:,t])
+                (y_center_slice, x_center_slice) = calculate_center_binary_image(mask[slice_num,:,:,t])
+                y_shift = int(y_center - y_center_slice)
+                x_shift = int(x_center - x_center_slice)
+                mask_kt_shifted = shift_binary_image(mask_kt, x_shift, y_shift)
+                mask_shifted[k,:,:,t] = mask_kt_shifted
+                if save_flag:
+                    img_array = np.uint8(mask_shifted[k,:,:,t] * 255)
+                    img_path = output_dir / f"{t+1}_{k+1}.tiff"
+                    cv.imwrite(img_path.as_posix(),img_array)
+            else:
+                mask_shifted[k,:,:,t] = mask_kt
+            
+    logger.info(f"Masks are shifted for all slice number {slice_num}")
+    updated_datasets = {"LVmask": mask_shifted}
+    update_h5_file(h5_file, datasets=updated_datasets)
+    return h5_file
 
 def show_image(img_array, img_dilated_eroded):
     new_image = np.zeros((img_array.shape[0], img_array.shape[1], 3), dtype=np.uint8)
