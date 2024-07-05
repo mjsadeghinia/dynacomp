@@ -2,18 +2,18 @@ from pathlib import Path
 from structlog import get_logger
 
 import utils
-from mesh_utils import compile_h5, pre_process_mask
+from mesh_utils import compile_h5, pre_process_mask, shift_slice_mask
 from meshing import create_mesh
 from create_geometry import create_geometry
 
 logger = get_logger()
 
 # %%
-directory_path = Path("00_data/SHAM/3week/OP154_M3")
+directory_path = Path("00_data/SHAM/6week/OP130_2")
 results_folder = "00_Results"
 atrium_pressure = 1
 h5_overwrite = True
-sample_name = 'OP154_M3'
+sample_name = 'OP130_2'
 mesh_quality='fine'
 mask_settings = None
 mesh_settings = None
@@ -28,6 +28,11 @@ h5_file = pre_process_mask(
     settings=pre_process_mask_settings,
     results_folder=results_folder,
 )
+if sample_name == 'OP130_2':
+    slice_num = 2
+    slice_num_ref = 1
+    h5_file = shift_slice_mask(h5_file,slice_num,slice_num_ref,save_flag = True,results_folder=results_folder)    
+
 mesh_settings = utils.get_mesh_settings(mesh_settings, sample_name=sample_name, mesh_quality=mesh_quality)
 LVMesh, meshdir = create_mesh(
     directory_path,
