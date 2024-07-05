@@ -9,11 +9,17 @@ from create_geometry import create_geometry
 logger = get_logger()
 
 # %%
-directory_path = Path("00_data/SHAM/6week/OP130_2")
-results_folder = "00_Results"
-atrium_pressure = 1
+paths = {
+        'OP130_2': "00_data/SHAM/6week/OP130_2",
+        '156_1':'00_data/AS/3week/156_1',
+        '138_1':'00_data/AS/12week/138_1',
+}
+         
+sample_name = '138_1'
+results_folder = "00_Results_test"
 h5_overwrite = True
-sample_name = 'OP130_2'
+directory_path = Path(paths[sample_name])
+
 mesh_quality='fine'
 mask_settings = None
 mesh_settings = None
