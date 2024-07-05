@@ -42,7 +42,6 @@ if sample_name == 'OP130_2':
 if sample_name == '138_1':
     h5_file = close_apex(h5_file, itr=2, itr_dilation = 3 ,save_flag = True,results_folder=results_folder)    
 
-#%%
 mesh_settings = utils.get_mesh_settings(mesh_settings, sample_name=sample_name, mesh_quality=mesh_quality)
 LVMesh, meshdir = create_mesh(
     directory_path,

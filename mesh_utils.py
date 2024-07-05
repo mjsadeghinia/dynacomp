@@ -365,9 +365,14 @@ def close_apex(
         mask_kt_closed_eroded = cv.erode(mask_kt_closed, kernel, iterations=itr+itr_dilation)
         mask_closed_apex[-1,:,:,t] = mask_kt_closed_eroded
         if save_flag:
-            img_array = np.uint8(mask_kt_closed_eroded * 255)
+            new_image = np.zeros((mask_kt_closed_eroded.shape[0], mask_kt_closed_eroded.shape[1], 3), dtype=np.uint8)
+            for i in range(new_image.shape[0]):
+                for j in range(new_image.shape[1]):
+                    if mask_kt_closed_eroded[i, j] != 0 :
+                        # Both have value - set to Blue
+                        new_image[i, j] = [255, 0, 0]
             img_path = output_dir / f"{t+1}_{K+1}.tiff"
-            cv.imwrite(img_path.as_posix(),img_array)
+            cv.imwrite(img_path.as_posix(),new_image)
             
     
     logger.info(f"An additional closed mask added for apex closure")
