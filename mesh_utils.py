@@ -409,7 +409,7 @@ def repair_slice(
         # Superimpose the two masks
         superimposed_mask = mask_kt + mask_kt_plus
         # Clip values to stay within 0-255
-        superimposed_mask = np.clip(superimposed_mask, 0, 255)  
+        superimposed_mask = np.clip(superimposed_mask, 0, 1)  
 
         mask_repaired[slice_num,:,:,t] = superimposed_mask
     
