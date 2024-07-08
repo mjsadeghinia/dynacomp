@@ -286,9 +286,9 @@ class HeartModelDynaComp:
         # Based on rat model of https://doi.org/10.1016/j.jmbbm.2021.104430.
         # matparams = pulse.HolzapfelOgden.default_parameters()
         matparams = dict(
-            a=1.726,
+            a=10.726,
             a_f=7.048,
-            b=1.118,
+            b=2.118,
             b_f=0.001,
             a_s=0.0,
             b_s=0.0,
