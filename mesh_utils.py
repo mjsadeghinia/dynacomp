@@ -377,6 +377,42 @@ def close_apex(
     
     logger.info(f"An additional closed mask added for apex closure")
     updated_datasets = {"LVmask": mask_closed_apex}
-    updated_attr = {'K' : K+1}
+    updated_attr = {'number_of_slices' : K+1}
     update_h5_file(h5_file, datasets=updated_datasets, attrs=updated_attr)
+    return h5_file
+
+def repair_slice(
+    h5_file,
+    slice_num = 0,
+    save_flag = False,
+    results_folder: str = "00_Results",
+):
+    datasets, attrs = load_from_h5(h5_file)
+    K, I, T_end = attrs["number_of_slices"], attrs["image_matrix_size"], attrs["T_end"]
+    mask = datasets["LVmask"]
+
+    if results_folder is not None or not results_folder == "":
+        results_folder_dir = Path(h5_file).parent / results_folder
+        results_folder_dir.mkdir(exist_ok=True)
+    else:
+        results_folder_dir = Path(h5_file).parent
+        
+    mask_repaired = np.zeros((K,I,I,T_end))
+    kernel = np.ones((3, 3), np.uint8)
+    
+    for t in range(T_end):
+        mask_repaired[:,:,:,t] = mask[:,:,:,t]
+        mask_kt = np.uint8(mask_repaired[slice_num,:,:,t] * 255)
+        mask_kt_plus = np.uint8(mask_repaired[slice_num+1,:,:,t] * 255)
+        # mask_kt_plus = cv.erode(mask_kt_plus, kernel, iterations=1)
+        # Superimpose the two masks
+        superimposed_mask = mask_kt + mask_kt_plus
+        # Clip values to stay within 0-255
+        superimposed_mask = np.clip(superimposed_mask, 0, 255)  
+
+        mask_repaired[slice_num,:,:,t] = superimposed_mask
+            
+    logger.info(f"Slice no. {slice_num} is superimposed with the next slice")
+    updated_datasets = {"LVmask": mask_repaired}
+    update_h5_file(h5_file, datasets=updated_datasets)
     return h5_file
