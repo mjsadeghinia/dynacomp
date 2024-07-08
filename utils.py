@@ -4,43 +4,25 @@ from structlog import get_logger
 logger = get_logger()
 
 
-def get_mask_settings(mask_settings, sample_name=None):
-    # Use provided mask_settings or default ones if not provided
-    default_mask_settings = get_default_mask_settings(sample_name)
-    mask_settings = (
-        {
-            key: mask_settings.get(key, default_mask_settings[key])
-            for key in default_mask_settings
-        }
-        if mask_settings
-        else default_mask_settings
-    )
-    return mask_settings
 
 
-def get_default_mask_settings(sample_name):
+def get_mask_settings(sample_name):
     """
     Default mask settings parameters
     """
-    if sample_name is None or sample_name == "156_1":
-        default_mask_settings = dict(
-            slice_number=6, num_itr_slice_1=0, num_itr_slice_2=1
-        )
-    elif sample_name == "OP154_M3":
-        default_mask_settings = dict(
-            slice_number=3, num_itr_slice_1=2, num_itr_slice_2=1
-            )
-    elif sample_name == "OP130_2":
-        default_mask_settings = dict(
-            slice_number=3, num_itr_slice_1=2, num_itr_slice_2=1
-            )
-    elif sample_name == "138_1":
-        default_mask_settings = dict(
-            slice_number=3, num_itr_slice_1=3, num_itr_slice_2=1
-            )
-    else:
+    settings = {
+        'OP130_2': [2,2,2,2,2,2,1,1,1],
+        '156_1': [0,0,1,1,1,1,1,1],
+        '138_1': [3,3,3,3,3,3,1,1,1],
+        '129_1': [0,2,2,1,1,1,1,2,1,1],
+    }
+           
+    # Check if sample_name is valid
+    if sample_name not in settings:
         logger.error(f"No default mask setting is defined for {sample_name}")
-    return default_mask_settings
+
+    # Retrieve settings based on sample_name and mesh_quality
+    return settings[sample_name]
 
 
 def get_mesh_settings(mesh_settings=None, sample_name='156_1', mesh_quality='fine'):

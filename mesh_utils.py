@@ -173,7 +173,7 @@ def pre_process_mask(
     h5_path,
     save_flag=False,
     results_folder: str = "00_Results",
-    settings: dict = dict(slice_number=6, num_itr_slice_1=0, num_itr_slice_2=1),
+    settings: list = {1,1,1,1,1,1,1,1,1,1},
 ):
     datasets, attrs = load_from_h5(h5_path)
     K, I, T_end = attrs["number_of_slices"], attrs["image_matrix_size"], attrs["T_end"]
@@ -194,13 +194,8 @@ def pre_process_mask(
     for t in range(T_end):
         for k in range(K):
             mask_t = mask[k, :, :, t]
-            if k < K - settings["slice_number"]:
-                mask_closed[k, :, :, t] = close_gaps(
-                    mask_t, settings["num_itr_slice_1"]
-                )
-            else:
-                mask_closed[k, :, :, t] = close_gaps(
-                    mask_t, settings["num_itr_slice_2"]
+            mask_closed[k, :, :, t] = close_gaps(
+                    mask_t, settings[k]
                 )
             if save_flag:
                 image_comparison = show_image(mask_t, mask_closed[k, :, :, t])
@@ -384,6 +379,7 @@ def close_apex(
 def repair_slice(
     h5_file,
     slice_num = 0,
+    erosion_flag = False,
     save_flag = False,
     results_folder: str = "00_Results",
 ):
@@ -396,6 +392,10 @@ def repair_slice(
         results_folder_dir.mkdir(exist_ok=True)
     else:
         results_folder_dir = Path(h5_file).parent
+    
+    if save_flag:
+        output_dir = results_folder_dir / "01_GapClosed"
+        output_dir.mkdir(exist_ok=True)
         
     mask_repaired = np.zeros((K,I,I,T_end))
     kernel = np.ones((3, 3), np.uint8)
@@ -404,14 +404,28 @@ def repair_slice(
         mask_repaired[:,:,:,t] = mask[:,:,:,t]
         mask_kt = np.uint8(mask_repaired[slice_num,:,:,t] * 255)
         mask_kt_plus = np.uint8(mask_repaired[slice_num+1,:,:,t] * 255)
-        # mask_kt_plus = cv.erode(mask_kt_plus, kernel, iterations=1)
+        if erosion_flag:
+            mask_kt_plus = cv.erode(mask_kt_plus, kernel, iterations=1)
         # Superimpose the two masks
         superimposed_mask = mask_kt + mask_kt_plus
         # Clip values to stay within 0-255
         superimposed_mask = np.clip(superimposed_mask, 0, 255)  
 
         mask_repaired[slice_num,:,:,t] = superimposed_mask
-            
+    
+        if save_flag:
+            new_image = np.zeros((mask_kt.shape[0], mask_kt.shape[1], 3), dtype=np.uint8)
+            for i in range(mask_kt.shape[0]):
+                for j in range(mask_kt.shape[1]):
+                    if mask_kt[i, j] != 0 and superimposed_mask[i, j] != 0:
+                        # Both have value - set to white
+                        new_image[i, j] = [255, 255, 255]
+                    elif superimposed_mask[i, j] != 0:
+                        # Only superimposed_mask has value - set to blue
+                        new_image[i, j] = [255, 0, 0]
+                    img_path = output_dir / f"{t+1}_{slice_num+1}.tiff"
+            cv.imwrite(img_path.as_posix(),new_image)
+    
     logger.info(f"Slice no. {slice_num} is superimposed with the next slice")
     updated_datasets = {"LVmask": mask_repaired}
     update_h5_file(h5_file, datasets=updated_datasets)
