@@ -90,10 +90,11 @@ def average_array(arrays):
 paths = {
         'OP130_2': "00_data/SHAM/6week/OP130_2",
         '156_1':'00_data/AS/3week/156_1',
+        '129_1':'00_data/AS/6week/129_1',
         '138_1':'00_data/AS/12week/138_1',
 }
          
-sample_name = '138_1'
+sample_name = '129_1'
 directory_path = Path(paths[sample_name])
 pv_data_dir = directory_path / "PV data"
 settings = {
@@ -119,6 +120,15 @@ settings = {
             'p_channel' : 1,
             'v_channel' : 2,
             'recording_num' : 1,
+            'smooth_level' : .3,
+            'skip_initial_data': 0,
+            'skip_final_data': 1,
+            'ind_ED' : 71,
+        },
+        '129_1': {
+            'p_channel' : 1,
+            'v_channel' : 2,
+            'recording_num' : 2,
             'smooth_level' : .3,
             'skip_initial_data': 0,
             'skip_final_data': 1,
