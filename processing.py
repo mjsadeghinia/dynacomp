@@ -17,16 +17,16 @@ comm = dolfin.MPI.comm_world
 
 # UNITS:
 # [kg]   [mm]    [s]    [mN]     [kPa]       [mN-mm]	    g = 9.806e+03
-atrium_pressure = 1.4
+sample_name = '138_1'
+results_folder = "00_Results_unloaded_coarse"
+
 paths = {
         'OP130_2': "00_data/SHAM/6week/OP130_2",
         '156_1':'00_data/AS/3week/156_1',
         '138_1':'00_data/AS/12week/138_1',
 }
          
-sample_name = '138_1'
 directory_path = Path(paths[sample_name])
-results_folder = "00_Results_test"
 bc_params = {"base_spring": 1}
 
 
@@ -68,6 +68,19 @@ volumes = caliberate_volumes(ED_geometry_fname, PV_data[1,:], comm=comm)
 unloaded_geometry = pulse.HeartGeometry.from_file(unloaded_geometry_fname.as_posix() + ".h5", comm=comm)
 heart_model = HeartModelDynaComp(geo=unloaded_geometry, bc_params=bc_params, comm=comm)
 collector = DataCollector(outdir=outdir,problem=heart_model)
+
+# V = dolfin.FunctionSpace(heart_model.geometry.mesh, "DG", 0)
+# u, _ = heart_model.problem.state.split(deepcopy=True)
+# print(u.vector()[:])
+
+# F = pulse.kinematics.DeformationGradient(u) 
+# f_current = F * heart_model.material.f0  # fiber directions in current configuration
+# sigma  = heart_model.problem.ChachyStress()
+# t = sigma * f_current
+# tff = dolfin.inner(t, f_current)  # traction, forces, in fiber direction
+# tff_vals = dolfin.project(tff, V)
+# print(tff_vals.vector()[:])
+
 # Initializing the model
 v = heart_model.compute_volume(activation_value=0, pressure_value=0)
 collector.collect(
@@ -77,24 +90,64 @@ collector.collect(
     target_volume=v,
     activation=0.0,
 )
+# V = dolfin.FunctionSpace(heart_model.geometry.mesh, "DG", 0)
+# u, _ = heart_model.problem.state.split(deepcopy=True)
+# print(u.vector()[:])
 
+# F = pulse.kinematics.DeformationGradient(u) 
+# f_current = F * heart_model.material.f0  # fiber directions in current configuration
+# sigma  = heart_model.problem.ChachyStress()
+# t = sigma * f_current
+# tff = dolfin.inner(t, f_current)  # traction, forces, in fiber direction
+# tff_vals = dolfin.project(tff, V)
+# print(tff_vals.vector()[:])
+#%%
 # Pressurizing up to End Diastole
-# v = heart_model.compute_volume(activation_value=0, pressure_value=pressures[0])
-# collector.collect(
-#    time=1,
-#    pressure=pressures[0],
-#    volume=v,
-#    target_volume=v,
-#    activation=0.0,
-# )
+v = heart_model.compute_volume(activation_value=0, pressure_value=pressures[0])
+collector.collect(
+   time=1,
+   pressure=pressures[0],
+   volume=v,
+   target_volume=v,
+   activation=0.0,
+)
 
+#%%
+# V = dolfin.FunctionSpace(heart_model.geometry.mesh, "DG", 0)
+# u, _ = heart_model.problem.state.split(deepcopy=True)
+# F = pulse.kinematics.DeformationGradient(u) 
+# f_current = F * heart_model.material.f0  # fiber directions in current configuration
+# sigma  = heart_model.problem.ChachyStress()
+# t = sigma * f_current
+# tff = dolfin.inner(t, f_current)  # traction, forces, in fiber direction
+# tff_vals = dolfin.project(tff, V)
+# print(tff_vals.vector()[:])
+
+collector = newton_solver(
+    heart_model = heart_model,
+    pres = pressures[1:2],
+    vols = volumes[1:2],
+    collector = collector,
+    start_time = 2,
+    comm=comm
+)
+
+# V = dolfin.FunctionSpace(heart_model.geometry.mesh, "DG", 0)
+# u, _ = heart_model.problem.state.split(deepcopy=True)
+# F = pulse.kinematics.DeformationGradient(u) 
+# f_current = F * heart_model.material.f0  # fiber directions in current configuration
+# sigma  = heart_model.problem.ChachyStress()
+# t = sigma * f_current
+# tff = dolfin.inner(t, f_current)  # traction, forces, in fiber direction
+# tff_vals = dolfin.project(tff, V)
+# print(tff_vals.vector()[:])
 # %%
 collector = newton_solver(
     heart_model = heart_model,
-    pres = pressures,
-    vols = volumes,
+    pres = pressures[1:],
+    vols = volumes[1:],
     collector = collector,
-    start_time = 1,
+    start_time = 2,
     comm=comm
 )
 # %%
