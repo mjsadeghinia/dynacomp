@@ -66,9 +66,9 @@ def unloader(outdir, atrium_pressure=0.24, plot_flag=False, comm=None, h5_fname=
             f.write(geometry.mesh)
 
     matparams = dict(
-            a=1.726,
+            a=10.726,
             a_f=7.048,
-            b=1.118,
+            b=2.118,
             b_f=0.001,
             a_s=0.0,
             b_s=0.0,
@@ -121,8 +121,16 @@ def unloader(outdir, atrium_pressure=0.24, plot_flag=False, comm=None, h5_fname=
     return unloaded_geometry
 
 #%%
-directory_path = Path("00_data/AS/3week/156_1/")
-results_folder = "00_Results"
+sample_name = '138_1'
+results_folder = "00_Results_unloaded_coarse"
+
+paths = {
+        'OP130_2': "00_data/SHAM/6week/OP130_2",
+        '156_1':'00_data/AS/3week/156_1',
+        '138_1':'00_data/AS/12week/138_1',
+}
+         
+directory_path = Path(paths[sample_name])
 fname = directory_path / "PV data/PV_data.csv"
 PV_data = np.loadtxt(fname.as_posix() ,delimiter=',')
 mmHg_to_kPa = 0.133322
@@ -137,7 +145,7 @@ else:
 outdir = results_folder_dir / "Geometry"
 
 h5_fname='geometry.h5'
-unloaded_geometry = unloader(outdir, atrium_pressure=atrium_pressure, plot_flag=False, comm=comm, h5_fname=h5_fname)
+unloaded_geometry = unloader(outdir, atrium_pressure=atrium_pressure, plot_flag=True, comm=comm, h5_fname=h5_fname)
 
 fname = outdir.as_posix() +  '/unloaded_geometry.h5'
 unloaded_geometry.save(fname, overwrite_file=True)
