@@ -166,6 +166,26 @@ def get_default_mesh_settings(sample_name, mesh_quality):
             }
         },
         '138_1': {
+            'coarse': {
+                'seed_num_base_epi': 24,
+                'seed_num_base_endo': 15,
+                'num_z_sections_epi': 12,
+                'num_z_sections_endo': 11,
+                'num_mid_layers_base': 1,
+                'smooth_level_epi': 0.1,
+                'smooth_level_endo': 0.15,
+                'num_lax_points': 16,
+                'lax_smooth_level_epi': 1,
+                'lax_smooth_level_endo': 1.5,
+                'z_sections_flag_epi': 1,
+                'z_sections_flag_endo': 1,
+                'seed_num_threshold_epi': 8,
+                'seed_num_threshold_endo': 8,
+                'scale_for_delauny': .5,
+                't_mesh': -1,
+                'MeshSizeMin': None,
+                'MeshSizeMax': 1.25
+            },
             'fine': {
                 'seed_num_base_epi': 40,
                 'seed_num_base_endo': 25,
