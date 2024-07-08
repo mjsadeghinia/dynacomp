@@ -430,3 +430,51 @@ def repair_slice(
     updated_datasets = {"LVmask": mask_repaired}
     update_h5_file(h5_file, datasets=updated_datasets)
     return h5_file
+
+def remove_slice(
+    h5_file,
+    slice_num = 0,
+    save_flag = True,
+    results_folder: str = "00_Results",
+):
+    datasets, attrs = load_from_h5(h5_file)
+    K, I, T_end = attrs["number_of_slices"], attrs["image_matrix_size"], attrs["T_end"]
+    mask = datasets["LVmask"]
+
+    if results_folder is not None or not results_folder == "":
+        results_folder_dir = Path(h5_file).parent / results_folder
+        results_folder_dir.mkdir(exist_ok=True)
+    else:
+        results_folder_dir = Path(h5_file).parent
+
+    if save_flag:
+        output_dir = results_folder_dir / "01_GapClosed"
+        output_dir.mkdir(exist_ok=True)
+    
+    mask_removed = np.zeros((K-1,I,I,T_end))
+    
+    for t in range(T_end):
+        kk = 0
+        for k in range(K):
+            if k == slice_num:
+                mask_kt = np.uint8(mask[k,:,:,t] * 255)
+                if save_flag:
+                    new_image = np.zeros((I,I, 3), dtype=np.uint8)
+                    for i in range(I):
+                        for j in range(I):
+                            if mask_kt[i,j] != 0:
+                                # Both have value - set to white
+                                new_image[i, j] = [0, 0, 255]
+                            img_path = output_dir / f"{t+1}_{slice_num+1}.tiff"
+                    cv.imwrite(img_path.as_posix(),new_image)
+            else:
+                mask_removed[kk,:,:,t] = mask[k,:,:,t]
+                kk += 1
+    
+    
+    logger.info(f"Slice no. {slice_num} has been removed")
+    updated_datasets = {"LVmask": mask_removed}
+    updated_attr = {'number_of_slices' : K-1}
+    update_h5_file(h5_file, datasets=updated_datasets, attrs=updated_attr)
+
+    return h5_file
