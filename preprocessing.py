@@ -2,7 +2,7 @@ from pathlib import Path
 from structlog import get_logger
 
 import utils
-from mesh_utils import compile_h5, pre_process_mask, shift_slice_mask, close_apex, repair_slice
+from mesh_utils import compile_h5, pre_process_mask, shift_slice_mask, close_apex, repair_slice, remove_slice
 from meshing import create_mesh
 from create_geometry import create_geometry
 
@@ -21,7 +21,7 @@ results_folder = "00_Results"
 h5_overwrite = True
 directory_path = Path(paths[sample_name])
 
-mesh_quality='coarse'
+mesh_quality='fine'
 mesh_settings = None
 fiber_angles = None
 
@@ -35,7 +35,7 @@ h5_file = pre_process_mask(
     results_folder=results_folder,
 )
 if sample_name in {'129_1'} :
-    h5_file = repair_slice(h5_file, slice_num=0, erosion_flag=True, save_flag=True, results_folder=results_folder)  
+    h5_file = remove_slice(h5_file, slice_num=0, save_flag=True, results_folder=results_folder)  
     
 if sample_name in {'OP130_2'}:
     slice_num = 2
@@ -45,7 +45,6 @@ if sample_name in {'OP130_2'}:
 if sample_name in {'138_1', '129_1'} :
     h5_file = close_apex(h5_file, itr=2, itr_dilation = 3 ,save_flag = True,results_folder=results_folder)    
 
-breakpoint()
 #%%
 mesh_settings = utils.get_mesh_settings(mesh_settings, sample_name=sample_name, mesh_quality=mesh_quality)
 LVMesh, meshdir = create_mesh(
@@ -68,3 +67,5 @@ else:
 outdir = results_folder_dir / "Geometry"
 fname = outdir / "geometry"
 geometry.save(fname.as_posix(), overwrite_file=True)
+
+# %%

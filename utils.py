@@ -189,6 +189,48 @@ def get_default_mesh_settings(sample_name, mesh_quality):
                 'MeshSizeMax': .75
             }
         },
+        '129_1': {
+            'coarse': {
+                'seed_num_base_epi': 15,
+                'seed_num_base_endo': 10,
+                'num_z_sections_epi': 10,
+                'num_z_sections_endo': 13,
+                'num_mid_layers_base': 1,
+                'smooth_level_epi': 0.1,
+                'smooth_level_endo': 0.15,
+                'num_lax_points': 16,
+                'lax_smooth_level_epi': 1,
+                'lax_smooth_level_endo': 1.5,
+                'z_sections_flag_epi': 0,
+                'z_sections_flag_endo': 0,
+                'seed_num_threshold_epi': 8,
+                'seed_num_threshold_endo': 8,
+                'scale_for_delauny': 4.5,
+                't_mesh': -1,
+                'MeshSizeMin': None,
+                'MeshSizeMax': 1.5
+            },
+            'fine': {
+                'seed_num_base_epi': 30,
+                'seed_num_base_endo': 20,
+                'num_z_sections_epi': 20,
+                'num_z_sections_endo': 26,
+                'num_mid_layers_base': 3,
+                'smooth_level_epi': 0.1,
+                'smooth_level_endo': 0.15,
+                'num_lax_points': 16,
+                'lax_smooth_level_epi': 1,
+                'lax_smooth_level_endo': 1.5,
+                'z_sections_flag_epi': 0,
+                'z_sections_flag_endo': 0,
+                'seed_num_threshold_epi': 16,
+                'seed_num_threshold_endo': 16,
+                'scale_for_delauny': 2.5,
+                't_mesh': -1,
+                'MeshSizeMin': None,
+                'MeshSizeMax': .75
+            }
+        }
     }
 
     # Check if sample_name is valid
