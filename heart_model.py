@@ -34,10 +34,10 @@ class HeartModelDynaComp:
         import ldrb
         # Decide on the angles you want to use
         angles = dict(
-                alpha_endo_lv=40,  # Fiber angle on the LV endocardium
-                alpha_epi_lv=-50,  # Fiber angle on the LV epicardium
-                beta_endo_lv=-50,  # Sheet angle on the LV endocardium
-                beta_epi_lv=40,  # Sheet angle on the LV epicardium
+            alpha_endo_lv=60,  # Fiber angle on the LV endocardium
+            alpha_epi_lv=-60,  # Fiber angle on the LV epicardium
+            beta_endo_lv=-15,  # Sheet angle on the LV endocardium
+            beta_epi_lv=15,  # Sheet angle on the LV epicardium
         )
         # Convert markers to correct format
         markers = {
@@ -47,7 +47,7 @@ class HeartModelDynaComp:
         }
         # Choose space for the fiber fields
         # This is a string on the form {family}_{degree}
-        fiber_space = "P_2"
+        fiber_space = "P_1"
 
         # Compute the microstructure
         fiber, sheet, sheet_normal = ldrb.dolfin_ldrb(
@@ -57,6 +57,8 @@ class HeartModelDynaComp:
             markers=markers,
             **angles,
         )
+        fname = "00_data/AS/12week/138_1/test_fiber"
+        ldrb.fiber_to_xdmf(fiber, fname)
         microstructure = pulse.Microstructure(f0=fiber, s0=sheet, n0=sheet_normal)
         # microstructure = pulse.Microstructure(f0=geo.f0, s0=geo.s0, n0=geo.n0)
         marker_functions = pulse.MarkerFunctions(ffun=geo.ffun)
@@ -85,24 +87,67 @@ class HeartModelDynaComp:
         self._get_bc_params(bc_params)
         self.bcs = self.apply_bcs()
         self.problem = pulse.MechanicsProblem(self.geometry, self.material, self.bcs)
+        point = dolfin.Point(self.geometry.mesh.coordinates()[0])
+        logger.info(f'The point location is {point.array()}')
         
         U, P = self.problem.state.split(deepcopy=True)
-        logger.critical(f'Before SOLVE: The first 5 maximum displacement is  {np.sort(U.vector()[:])[:5]}')
-        logger.critical(f'Before SOLVE: The first 5 maximumlagrange multiplier is  {np.sort(P.vector()[:])[:5]}')
-
+        F = pulse.kinematics.DeformationGradient(U)
+        C = F.T * F
+        J = dolfin.det(F)
+        
+        logger.info(f'Before SOLVE: The first 5 maximum displacement is  {np.sort(U.vector()[:])[:5]}')
+        logger.info(f'Before SOLVE: The first 5 maximumlagrange multiplier is  {np.sort(P.vector()[:])[:5]}')
+        logger.info(f'Before SOLVE: The cavity volume is  {self.problem.geometry.cavity_volume()}') 
+        
+        F_proj = dolfin.project(F, dolfin.TensorFunctionSpace(self.geometry.mesh, "DG", 1))
+        logger.info(f'The F at the point is  {F_proj(point)}')
+        
+        C_proj = dolfin.project(C, dolfin.TensorFunctionSpace(self.geometry.mesh, "DG", 1))
+        logger.info(f'The C at the point is  {C_proj(point)}')
+        
+        I1 = pulse.kinematics.I1(F, self.material.isochoric)
+        I4 = pulse.kinematics.I4(F, self.material.f0, self.material.isochoric)
+        I4_proj = dolfin.project(I4, dolfin.FunctionSpace(self.geometry.mesh, "DG", 0))
+        logger.info(f'The I4 at the point is {I4_proj(point)}')
+        
+        
+        f_proj = dolfin.project(self.material.f0, dolfin.VectorFunctionSpace(self.geometry.mesh, "DG", 1))
+        logger.info(f'The f0 at the point is {f_proj(point)} with a norm of {np.linalg.norm(f_proj(point))}')
+        
+        ff = dolfin.outer(self.material.f0,self.material.f0)
+        ff_proj = dolfin.project(ff, dolfin.TensorFunctionSpace(self.geometry.mesh, "DG", 1))
+        logger.info(f'The outer(f0,f0) at the point is {ff_proj(point)}')
+        
+        W1 = dolfin.assemble(self.material.W_1(I1)*dolfin.dx)
+        W4 = dolfin.assemble(self.material.W_4(I4,'f')*dolfin.dx)
+        Wtotal = dolfin.assemble(self.material.strain_energy(F)*dolfin.dx)
+        logger.info(f'The W1 is  {W1}')
+        logger.info(f'The W4 is  {W4}')
+        logger.info(f'The Wtotal is  {Wtotal}')
+        
+        logger.info('------- Solving ---------')          
         self.problem.solve()
         U, P = self.problem.state.split(deepcopy=True)
-        logger.critical(f'Now, the first 5 maximum displacement is  {np.sort(U.vector()[:])[:5]}')
-        logger.critical(f'Now, the first 5 maximumlagrange multiplier is  {np.sort(P.vector()[:])[:5]}')
+        logger.info(f'Now, the first 5 maximum displacement is  {np.sort(U.vector()[:])[:5]}')
+        logger.info(f'Now, the first 5 maximumlagrange multiplier is  {np.sort(P.vector()[:])[:5]}')
+        logger.info(f'Now, the cavity volume is  {self.problem.geometry.cavity_volume()}')           
+        logger.info(f'Now, the cavity volume is  {self.problem.geometry.cavity_volume(u=U)}')           
 
         F = pulse.kinematics.DeformationGradient(U)
         J = dolfin.det(F)
-        logger.critical(f'The strain energy function is  {dolfin.assemble(self.material.strain_energy(F)*dolfin.dx)}')
-        logger.critical(f'The compressibility energy function is  {dolfin.assemble(self.material.compressibility(P,J)*dolfin.dx)}')
-        point = dolfin.Point(self.geometry.mesh.coordinates()[0])
+        logger.info(f'The strain energy function is  {dolfin.assemble(self.material.strain_energy(F)*dolfin.dx)}')
+        logger.info(f'The compressibility energy function is  {dolfin.assemble(self.material.compressibility(P,J)*dolfin.dx)}')
         F_proj = dolfin.project(F, dolfin.TensorFunctionSpace(self.geometry.mesh, "DG", 1))
-        logger.critical(f'The F is  {F_proj(point)}')
-        # breakpoint()
+        logger.info(f'The F is  {F_proj(point)}')
+        I1 = pulse.kinematics.I1(F, self.material.isochoric)
+        I4 = pulse.kinematics.I4(F, self.material.f0, self.material.isochoric)
+        W1 = dolfin.assemble(self.material.W_1(I1)*dolfin.dx)
+        W4 = dolfin.assemble(self.material.W_4(I4,'f')*dolfin.dx)
+        Wtotal = dolfin.assemble(self.material.strain_energy(F)*dolfin.dx)
+        logger.info(f'The W1 is  {W1}')
+        logger.info(f'The W4 is  {W4}')
+        logger.info(f'The Wtotal is  {Wtotal}')
+        breakpoint()
         
     def compute_volume(
         self, activation_value: float, pressure_value: float
@@ -358,9 +403,9 @@ class HeartModelDynaComp:
 
     def apply_bcs(self):
         bcs = pulse.BoundaryConditions(
-            dirichlet=(self._fixed_base,),
-            # neumann=self._neumann_bc(),
-            # robin=self._robin_bc(),
+            dirichlet=(self._fixed_base_z,),
+            neumann=self._neumann_bc(),
+            robin=self._robin_bc(),
         )
         return bcs
 
@@ -407,7 +452,7 @@ class HeartModelDynaComp:
 
         return bc_fixed_based
 
-    def _fixed_base_x(self, W):
+    def _fixed_base_z(self, W):
         V = W if W.sub(0).num_sub_spaces() == 0 else W.sub(0)
 
         # Fixing the base in x[2] direction (z direction)
