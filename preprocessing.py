@@ -16,12 +16,12 @@ paths = {
         '138_1':'00_data/AS/12week/138_1',
 }
          
-sample_name = '129_1'
-results_folder = "00_Results"
+sample_name = '138_1'
+results_folder = "00_Results_coarse_unloaded"
 h5_overwrite = True
 directory_path = Path(paths[sample_name])
 
-mesh_quality='fine'
+mesh_quality='coarse'
 mesh_settings = None
 fiber_angles = None
 

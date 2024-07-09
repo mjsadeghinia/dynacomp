@@ -94,7 +94,7 @@ paths = {
         '138_1':'00_data/AS/12week/138_1',
 }
          
-sample_name = '129_1'
+sample_name = '138_1'
 directory_path = Path(paths[sample_name])
 pv_data_dir = directory_path / "PV data"
 settings = {
@@ -170,7 +170,10 @@ if min_pressure<0:
     pressures += -min_pressure*1.1
     ax.plot(volumes,pressures, 'b-')
 ax.scatter(volumes[0],pressures[0])
-plt.show()
+plt.xlabel('Volume (RVU)')
+plt.ylabel('LV Pressure (mmHg)') 
+fname = pv_data_dir / "PV_data.png"
+plt.savefig(fname)
 #%%
 
 fname = pv_data_dir / "PV_data.csv"

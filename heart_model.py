@@ -30,7 +30,42 @@ class HeartModelDynaComp:
         """
         logging.getLogger("pulse").setLevel(logging.WARNING)
 
-        self.geometry = geo
+        # self.geometry = geo
+        import ldrb
+        # Decide on the angles you want to use
+        angles = dict(
+                alpha_endo_lv=40,  # Fiber angle on the LV endocardium
+                alpha_epi_lv=-50,  # Fiber angle on the LV epicardium
+                beta_endo_lv=-50,  # Sheet angle on the LV endocardium
+                beta_epi_lv=40,  # Sheet angle on the LV epicardium
+        )
+        # Convert markers to correct format
+        markers = {
+            "base": geo.markers["BASE"][0],
+            "lv": geo.markers["ENDO"][0],
+            "epi": geo.markers["EPI"][0],
+        }
+        # Choose space for the fiber fields
+        # This is a string on the form {family}_{degree}
+        fiber_space = "P_2"
+
+        # Compute the microstructure
+        fiber, sheet, sheet_normal = ldrb.dolfin_ldrb(
+            mesh=geo.mesh,
+            fiber_space=fiber_space,
+            ffun=geo.ffun,
+            markers=markers,
+            **angles,
+        )
+        microstructure = pulse.Microstructure(f0=fiber, s0=sheet, n0=sheet_normal)
+        # microstructure = pulse.Microstructure(f0=geo.f0, s0=geo.s0, n0=geo.n0)
+        marker_functions = pulse.MarkerFunctions(ffun=geo.ffun)
+        self.geometry = pulse.HeartGeometry(
+            mesh=geo.mesh,
+            markers=geo.markers,
+            microstructure=microstructure,
+            marker_functions=marker_functions,
+        )
         if geo_refinement is not None:
             geo_refined = self.refine_geo(self.geometry, geo_refinement)
             self.geometry = geo_refined
@@ -50,8 +85,25 @@ class HeartModelDynaComp:
         self._get_bc_params(bc_params)
         self.bcs = self.apply_bcs()
         self.problem = pulse.MechanicsProblem(self.geometry, self.material, self.bcs)
-        self.problem.solve()
+        
+        U, P = self.problem.state.split(deepcopy=True)
+        logger.critical(f'Before SOLVE: The first 5 maximum displacement is  {np.sort(U.vector()[:])[:5]}')
+        logger.critical(f'Before SOLVE: The first 5 maximumlagrange multiplier is  {np.sort(P.vector()[:])[:5]}')
 
+        self.problem.solve()
+        U, P = self.problem.state.split(deepcopy=True)
+        logger.critical(f'Now, the first 5 maximum displacement is  {np.sort(U.vector()[:])[:5]}')
+        logger.critical(f'Now, the first 5 maximumlagrange multiplier is  {np.sort(P.vector()[:])[:5]}')
+
+        F = pulse.kinematics.DeformationGradient(U)
+        J = dolfin.det(F)
+        logger.critical(f'The strain energy function is  {dolfin.assemble(self.material.strain_energy(F)*dolfin.dx)}')
+        logger.critical(f'The compressibility energy function is  {dolfin.assemble(self.material.compressibility(P,J)*dolfin.dx)}')
+        point = dolfin.Point(self.geometry.mesh.coordinates()[0])
+        F_proj = dolfin.project(F, dolfin.TensorFunctionSpace(self.geometry.mesh, "DG", 1))
+        logger.critical(f'The F is  {F_proj(point)}')
+        # breakpoint()
+        
     def compute_volume(
         self, activation_value: float, pressure_value: float
     ) -> float:
@@ -175,8 +227,8 @@ class HeartModelDynaComp:
                 results_u, "u", float(t + 1), dolfin.XDMFFile.Encoding.HDF5, True
             )
 
-        self._compute_fiber_strain(results_u)
-        self._compute_myocardial_work(results_u)
+        # self._compute_fiber_strain(results_u)
+        # self._compute_myocardial_work(results_u)
 
 
         V = dolfin.FunctionSpace(self.geometry.mesh, "DG", 0)
@@ -306,9 +358,9 @@ class HeartModelDynaComp:
 
     def apply_bcs(self):
         bcs = pulse.BoundaryConditions(
-            dirichlet=(self._fixed_base_x,),
-            neumann=self._neumann_bc(),
-            robin=self._robin_bc(),
+            dirichlet=(self._fixed_base,),
+            # neumann=self._neumann_bc(),
+            # robin=self._robin_bc(),
         )
         return bcs
 

@@ -19,6 +19,7 @@ comm = dolfin.MPI.comm_world
 # [kg]   [mm]    [s]    [mN]     [kPa]       [mN-mm]	    g = 9.806e+03
 sample_name = '138_1'
 results_folder = "00_Results_coarse_unloaded"
+# results_folder = "00_Results_coarse"
 
 paths = {
         'OP130_2': "00_data/SHAM/6week/OP130_2",
@@ -156,12 +157,12 @@ tff_vals = dolfin.project(tff, V)
 logger.critical(f'The first six values of u is {u.vector()[:6]}')
 logger.critical(f'The first six values of sigma_ff is {tff_vals.vector()[:6]}')
 # %%
-# collector = newton_solver(
-#     heart_model = heart_model,
-#     pres = pressures[:],
-#     vols = volumes[:],
-#     collector = collector,
-#     start_time = 2,
-#     comm=comm
-# )
+collector = newton_solver(
+    heart_model = heart_model,
+    pres = pressures[:],
+    vols = volumes[:],
+    collector = collector,
+    start_time = 2,
+    comm=comm
+)
 # %%
