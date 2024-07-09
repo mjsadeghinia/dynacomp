@@ -17,12 +17,13 @@ comm = dolfin.MPI.comm_world
 
 # UNITS:
 # [kg]   [mm]    [s]    [mN]     [kPa]       [mN-mm]	    g = 9.806e+03
-sample_name = '138_1'
-results_folder = "00_Results_unloaded_coarse"
+sample_name = '129_1' 
+results_folder = "00_Results"
 
 paths = {
         'OP130_2': "00_data/SHAM/6week/OP130_2",
         '156_1':'00_data/AS/3week/156_1',
+        '129_1':'00_data/AS/6week/129_1',
         '138_1':'00_data/AS/12week/138_1',
 }
          
@@ -103,14 +104,14 @@ collector.collect(
 # print(tff_vals.vector()[:])
 #%%
 # Pressurizing up to End Diastole
-v = heart_model.compute_volume(activation_value=0, pressure_value=pressures[0])
-collector.collect(
-   time=1,
-   pressure=pressures[0],
-   volume=v,
-   target_volume=v,
-   activation=0.0,
-)
+# v = heart_model.compute_volume(activation_value=0, pressure_value=pressures[0])
+# collector.collect(
+#    time=1,
+#    pressure=pressures[0],
+#    volume=v,
+#    target_volume=v,
+#    activation=0.0,
+# )
 
 #%%
 # V = dolfin.FunctionSpace(heart_model.geometry.mesh, "DG", 0)
@@ -123,14 +124,14 @@ collector.collect(
 # tff_vals = dolfin.project(tff, V)
 # print(tff_vals.vector()[:])
 
-collector = newton_solver(
-    heart_model = heart_model,
-    pres = pressures[1:2],
-    vols = volumes[1:2],
-    collector = collector,
-    start_time = 2,
-    comm=comm
-)
+# collector = newton_solver(
+#     heart_model = heart_model,
+#     pres = pressures[1:2],
+#     vols = volumes[1:2],
+#     collector = collector,
+#     start_time = 2,
+#     comm=comm
+# )`
 
 # V = dolfin.FunctionSpace(heart_model.geometry.mesh, "DG", 0)
 # u, _ = heart_model.problem.state.split(deepcopy=True)
