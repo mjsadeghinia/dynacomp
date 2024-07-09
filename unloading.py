@@ -122,7 +122,7 @@ def unloader(outdir, atrium_pressure=0.24, plot_flag=False, comm=None, h5_fname=
 
 #%%
 sample_name = '138_1'
-results_folder = "00_Results_unloaded_coarse"
+results_folder = "00_Results_coarse_unloaded"
 
 paths = {
         'OP130_2': "00_data/SHAM/6week/OP130_2",

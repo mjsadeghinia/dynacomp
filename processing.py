@@ -18,7 +18,7 @@ comm = dolfin.MPI.comm_world
 # UNITS:
 # [kg]   [mm]    [s]    [mN]     [kPa]       [mN-mm]	    g = 9.806e+03
 sample_name = '138_1'
-results_folder = "00_Results_coarse"
+results_folder = "00_Results_coarse_unloaded"
 
 paths = {
         'OP130_2': "00_data/SHAM/6week/OP130_2",
@@ -39,7 +39,7 @@ else:
 outdir = results_folder_dir / "00_Modeling"
 mesh_outdir = results_folder_dir / "Geometry"
 unloaded_geometry_fname = mesh_outdir / "unloaded_geometry"
-unloaded_geometry_fname = mesh_outdir / "geometry"
+# unloaded_geometry_fname = mesh_outdir / "geometry"
 
 # delet files for saving again
 if outdir.is_dir() and comm.Get_rank() == 0:
@@ -108,51 +108,60 @@ logger.critical(f'The first six values of sigma_ff is {tff_vals.vector()[:6]}')
 
 #%%
 # Pressurizing up to End Diastole
-# v = heart_model.compute_volume(activation_value=0, pressure_value=pressures[0])
-# collector.collect(
-#    time=1,
-#    pressure=pressures[0],
-#    volume=v,
-#    target_volume=v,
-#    activation=0.0,
-# )
+logger.info('----- Model Initialized with ED pressure and zero activation -----')
+
+v = heart_model.compute_volume(activation_value=0, pressure_value=pressures[0])
+collector.collect(
+   time=1,
+   pressure=pressures[0],
+   volume=v,
+   target_volume=v,
+   activation=0.0,
+)
+
+V = dolfin.FunctionSpace(heart_model.geometry.mesh, "DG", 0)
+u, _ = heart_model.problem.state.split(deepcopy=True)
+F = pulse.kinematics.DeformationGradient(u) 
+f_current = F * heart_model.material.f0  # fiber directions in current configuration
+sigma  = heart_model.problem.ChachyStress()
+t = sigma * f_current
+tff = dolfin.inner(t, f_current)  # traction, forces, in fiber direction
+tff_vals = dolfin.project(tff, V)
+
+logger.critical(f'The first six values of u is {u.vector()[:6]}')
+logger.critical(f'The first six values of sigma_ff is {tff_vals.vector()[:6]}')
+
 
 #%%
-# V = dolfin.FunctionSpace(heart_model.geometry.mesh, "DG", 0)
-# u, _ = heart_model.problem.state.split(deepcopy=True)
-# F = pulse.kinematics.DeformationGradient(u) 
-# f_current = F * heart_model.material.f0  # fiber directions in current configuration
-# sigma  = heart_model.problem.ChachyStress()
-# t = sigma * f_current
-# tff = dolfin.inner(t, f_current)  # traction, forces, in fiber direction
-# tff_vals = dolfin.project(tff, V)
-# print(tff_vals.vector()[:])
+logger.info('----- The first point in circulation -----')
 
-# collector = newton_solver(
-#     heart_model = heart_model,
-#     pres = pressures[1:2],
-#     vols = volumes[1:2],
-#     collector = collector,
-#     start_time = 2,
-#     comm=comm
-# )`
-
-# V = dolfin.FunctionSpace(heart_model.geometry.mesh, "DG", 0)
-# u, _ = heart_model.problem.state.split(deepcopy=True)
-# F = pulse.kinematics.DeformationGradient(u) 
-# f_current = F * heart_model.material.f0  # fiber directions in current configuration
-# sigma  = heart_model.problem.ChachyStress()
-# t = sigma * f_current
-# tff = dolfin.inner(t, f_current)  # traction, forces, in fiber direction
-# tff_vals = dolfin.project(tff, V)
-# print(tff_vals.vector()[:])
-# %%
 collector = newton_solver(
     heart_model = heart_model,
-    pres = pressures[:],
-    vols = volumes[:],
+    pres = pressures[1:2],
+    vols = volumes[1:2],
     collector = collector,
     start_time = 2,
     comm=comm
 )
+
+V = dolfin.FunctionSpace(heart_model.geometry.mesh, "DG", 0)
+u, _ = heart_model.problem.state.split(deepcopy=True)
+F = pulse.kinematics.DeformationGradient(u) 
+f_current = F * heart_model.material.f0  # fiber directions in current configuration
+sigma  = heart_model.problem.ChachyStress()
+t = sigma * f_current
+tff = dolfin.inner(t, f_current)  # traction, forces, in fiber direction
+tff_vals = dolfin.project(tff, V)
+
+logger.critical(f'The first six values of u is {u.vector()[:6]}')
+logger.critical(f'The first six values of sigma_ff is {tff_vals.vector()[:6]}')
+# %%
+# collector = newton_solver(
+#     heart_model = heart_model,
+#     pres = pressures[:],
+#     vols = volumes[:],
+#     collector = collector,
+#     start_time = 2,
+#     comm=comm
+# )
 # %%
