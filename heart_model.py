@@ -30,7 +30,7 @@ class HeartModelDynaComp:
         """
         logging.getLogger("pulse").setLevel(logging.WARNING)
 
-        # self.geometry = geo
+        # # self.geometry = geo
         import ldrb
         # Decide on the angles you want to use
         angles = dict(
@@ -87,67 +87,67 @@ class HeartModelDynaComp:
         self._get_bc_params(bc_params)
         self.bcs = self.apply_bcs()
         self.problem = pulse.MechanicsProblem(self.geometry, self.material, self.bcs)
-        point = dolfin.Point(self.geometry.mesh.coordinates()[0])
-        logger.info(f'The point location is {point.array()}')
+        # point = dolfin.Point(self.geometry.mesh.coordinates()[0])
+        # logger.info(f'The point location is {point.array()}')
         
-        U, P = self.problem.state.split(deepcopy=True)
-        F = pulse.kinematics.DeformationGradient(U)
-        C = F.T * F
-        J = dolfin.det(F)
+        # U, P = self.problem.state.split(deepcopy=True)
+        # F = pulse.kinematics.DeformationGradient(U)
+        # C = F.T * F
+        # J = dolfin.det(F)
         
-        logger.info(f'Before SOLVE: The first 5 maximum displacement is  {np.sort(U.vector()[:])[:5]}')
-        logger.info(f'Before SOLVE: The first 5 maximumlagrange multiplier is  {np.sort(P.vector()[:])[:5]}')
-        logger.info(f'Before SOLVE: The cavity volume is  {self.problem.geometry.cavity_volume()}') 
+        # logger.info(f'Before SOLVE: The first 5 maximum displacement is  {np.sort(U.vector()[:])[:5]}')
+        # logger.info(f'Before SOLVE: The first 5 maximumlagrange multiplier is  {np.sort(P.vector()[:])[:5]}')
+        # logger.info(f'Before SOLVE: The cavity volume is  {self.problem.geometry.cavity_volume()}') 
         
-        F_proj = dolfin.project(F, dolfin.TensorFunctionSpace(self.geometry.mesh, "DG", 1))
-        logger.info(f'The F at the point is  {F_proj(point)}')
+        # F_proj = dolfin.project(F, dolfin.TensorFunctionSpace(self.geometry.mesh, "DG", 1))
+        # logger.info(f'The F at the point is  {F_proj(point)}')
         
-        C_proj = dolfin.project(C, dolfin.TensorFunctionSpace(self.geometry.mesh, "DG", 1))
-        logger.info(f'The C at the point is  {C_proj(point)}')
+        # C_proj = dolfin.project(C, dolfin.TensorFunctionSpace(self.geometry.mesh, "DG", 1))
+        # logger.info(f'The C at the point is  {C_proj(point)}')
         
-        I1 = pulse.kinematics.I1(F, self.material.isochoric)
-        I4 = pulse.kinematics.I4(F, self.material.f0, self.material.isochoric)
-        I4_proj = dolfin.project(I4, dolfin.FunctionSpace(self.geometry.mesh, "DG", 0))
-        logger.info(f'The I4 at the point is {I4_proj(point)}')
+        # I1 = pulse.kinematics.I1(F, self.material.isochoric)
+        # I4 = pulse.kinematics.I4(F, self.material.f0, self.material.isochoric)
+        # I4_proj = dolfin.project(I4, dolfin.FunctionSpace(self.geometry.mesh, "DG", 0))
+        # logger.info(f'The I4 at the point is {I4_proj(point)}')
         
         
-        f_proj = dolfin.project(self.material.f0, dolfin.VectorFunctionSpace(self.geometry.mesh, "DG", 1))
-        logger.info(f'The f0 at the point is {f_proj(point)} with a norm of {np.linalg.norm(f_proj(point))}')
+        # f_proj = dolfin.project(self.material.f0, dolfin.VectorFunctionSpace(self.geometry.mesh, "DG", 1))
+        # logger.info(f'The f0 at the point is {f_proj(point)} with a norm of {np.linalg.norm(f_proj(point))}')
         
-        ff = dolfin.outer(self.material.f0,self.material.f0)
-        ff_proj = dolfin.project(ff, dolfin.TensorFunctionSpace(self.geometry.mesh, "DG", 1))
-        logger.info(f'The outer(f0,f0) at the point is {ff_proj(point)}')
+        # ff = dolfin.outer(self.material.f0,self.material.f0)
+        # ff_proj = dolfin.project(ff, dolfin.TensorFunctionSpace(self.geometry.mesh, "DG", 1))
+        # logger.info(f'The outer(f0,f0) at the point is {ff_proj(point)}')
         
-        W1 = dolfin.assemble(self.material.W_1(I1)*dolfin.dx)
-        W4 = dolfin.assemble(self.material.W_4(I4,'f')*dolfin.dx)
-        Wtotal = dolfin.assemble(self.material.strain_energy(F)*dolfin.dx)
-        logger.info(f'The W1 is  {W1}')
-        logger.info(f'The W4 is  {W4}')
-        logger.info(f'The Wtotal is  {Wtotal}')
+        # W1 = dolfin.assemble(self.material.W_1(I1)*dolfin.dx)
+        # W4 = dolfin.assemble(self.material.W_4(I4,'f')*dolfin.dx)
+        # Wtotal = dolfin.assemble(self.material.strain_energy(F)*dolfin.dx)
+        # logger.info(f'The W1 is  {W1}')
+        # logger.info(f'The W4 is  {W4}')
+        # logger.info(f'The Wtotal is  {Wtotal}')
         
-        logger.info('------- Solving ---------')          
+        # logger.info('------- Solving ---------')          
         self.problem.solve()
-        U, P = self.problem.state.split(deepcopy=True)
-        logger.info(f'Now, the first 5 maximum displacement is  {np.sort(U.vector()[:])[:5]}')
-        logger.info(f'Now, the first 5 maximumlagrange multiplier is  {np.sort(P.vector()[:])[:5]}')
-        logger.info(f'Now, the cavity volume is  {self.problem.geometry.cavity_volume()}')           
-        logger.info(f'Now, the cavity volume is  {self.problem.geometry.cavity_volume(u=U)}')           
+        # U, P = self.problem.state.split(deepcopy=True)
+        # logger.info(f'Now, the first 5 maximum displacement is  {np.sort(U.vector()[:])[:5]}')
+        # logger.info(f'Now, the first 5 maximumlagrange multiplier is  {np.sort(P.vector()[:])[:5]}')
+        # logger.info(f'Now, the cavity volume is  {self.problem.geometry.cavity_volume()}')           
+        # logger.info(f'Now, the cavity volume is  {self.problem.geometry.cavity_volume(u=U)}')           
 
-        F = pulse.kinematics.DeformationGradient(U)
-        J = dolfin.det(F)
-        logger.info(f'The strain energy function is  {dolfin.assemble(self.material.strain_energy(F)*dolfin.dx)}')
-        logger.info(f'The compressibility energy function is  {dolfin.assemble(self.material.compressibility(P,J)*dolfin.dx)}')
-        F_proj = dolfin.project(F, dolfin.TensorFunctionSpace(self.geometry.mesh, "DG", 1))
-        logger.info(f'The F is  {F_proj(point)}')
-        I1 = pulse.kinematics.I1(F, self.material.isochoric)
-        I4 = pulse.kinematics.I4(F, self.material.f0, self.material.isochoric)
-        W1 = dolfin.assemble(self.material.W_1(I1)*dolfin.dx)
-        W4 = dolfin.assemble(self.material.W_4(I4,'f')*dolfin.dx)
-        Wtotal = dolfin.assemble(self.material.strain_energy(F)*dolfin.dx)
-        logger.info(f'The W1 is  {W1}')
-        logger.info(f'The W4 is  {W4}')
-        logger.info(f'The Wtotal is  {Wtotal}')
-        breakpoint()
+        # F = pulse.kinematics.DeformationGradient(U)
+        # J = dolfin.det(F)
+        # logger.info(f'The strain energy function is  {dolfin.assemble(self.material.strain_energy(F)*dolfin.dx)}')
+        # logger.info(f'The compressibility energy function is  {dolfin.assemble(self.material.compressibility(P,J)*dolfin.dx)}')
+        # F_proj = dolfin.project(F, dolfin.TensorFunctionSpace(self.geometry.mesh, "DG", 1))
+        # logger.info(f'The F is  {F_proj(point)}')
+        # I1 = pulse.kinematics.I1(F, self.material.isochoric)
+        # I4 = pulse.kinematics.I4(F, self.material.f0, self.material.isochoric)
+        # W1 = dolfin.assemble(self.material.W_1(I1)*dolfin.dx)
+        # W4 = dolfin.assemble(self.material.W_4(I4,'f')*dolfin.dx)
+        # Wtotal = dolfin.assemble(self.material.strain_energy(F)*dolfin.dx)
+        # logger.info(f'The W1 is  {W1}')
+        # logger.info(f'The W4 is  {W4}')
+        # logger.info(f'The Wtotal is  {Wtotal}')
+        # breakpoint()
         
     def compute_volume(
         self, activation_value: float, pressure_value: float
@@ -272,8 +272,6 @@ class HeartModelDynaComp:
                 results_u, "u", float(t + 1), dolfin.XDMFFile.Encoding.HDF5, True
             )
 
-        # self._compute_fiber_strain(results_u)
-        # self._compute_myocardial_work(results_u)
 
 
         V = dolfin.FunctionSpace(self.geometry.mesh, "DG", 0)
