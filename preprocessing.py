@@ -9,6 +9,9 @@ from create_geometry import create_geometry
 logger = get_logger()
 
 # %%
+sample_name = '138_1'
+results_folder = "00_Results_coarse_with_unloading"
+
 paths = {
         'OP130_2': "00_data/SHAM/6week/OP130_2",
         '156_1':'00_data/AS/3week/156_1',
@@ -16,8 +19,6 @@ paths = {
         '138_1':'00_data/AS/12week/138_1',
 }
          
-sample_name = '138_1'
-results_folder = "00_Results_coarse_unloaded"
 h5_overwrite = True
 directory_path = Path(paths[sample_name])
 
