@@ -170,32 +170,36 @@ class HeartModelDynaComp:
         """
         fname = outdir / "results.xdmf"
         mesh = self.problem.geometry.mesh
+
         results_u, _ = self.problem.state.split(deepcopy=True)
         results_u.t = t
         with dolfin.XDMFFile(self.comm, fname.as_posix()) as xdmf:
             xdmf.write_checkpoint(
                 results_u, "u", float(t + 1), dolfin.XDMFFile.Encoding.HDF5, True
             )
-        tensor_element = dolfin.VectorElement("CG", mesh.ufl_cell(), 1)
-        U_function_space = dolfin.FunctionSpace(mesh, tensor_element)
-        U_proj = dolfin.project(results_u, U_function_space)
+            
+        
+        element = dolfin.VectorElement("CG", mesh.ufl_cell(), 1)
+        function_space = dolfin.FunctionSpace(mesh, element)
+        U_proj = dolfin.project(results_u, function_space)
         U_proj.t = t+1
+        # deformed_mesh = dolfin.Mesh(mesh)
+        # dolfin.ALE.move(deformed_mesh,U_proj)
+        # breakpoint()
 
-        tensor_element = dolfin.TensorElement("DG", mesh.ufl_cell(), 0)
-        E_function_space = dolfin.FunctionSpace(mesh, tensor_element)
+        deformed_coordinates = mesh.coordinates() + U_proj.vector().get_local().reshape(-1, 3)
+        deformed_mesh = dolfin.Mesh(mesh)
+        deformed_mesh.coordinates()[:] = deformed_coordinates
+        
+        tensor_element = dolfin.TensorElement("DG", deformed_mesh.ufl_cell(), 0)
+        E_function_space = dolfin.FunctionSpace(deformed_mesh, tensor_element)
         F = pulse.kinematics.DeformationGradient(results_u) * dolfin.inv(self.F0)
         E = pulse.kinematics.GreenLagrangeStrain(F)
+        breakpoint()
         E_proj = dolfin.project(E, E_function_space)
         E_proj.t = t+1
         fname = outdir / "results_E.xdmf"
         with dolfin.XDMFFile(self.comm, fname.as_posix()) as xdmf:
-            # if self.t == 0:
-            #     xdmf.write(mesh)
-            xdmf.parameters["flush_output"] = True
-            xdmf.parameters["functions_share_mesh"] = True
-            xdmf.write_checkpoint(
-                U_proj, "u", float(t + 1), dolfin.XDMFFile.Encoding.HDF5, True
-            )
             xdmf.write_checkpoint(
                 E_proj, 'E', float(t + 1), dolfin.XDMFFile.Encoding.HDF5, True
             )
