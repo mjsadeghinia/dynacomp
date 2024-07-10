@@ -6,9 +6,8 @@ from structlog import get_logger
 from fenics_plotly import plot
 import pulse
 import dolfin
-import logging
 import warnings
-from ffc.quadrature.deprecation import QuadratureRepresentationDeprecationWarning  
+from ffc.quadrature.deprecation import QuadratureRepresentationDeprecationWarning
 
 warnings.filterwarnings("ignore", category=QuadratureRepresentationDeprecationWarning)
 
@@ -18,10 +17,11 @@ logger = get_logger()
 
 comm = dolfin.MPI.comm_world
 
+
 # %%
 def get_h5_fname(meshdir, h5_fname=None):
     if h5_fname is not None:
-        return meshdir.as_posix() + '/' + h5_fname
+        return meshdir.as_posix() + "/" + h5_fname
     else:
         meshdir = Path(meshdir)
         # find the msh file in the meshdir
@@ -59,32 +59,31 @@ def unloader(outdir, atrium_pressure=0.24, plot_flag=False, comm=None, h5_fname=
         microstructure=microstructure,
         marker_functions=marker_functions,
     )
-    
-    fname = outdir / 'geometry_ffun.xdmf'
+
+    fname = outdir / "geometry_ffun.xdmf"
     if not fname.exists():
         with dolfin.XDMFFile(comm, fname.as_posix()) as f:
             f.write(geometry.mesh)
 
     matparams = dict(
-            a=10.726,
-            a_f=7.048,
-            b=2.118,
-            b_f=0.001,
-            a_s=0.0,
-            b_s=0.0,
-            a_fs=0.0,
-            b_fs=0.0,
-        )
+        a=10.726,
+        a_f=7.048,
+        b=2.118,
+        b_f=0.001,
+        a_s=0.0,
+        b_s=0.0,
+        a_fs=0.0,
+        b_fs=0.0,
+    )
 
-    material =  pulse.HolzapfelOgden(
+    material = pulse.HolzapfelOgden(
         active_model="active_stress",
         parameters=matparams,
         f0=geometry.f0,
         s0=geometry.s0,
         n0=geometry.n0,
     )
-    
-    
+
     # Parameter for the cardiac boundary conditions
     bcs_parameters = pulse.MechanicsProblem.default_bcs_parameters()
     bcs_parameters["base_spring"] = 1.0
@@ -102,8 +101,10 @@ def unloader(outdir, atrium_pressure=0.24, plot_flag=False, comm=None, h5_fname=
         "ub": 2.0,
         "regen_fibers": False,
         "solve_tries": 20,
-        }
-    unloader = pulse.FixedPointUnloader(problem=problem, pressure=atrium_pressure, options=unloading_params)
+    }
+    unloader = pulse.FixedPointUnloader(
+        problem=problem, pressure=atrium_pressure, options=unloading_params
+    )
 
     # Unload the geometry
     unloader.unload()
@@ -120,38 +121,112 @@ def unloader(outdir, atrium_pressure=0.24, plot_flag=False, comm=None, h5_fname=
 
     return unloaded_geometry
 
-#%%
-sample_name = '138_1'
-results_folder = "00_Results_coarse_unloaded"
 
+# %%
+def create_geometry(geo, fiber_angles):
+    import ldrb
+
+    # Convert markers to correct format
+    markers = {
+        "base": geo.markers["BASE"][0],
+        "lv": geo.markers["ENDO"][0],
+        "epi": geo.markers["EPI"][0],
+    }
+    # Choose space for the fiber fields
+    # This is a string on the form {family}_{degree}
+    fiber_space = "P_1"
+
+    # Compute the microstructure
+    fiber, sheet, sheet_normal = ldrb.dolfin_ldrb(
+        mesh=geo.mesh,
+        fiber_space=fiber_space,
+        ffun=geo.ffun,
+        markers=markers,
+        **fiber_angles,
+    )
+    if comm.Get_rank() == 1:
+        logger.info("---------- Fibers regenerated ----------")
+
+    microstructure = pulse.Microstructure(f0=fiber, s0=sheet, n0=sheet_normal)
+    marker_functions = pulse.MarkerFunctions(ffun=geo.ffun)
+
+    return pulse.HeartGeometry(
+        mesh=geo.mesh,
+        markers=geo.markers,
+        microstructure=microstructure,
+        marker_functions=marker_functions,
+    )
+
+
+def get_fiber_angles(fiber_angles):
+    # Use provided fiber_angles or default ones if not provided
+    default_fiber_angles = get_default_fiber_angles()
+    fiber_angles = (
+        {
+            key: fiber_angles.get(key, default_fiber_angles[key])
+            for key in default_fiber_angles
+        }
+        if fiber_angles
+        else default_fiber_angles
+    )
+    return fiber_angles
+
+
+def get_default_fiber_angles():
+    """
+    Default fiber angles parameter for the left ventricle
+    """
+    angles = dict(
+        alpha_endo_lv=60,  # Fiber angle on the LV endocardium
+        alpha_epi_lv=-60,  # Fiber angle on the LV epicardium
+        beta_endo_lv=-15,  # Sheet angle on the LV endocardium
+        beta_epi_lv=15,  # Sheet angle on the LV epicardium
+    )
+    return angles
+
+
+# %%
+sample_name = "138_1"
+results_folder = "00_Results_coarse_with_unloading"
+fiber_angles = dict()
 paths = {
-        'OP130_2': "00_data/SHAM/6week/OP130_2",
-        '156_1':'00_data/AS/3week/156_1',
-        '138_1':'00_data/AS/12week/138_1',
+    "OP130_2": "00_data/SHAM/6week/OP130_2",
+    "156_1": "00_data/AS/3week/156_1",
+    "138_1": "00_data/AS/12week/138_1",
 }
-         
+
 directory_path = Path(paths[sample_name])
 fname = directory_path / "PV data/PV_data.csv"
-PV_data = np.loadtxt(fname.as_posix() ,delimiter=',')
+PV_data = np.loadtxt(fname.as_posix(), delimiter=",")
 mmHg_to_kPa = 0.133322
-atrium_pressure = PV_data[0,0] * mmHg_to_kPa
+atrium_pressure = PV_data[0, 0] * mmHg_to_kPa
 
 if results_folder is not None or not results_folder == "":
     results_folder_dir = directory_path / results_folder
     results_folder_dir.mkdir(exist_ok=True)
 else:
     results_folder_dir = directory_path
-    
+
 outdir = results_folder_dir / "Geometry"
 
-h5_fname='geometry.h5'
-unloaded_geometry = unloader(outdir, atrium_pressure=atrium_pressure, plot_flag=True, comm=comm, h5_fname=h5_fname)
+h5_fname = "geometry.h5"
+unloaded_geometry = unloader(
+    outdir,
+    atrium_pressure=atrium_pressure,
+    plot_flag=True,
+    comm=comm,
+    h5_fname=h5_fname,
+)
 
-fname = outdir.as_posix() +  '/unloaded_geometry.h5'
-unloaded_geometry.save(fname, overwrite_file=True)
+fiber_angles = get_fiber_angles(fiber_angles)
+unloaded_geometry_with_corrected_fibers = create_geometry(
+    unloaded_geometry, fiber_angles
+)
+fname = outdir.as_posix() + "/unloaded_geometry_with_fibers.h5"
+unloaded_geometry_with_corrected_fibers.save(fname, overwrite_file=True)
 
-fname = outdir.as_posix() +  '/unloaded_geometry_ffun.xdmf'
+fname = outdir.as_posix() + "/unloaded_geometry_with_fibers_ffun.xdmf"
 with dolfin.XDMFFile(comm, fname) as f:
     f.write(unloaded_geometry.mesh)
 
-#%%
+# %%
