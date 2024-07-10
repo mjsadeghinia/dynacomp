@@ -34,9 +34,9 @@ class HeartModelDynaComp:
             comm = dolfin.MPI.comm_world
         self.comm = comm
 
-        fiber_angles = self.get_fiber_angles(fiber_angles)
-        self.geometry = self.create_geometry(geo, fiber_angles)
-
+        # fiber_angles = self.get_fiber_angles(fiber_angles)
+        # self.geometry = self.create_geometry(geo, fiber_angles)
+        self.geometry = geo
         if geo_refinement is not None:
             geo_refined = self.refine_geo(self.geometry, geo_refinement)
             self.geometry = geo_refined
@@ -52,12 +52,22 @@ class HeartModelDynaComp:
         self._get_bc_params(bc_params)
         self.bcs = self.apply_bcs()
         self.problem = pulse.MechanicsProblem(self.geometry, self.material, self.bcs)
+        logger.info("----- Problem Created -----")
+        # # TODO: make it compatible with MPI
+        # Check if it is unloaded!
+        # if self.comm.Get_rank()==0:
+        #     U, _ = self.problem.state.split(deepcopy=True)
+        #     F = pulse.kinematics.DeformationGradient(U)
+        #     Wtotal = dolfin.assemble(self.material.strain_energy(F)*dolfin.dx)
 
-        U, _ = self.problem.state.split(deepcopy=True)
-        F = pulse.kinematics.DeformationGradient(U)
-        Wtotal = dolfin.assemble(self.material.strain_energy(F)*dolfin.dx)
-        if Wtotal != 0:
-            logger.warning(f'Initially, the Wtotal is  {Wtotal} and not zero')
+        #     if Wtotal != 0:
+        #         logger.critical(f'Initially, the Wtotal is  {Wtotal} and not zero')
+        #     point = dolfin.Point(self.geometry.mesh.coordinates()[0])
+        #     f_proj = dolfin.project(self.material.f0, dolfin.VectorFunctionSpace(self.geometry.mesh, "DG", 1))
+        #     if np.linalg.norm(f_proj(point)) != 1:
+        #         f_proj = dolfin.project(self.material.f0, dolfin.VectorFunctionSpace(self.geometry.mesh, "DG", 1))
+        #         logger.info(f'The f0 at the point is {f_proj(point)} with a norm of {np.linalg.norm(f_proj(point))}')
+        # # self.comm.Barrier()
 
         self.problem.solve()
 
@@ -162,7 +172,7 @@ class HeartModelDynaComp:
 
         results_u, _ = self.problem.state.split(deepcopy=True)
         results_u.t = t
-        with dolfin.XDMFFile(fname.as_posix()) as xdmf:
+        with dolfin.XDMFFile(self.comm, fname.as_posix()) as xdmf:
             xdmf.write_checkpoint(
                 results_u, "u", float(t + 1), dolfin.XDMFFile.Encoding.HDF5, True
             )
@@ -179,10 +189,10 @@ class HeartModelDynaComp:
         E = pulse.kinematics.GreenLagrangeStrain(F)
         E_proj = dolfin.project(E, function_space)
         fname = outdir / "results_E.xdmf"
-        with dolfin.XDMFFile(fname.as_posix()) as xdmf:
-            xdmf.write_checkpoint(
-                results_u, "u", float(t + 1), dolfin.XDMFFile.Encoding.HDF5, True
-            )
+        with dolfin.XDMFFile(self.comm, fname.as_posix()) as xdmf:
+            # xdmf.write_checkpoint(
+            #     results_u, "u", float(t + 1), dolfin.XDMFFile.Encoding.HDF5, True
+            # )
             xdmf.write_checkpoint(
                 E_proj, "E", float(t + 1), dolfin.XDMFFile.Encoding.HDF5, True
             )
@@ -191,7 +201,7 @@ class HeartModelDynaComp:
         results_activation = dolfin.Function(V, name="Activation")
         results_activation.vector()[:] = float(self.activation)
         fname = outdir / "activation.xdmf"
-        with dolfin.XDMFFile(fname.as_posix()) as xdmf:
+        with dolfin.XDMFFile(self.comm, fname.as_posix()) as xdmf:
             xdmf.write_checkpoint(
                 results_activation,
                 "activation",
