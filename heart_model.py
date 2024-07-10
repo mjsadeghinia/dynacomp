@@ -35,7 +35,7 @@ class HeartModelDynaComp:
         self.comm = comm
 
         fiber_angles = self.get_fiber_angles(fiber_angles)
-        self.geometry = self.create_geometry(self, geo, fiber_angles)
+        self.geometry = self.create_geometry(geo, fiber_angles)
 
         if geo_refinement is not None:
             geo_refined = self.refine_geo(self.geometry, geo_refinement)
@@ -52,6 +52,12 @@ class HeartModelDynaComp:
         self._get_bc_params(bc_params)
         self.bcs = self.apply_bcs()
         self.problem = pulse.MechanicsProblem(self.geometry, self.material, self.bcs)
+
+        U, _ = self.problem.state.split(deepcopy=True)
+        F = pulse.kinematics.DeformationGradient(U)
+        Wtotal = dolfin.assemble(self.material.strain_energy(F)*dolfin.dx)
+        if Wtotal != 0:
+            logger.warning(f'Initially, the Wtotal is  {Wtotal} and not zero')
 
         self.problem.solve()
 
@@ -292,6 +298,7 @@ class HeartModelDynaComp:
         )
         return fiber_angles
 
+    @staticmethod
     def get_default_fiber_angles():
         """
         Default fiber angles parameter for the left ventricle
