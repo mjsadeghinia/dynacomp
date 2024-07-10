@@ -3,7 +3,6 @@
 import numpy as np
 from pathlib import Path
 from structlog import get_logger
-from typing import Union
 import logging
 
 import pulse
@@ -19,6 +18,7 @@ class HeartModelDynaComp:
         geo: pulse.HeartGeometry,
         geo_refinement: int = None,
         bc_params: dict = None,
+        fiber_angles: dict = None,
         comm=None,
     ):
         """
@@ -30,51 +30,16 @@ class HeartModelDynaComp:
         """
         logging.getLogger("pulse").setLevel(logging.WARNING)
 
-        # # self.geometry = geo
-        import ldrb
-        # Decide on the angles you want to use
-        angles = dict(
-            alpha_endo_lv=60,  # Fiber angle on the LV endocardium
-            alpha_epi_lv=-60,  # Fiber angle on the LV epicardium
-            beta_endo_lv=-15,  # Sheet angle on the LV endocardium
-            beta_epi_lv=15,  # Sheet angle on the LV epicardium
-        )
-        # Convert markers to correct format
-        markers = {
-            "base": geo.markers["BASE"][0],
-            "lv": geo.markers["ENDO"][0],
-            "epi": geo.markers["EPI"][0],
-        }
-        # Choose space for the fiber fields
-        # This is a string on the form {family}_{degree}
-        fiber_space = "P_1"
-
-        # Compute the microstructure
-        fiber, sheet, sheet_normal = ldrb.dolfin_ldrb(
-            mesh=geo.mesh,
-            fiber_space=fiber_space,
-            ffun=geo.ffun,
-            markers=markers,
-            **angles,
-        )
-        fname = "00_data/AS/12week/138_1/test_fiber"
-        ldrb.fiber_to_xdmf(fiber, fname)
-        microstructure = pulse.Microstructure(f0=fiber, s0=sheet, n0=sheet_normal)
-        # microstructure = pulse.Microstructure(f0=geo.f0, s0=geo.s0, n0=geo.n0)
-        marker_functions = pulse.MarkerFunctions(ffun=geo.ffun)
-        self.geometry = pulse.HeartGeometry(
-            mesh=geo.mesh,
-            markers=geo.markers,
-            microstructure=microstructure,
-            marker_functions=marker_functions,
-        )
-        if geo_refinement is not None:
-            geo_refined = self.refine_geo(self.geometry, geo_refinement)
-            self.geometry = geo_refined
-
         if comm is None:
             comm = dolfin.MPI.comm_world
         self.comm = comm
+
+        fiber_angles = self.get_fiber_angles(fiber_angles)
+        self.geometry = self.create_geometry(self, geo, fiber_angles)
+
+        if geo_refinement is not None:
+            geo_refined = self.refine_geo(self.geometry, geo_refinement)
+            self.geometry = geo_refined
 
         self.lv_pressure = dolfin.Constant(0.0, name="LV Pressure")
         self.activation = dolfin.Constant(0.0, name="Activation")
@@ -87,71 +52,10 @@ class HeartModelDynaComp:
         self._get_bc_params(bc_params)
         self.bcs = self.apply_bcs()
         self.problem = pulse.MechanicsProblem(self.geometry, self.material, self.bcs)
-        # point = dolfin.Point(self.geometry.mesh.coordinates()[0])
-        # logger.info(f'The point location is {point.array()}')
-        
-        # U, P = self.problem.state.split(deepcopy=True)
-        # F = pulse.kinematics.DeformationGradient(U)
-        # C = F.T * F
-        # J = dolfin.det(F)
-        
-        # logger.info(f'Before SOLVE: The first 5 maximum displacement is  {np.sort(U.vector()[:])[:5]}')
-        # logger.info(f'Before SOLVE: The first 5 maximumlagrange multiplier is  {np.sort(P.vector()[:])[:5]}')
-        # logger.info(f'Before SOLVE: The cavity volume is  {self.problem.geometry.cavity_volume()}') 
-        
-        # F_proj = dolfin.project(F, dolfin.TensorFunctionSpace(self.geometry.mesh, "DG", 1))
-        # logger.info(f'The F at the point is  {F_proj(point)}')
-        
-        # C_proj = dolfin.project(C, dolfin.TensorFunctionSpace(self.geometry.mesh, "DG", 1))
-        # logger.info(f'The C at the point is  {C_proj(point)}')
-        
-        # I1 = pulse.kinematics.I1(F, self.material.isochoric)
-        # I4 = pulse.kinematics.I4(F, self.material.f0, self.material.isochoric)
-        # I4_proj = dolfin.project(I4, dolfin.FunctionSpace(self.geometry.mesh, "DG", 0))
-        # logger.info(f'The I4 at the point is {I4_proj(point)}')
-        
-        
-        # f_proj = dolfin.project(self.material.f0, dolfin.VectorFunctionSpace(self.geometry.mesh, "DG", 1))
-        # logger.info(f'The f0 at the point is {f_proj(point)} with a norm of {np.linalg.norm(f_proj(point))}')
-        
-        # ff = dolfin.outer(self.material.f0,self.material.f0)
-        # ff_proj = dolfin.project(ff, dolfin.TensorFunctionSpace(self.geometry.mesh, "DG", 1))
-        # logger.info(f'The outer(f0,f0) at the point is {ff_proj(point)}')
-        
-        # W1 = dolfin.assemble(self.material.W_1(I1)*dolfin.dx)
-        # W4 = dolfin.assemble(self.material.W_4(I4,'f')*dolfin.dx)
-        # Wtotal = dolfin.assemble(self.material.strain_energy(F)*dolfin.dx)
-        # logger.info(f'The W1 is  {W1}')
-        # logger.info(f'The W4 is  {W4}')
-        # logger.info(f'The Wtotal is  {Wtotal}')
-        
-        # logger.info('------- Solving ---------')          
-        self.problem.solve()
-        # U, P = self.problem.state.split(deepcopy=True)
-        # logger.info(f'Now, the first 5 maximum displacement is  {np.sort(U.vector()[:])[:5]}')
-        # logger.info(f'Now, the first 5 maximumlagrange multiplier is  {np.sort(P.vector()[:])[:5]}')
-        # logger.info(f'Now, the cavity volume is  {self.problem.geometry.cavity_volume()}')           
-        # logger.info(f'Now, the cavity volume is  {self.problem.geometry.cavity_volume(u=U)}')           
 
-        # F = pulse.kinematics.DeformationGradient(U)
-        # J = dolfin.det(F)
-        # logger.info(f'The strain energy function is  {dolfin.assemble(self.material.strain_energy(F)*dolfin.dx)}')
-        # logger.info(f'The compressibility energy function is  {dolfin.assemble(self.material.compressibility(P,J)*dolfin.dx)}')
-        # F_proj = dolfin.project(F, dolfin.TensorFunctionSpace(self.geometry.mesh, "DG", 1))
-        # logger.info(f'The F is  {F_proj(point)}')
-        # I1 = pulse.kinematics.I1(F, self.material.isochoric)
-        # I4 = pulse.kinematics.I4(F, self.material.f0, self.material.isochoric)
-        # W1 = dolfin.assemble(self.material.W_1(I1)*dolfin.dx)
-        # W4 = dolfin.assemble(self.material.W_4(I4,'f')*dolfin.dx)
-        # Wtotal = dolfin.assemble(self.material.strain_energy(F)*dolfin.dx)
-        # logger.info(f'The W1 is  {W1}')
-        # logger.info(f'The W4 is  {W4}')
-        # logger.info(f'The Wtotal is  {Wtotal}')
-        # breakpoint()
-        
-    def compute_volume(
-        self, activation_value: float, pressure_value: float
-    ) -> float:
+        self.problem.solve()
+
+    def compute_volume(self, activation_value: float, pressure_value: float) -> float:
         """
         Computes the volume of the heart model based on activation and pressure values.
 
@@ -162,26 +66,8 @@ class HeartModelDynaComp:
         Returns:
         float: The computed volume of the heart model.
         """
-        # logger.info(
-        #     "Computing volume",
-        #     activation_value=activation_value,
-        #     pressure_value=pressure_value,
-        # )
-        # It is very important to turn off continuation, other wise you would get division by zero, when one or both parameter is the same
-
-        # if not (
-        #     np.isclose(float(self.activation), activation_value)
-        #     and np.isclose(float(self.lv_pressure), pressure_value)
-        #  ):
-        # pulse.iterate.iterate(
-        #     self.problem,
-        #     (self.activation, self.lv_pressure),
-        #     (activation_value, pressure_value),
-        #     continuation=False,
-        # )
         pulse.iterate.iterate(self.problem, self.activation, activation_value)
         pulse.iterate.iterate(self.problem, self.lv_pressure, pressure_value)
-        # dolfin.MPI.barrier(self.comm)
         volume_current = self.problem.geometry.cavity_volume(
             u=self.problem.state.sub(0)
         )
@@ -190,7 +76,10 @@ class HeartModelDynaComp:
         return volume_current
 
     def dVda(
-        self, activation_value: float, pressure_value: float, delta_a_percent: float = 0.01,
+        self,
+        activation_value: float,
+        pressure_value: float,
+        delta_a_percent: float = 0.01,
     ) -> float:
         """
         Computes dV/da, with V is the volume of the model and a is the activation.
@@ -272,7 +161,25 @@ class HeartModelDynaComp:
                 results_u, "u", float(t + 1), dolfin.XDMFFile.Encoding.HDF5, True
             )
 
-
+        tensor_element = dolfin.TensorElement(
+            "DG", self.problem.geometry.mesh.ufl_cell(), 0
+        )
+        function_space = dolfin.FunctionSpace(
+            self.problem.geometry.mesh, tensor_element
+        )
+        # breakpoint()
+        # function = dolfin.Function(function_space)
+        F = pulse.kinematics.DeformationGradient(results_u) * dolfin.inv(self.F0)
+        E = pulse.kinematics.GreenLagrangeStrain(F)
+        E_proj = dolfin.project(E, function_space)
+        fname = outdir / "results_E.xdmf"
+        with dolfin.XDMFFile(fname.as_posix()) as xdmf:
+            xdmf.write_checkpoint(
+                results_u, "u", float(t + 1), dolfin.XDMFFile.Encoding.HDF5, True
+            )
+            xdmf.write_checkpoint(
+                E_proj, "E", float(t + 1), dolfin.XDMFFile.Encoding.HDF5, True
+            )
 
         V = dolfin.FunctionSpace(self.geometry.mesh, "DG", 0)
         results_activation = dolfin.Function(V, name="Activation")
@@ -337,6 +244,65 @@ class HeartModelDynaComp:
     def assign_state_variables(self, activation_value, pressure_value):
         self.lv_pressure.assign(pressure_value)
         self.activation.assign(activation_value)
+
+    def create_geometry(self, geo, fiber_angles):
+        import ldrb
+
+        # Convert markers to correct format
+        markers = {
+            "base": geo.markers["BASE"][0],
+            "lv": geo.markers["ENDO"][0],
+            "epi": geo.markers["EPI"][0],
+        }
+        # Choose space for the fiber fields
+        # This is a string on the form {family}_{degree}
+        fiber_space = "P_1"
+
+        # Compute the microstructure
+        fiber, sheet, sheet_normal = ldrb.dolfin_ldrb(
+            mesh=geo.mesh,
+            fiber_space=fiber_space,
+            ffun=geo.ffun,
+            markers=markers,
+            **fiber_angles,
+        )
+        if self.comm.Get_rank() == 1:
+            logger.info("---------- Fibers regenerated ----------")
+
+        microstructure = pulse.Microstructure(f0=fiber, s0=sheet, n0=sheet_normal)
+        marker_functions = pulse.MarkerFunctions(ffun=geo.ffun)
+
+        return pulse.HeartGeometry(
+            mesh=geo.mesh,
+            markers=geo.markers,
+            microstructure=microstructure,
+            marker_functions=marker_functions,
+        )
+
+    def get_fiber_angles(self, fiber_angles):
+        # Use provided fiber_angles or default ones if not provided
+        default_fiber_angles = self.get_default_fiber_angles()
+        fiber_angles = (
+            {
+                key: fiber_angles.get(key, default_fiber_angles[key])
+                for key in default_fiber_angles
+            }
+            if fiber_angles
+            else default_fiber_angles
+        )
+        return fiber_angles
+
+    def get_default_fiber_angles():
+        """
+        Default fiber angles parameter for the left ventricle
+        """
+        angles = dict(
+            alpha_endo_lv=60,  # Fiber angle on the LV endocardium
+            alpha_epi_lv=-60,  # Fiber angle on the LV epicardium
+            beta_endo_lv=-15,  # Sheet angle on the LV endocardium
+            beta_epi_lv=15,  # Sheet angle on the LV epicardium
+        )
+        return angles
 
     @staticmethod
     def refine_geo(geo, geo_refinement):
@@ -484,7 +450,10 @@ class HeartModelDynaComp:
             robin_bc = []
         if self.bc_params["base_spring"] > 0.0:
             robin_bc += [
-                pulse.RobinBC(value=dolfin.Constant(self.bc_params["base_spring"]), marker=self.geometry.markers["BASE"][0]),
+                pulse.RobinBC(
+                    value=dolfin.Constant(self.bc_params["base_spring"]),
+                    marker=self.geometry.markers["BASE"][0],
+                ),
             ]
         return robin_bc
 
