@@ -47,7 +47,6 @@ class HeartModelDynaComp:
         self.F0 = dolfin.Identity(self.geometry.mesh.geometric_dimension())
         self.E_ff = []
         self.myocardial_work = []
-        self.t = 0
 
         self.material = self.get_material_model()
         self._get_bc_params(bc_params)
@@ -160,6 +159,30 @@ class HeartModelDynaComp:
         self.F0 = pulse.kinematics.DeformationGradient(results_u)
         return volume
 
+
+    def save_tensor(self, tensor, fname, t, name = 'tensor'):
+        mesh = self.problem.geometry.mesh
+        tensor_element = dolfin.TensorElement("DG", mesh.ufl_cell(), 0)
+        function_space = dolfin.FunctionSpace(mesh, tensor_element)
+        tensor_proj = dolfin.project(tensor, function_space)
+        tensor_proj.t = t+1
+        with dolfin.XDMFFile(self.comm, fname.as_posix()) as xdmf:
+            xdmf.write_checkpoint(
+                tensor_proj, name, float(t + 1), dolfin.XDMFFile.Encoding.HDF5, True
+            )
+            
+    def save_scalar(self, scalar, fname, t, name = 'tensor'):
+        mesh = self.problem.geometry.mesh
+        tensor_element = dolfin.FiniteElement("DG", mesh.ufl_cell(), 0)
+        function_space = dolfin.FunctionSpace(mesh, tensor_element)
+        tensor_proj = dolfin.project(scalar, function_space)
+        tensor_proj.t = t+1
+        with dolfin.XDMFFile(self.comm, fname.as_posix()) as xdmf:
+            xdmf.write_checkpoint(
+                tensor_proj, name, float(t + 1), dolfin.XDMFFile.Encoding.HDF5, True
+            )   
+            
+        
     def save(self, t: float, outdir: Path = Path("results")):
         """
         Saves the current state of the heart model at a given time to a specified file.
@@ -178,45 +201,26 @@ class HeartModelDynaComp:
                 results_u, "u", float(t + 1), dolfin.XDMFFile.Encoding.HDF5, True
             )
             
-        
-        element = dolfin.VectorElement("CG", mesh.ufl_cell(), 1)
-        function_space = dolfin.FunctionSpace(mesh, element)
-        U_proj = dolfin.project(results_u, function_space)
-        U_proj.t = t+1
-        # deformed_mesh = dolfin.Mesh(mesh)
-        # dolfin.ALE.move(deformed_mesh,U_proj)
-        # breakpoint()
-
-        deformed_coordinates = mesh.coordinates() + U_proj.vector().get_local().reshape(-1, 3)
-        deformed_mesh = dolfin.Mesh(mesh)
-        deformed_mesh.coordinates()[:] = deformed_coordinates
-        
-        tensor_element = dolfin.TensorElement("DG", deformed_mesh.ufl_cell(), 0)
-        E_function_space = dolfin.FunctionSpace(deformed_mesh, tensor_element)
-        F = pulse.kinematics.DeformationGradient(results_u) * dolfin.inv(self.F0)
+        F = pulse.kinematics.DeformationGradient(results_u)
         E = pulse.kinematics.GreenLagrangeStrain(F)
-        breakpoint()
-        E_proj = dolfin.project(E, E_function_space)
-        E_proj.t = t+1
-        fname = outdir / "results_E.xdmf"
-        with dolfin.XDMFFile(self.comm, fname.as_posix()) as xdmf:
-            xdmf.write_checkpoint(
-                E_proj, 'E', float(t + 1), dolfin.XDMFFile.Encoding.HDF5, True
-            )
-
-        V = dolfin.FunctionSpace(self.geometry.mesh, "DG", 0)
-        results_activation = dolfin.Function(V, name="Activation")
-        results_activation.vector()[:] = float(self.activation)
-        fname = outdir / "activation.xdmf"
-        with dolfin.XDMFFile(self.comm, fname.as_posix()) as xdmf:
-            xdmf.write_checkpoint(
-                results_activation,
-                "activation",
-                float(t + 1),
-                dolfin.XDMFFile.Encoding.HDF5,
-                True,
-            )
-        self.t += 1
+        Cauchy = self.problem.material.CauchyStress(F)
+        S = self.problem.material.SecondPiolaStress(F)
+        MW = dolfin.inner(S,E)
+        
+        # fname = outdir / "Deformation_Gradient.xdmf"
+        # self.save_tensor(F, fname, t, name = 'Deformation Gradiant')
+        
+        # fname = outdir / "Green_Lagrange_Strain.xdmf"
+        # self.save_tensor(E, fname, t, name = 'Green Lagrange Strain')
+        
+        # fname = outdir / "Cauchy_Stress.xdmf"
+        # self.save_tensor(Cauchy, fname, t, name = 'Cauchy Stress')
+        
+        # fname = outdir / "Second_Piola_Stress.xdmf"
+        # self.save_tensor(S, fname, t, name = 'Second Piola Stress')
+    
+        # fname = outdir / "Myocardial_Work.xdmf"
+        # self.save_scalar(MW, fname, t, name = 'Second Piola Stress')
         
     def get_deformed_mesh(self):
         results_u, _ = self.problem.state.split(deepcopy=True)
