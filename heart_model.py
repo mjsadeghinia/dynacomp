@@ -18,7 +18,7 @@ class HeartModelDynaComp:
         geo: pulse.HeartGeometry,
         geo_refinement: int = None,
         bc_params: dict = None,
-        fiber_angles: dict = None,
+        matparams: dict = None,
         comm=None,
     ):
         """
@@ -34,8 +34,6 @@ class HeartModelDynaComp:
             comm = dolfin.MPI.comm_world
         self.comm = comm
 
-        # fiber_angles = self.get_fiber_angles(fiber_angles)
-        # self.geometry = self.create_geometry(geo, fiber_angles)
         self.geometry = geo
         if geo_refinement is not None:
             geo_refined = self.refine_geo(self.geometry, geo_refinement)
@@ -48,7 +46,7 @@ class HeartModelDynaComp:
         self.E_ff = []
         self.myocardial_work = []
 
-        self.material = self.get_material_model()
+        self.material = self.get_material_model(matparams)
         self._get_bc_params(bc_params)
         self.bcs = self.apply_bcs()
         self.problem = pulse.MechanicsProblem(self.geometry, self.material, self.bcs)
@@ -366,7 +364,7 @@ class HeartModelDynaComp:
             microstructure=microstructure,
         )
 
-    def get_material_model(self):
+    def get_material_model(self, matparams):
         """
         Constructs the material model for the heart using default parameters.
 
@@ -374,8 +372,37 @@ class HeartModelDynaComp:
         A material model object for use in a pulse.MechanicsProblem.
         """
         # Based on rat model of https://doi.org/10.1016/j.jmbbm.2021.104430.
-        # matparams = pulse.HolzapfelOgden.default_parameters()
-        matparams = dict(
+        
+        matparams = self.get_matparams(matparams)
+        
+        return pulse.HolzapfelOgden(
+            activation=self.activation,
+            active_model="active_stress",
+            parameters=matparams,
+            f0=self.geometry.f0,
+            s0=self.geometry.s0,
+            n0=self.geometry.n0,
+        )
+
+    def get_matparams(self, matparams: dict = dict()):
+        # Use provided fiber_angles or default ones if not provided
+        default_matparams = self.get_default_matparams()
+        matparams = (
+            {
+                key: matparams.get(key, default_matparams[key])
+                for key in default_matparams
+            }
+            if matparams
+            else default_matparams
+        )
+        return matparams
+
+    @staticmethod
+    def get_default_matparams():
+        """
+        Default material parameters for the left ventricle
+        """
+        return dict(
             a=10.726,
             a_f=7.048,
             b=2.118,
@@ -384,14 +411,6 @@ class HeartModelDynaComp:
             b_s=0.0,
             a_fs=0.0,
             b_fs=0.0,
-        )
-        return pulse.HolzapfelOgden(
-            activation=self.activation,
-            active_model="active_stress",
-            parameters=matparams,
-            f0=self.geometry.f0,
-            s0=self.geometry.s0,
-            n0=self.geometry.n0,
         )
 
     def apply_bcs(self):
