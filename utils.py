@@ -66,10 +66,10 @@ def get_default_mesh_settings(sample_name, mesh_quality):
                 'seed_num_base_epi': 30,
                 'seed_num_base_endo': 26,
                 'num_z_sections_epi': 15,
-                'num_z_sections_endo': 18,
+                'num_z_sections_endo': 19,
                 'num_mid_layers_base': 3,
-                'smooth_level_epi': 0.1,
-                'smooth_level_endo': 0.15,
+                'smooth_level_epi': 0.08,
+                'smooth_level_endo': 0.11,
                 'num_lax_points': 32,
                 'lax_smooth_level_epi': 1,
                 'lax_smooth_level_endo': 1.5,
@@ -80,7 +80,7 @@ def get_default_mesh_settings(sample_name, mesh_quality):
                 'scale_for_delauny': 1.2,
                 't_mesh': -1,
                 'MeshSizeMin': None,
-                'MeshSizeMax': 1
+                'MeshSizeMax': .5
             }
         },
         'OP154_M3': {
@@ -187,6 +187,26 @@ def get_default_mesh_settings(sample_name, mesh_quality):
                 't_mesh': -1,
                 'MeshSizeMin': None,
                 'MeshSizeMax': .75
+            },
+            'very_fine': {
+                'seed_num_base_epi': 70,
+                'seed_num_base_endo': 40,
+                'num_z_sections_epi': 45,
+                'num_z_sections_endo': 20,
+                'num_mid_layers_base': 5,
+                'smooth_level_epi': 0.05,
+                'smooth_level_endo': 0.075,
+                'num_lax_points': 32,
+                'lax_smooth_level_epi': 1,
+                'lax_smooth_level_endo': 1.5,
+                'z_sections_flag_epi': 0,
+                'z_sections_flag_endo': 0,
+                'seed_num_threshold_epi': 20,
+                'seed_num_threshold_endo': 15,
+                'scale_for_delauny': 4.5,
+                't_mesh': -1,
+                'MeshSizeMin': None,
+                'MeshSizeMax': .25
             }
         },
         '129_1': {
