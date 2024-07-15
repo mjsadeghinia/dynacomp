@@ -10,7 +10,11 @@ logger = get_logger()
 
 # %%
 sample_name = '138_1'
-results_folder = "00_Results_coarse_with_unloading"
+mesh_quality='fine'
+results_folder = "00_Results_" + mesh_quality
+
+mesh_settings = None
+fiber_angles = None
 
 paths = {
         'OP130_2': "00_data/SHAM/6week/OP130_2",
@@ -22,9 +26,6 @@ paths = {
 h5_overwrite = True
 directory_path = Path(paths[sample_name])
 
-mesh_quality='coarse'
-mesh_settings = None
-fiber_angles = None
 
 directory_path = Path(directory_path)
 h5_file = compile_h5(directory_path, overwrite=h5_overwrite)  
