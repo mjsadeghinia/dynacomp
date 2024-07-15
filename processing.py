@@ -20,7 +20,7 @@ comm = dolfin.MPI.comm_world
 # UNITS:
 # [kg]   [mm]    [s]    [mN]     [kPa]       [mN-mm]	    g = 9.806e+03
 
-def main(path, results_folder, matparams: dict = None):
+def main(path, results_folder, matparams: dict = None, comm=None):
     
     directory_path = Path(path)
     bc_params = {"base_spring": 1}
@@ -97,14 +97,16 @@ def main(path, results_folder, matparams: dict = None):
     )
     return collector
     # %%
-sample_name = "138_1"
-results_folder = "00_Results_coarse_with_unloading"
+sample_name = '156_1'
+mesh_quality='fine'
+results_folder = "00_Results_" + mesh_quality
 paths = {
-        "OP130_2": "00_data/SHAM/6week/OP130_2",
-        "156_1": "00_data/AS/3week/156_1",
-        "138_1": "00_data/AS/12week/138_1",
-    }
+        'OP130_2': "00_data/SHAM/6week/OP130_2",
+        '156_1':'00_data/AS/3week/156_1',
+        '129_1':'00_data/AS/6week/129_1',
+        '138_1':'00_data/AS/12week/138_1',
+}
 
-matparams = dict(a=1.726,a_f=7.048,b=1.118,b_f=0.001,a_s=0.0,b_s=0.0,a_fs=0.0,b_fs=0.0)
-unloaded_geo =  unloading(paths[sample_name], results_folder, matparams=matparams)
-collector = main(paths[sample_name], results_folder, matparams=matparams)
+matparams = dict(a=10.726,a_f=7.048,b=2.118,b_f=0.001,a_s=0.0,b_s=0.0,a_fs=0.0,b_fs=0.0)
+# unloaded_geo =  unloading(paths[sample_name], results_folder, matparams=matparams, comm=comm)
+collector = main(paths[sample_name], results_folder, matparams=matparams, comm=comm)

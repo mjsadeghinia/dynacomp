@@ -371,7 +371,7 @@ class HeartModelDynaComp:
         Returns:
         A material model object for use in a pulse.MechanicsProblem.
         """
-        # Based on rat model of https://doi.org/10.1016/j.jmbbm.2021.104430.
+        # Based on rat model of https://doi.org/10.1016/j.jmbbm.2021.104430
         
         matparams = self.get_matparams(matparams)
         

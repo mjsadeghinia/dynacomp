@@ -203,7 +203,7 @@ def get_default_fiber_angles():
     )
     return angles
 
-def unloading(path, results_folder, fiber_angles: dict = None, matparams: dict = None):
+def unloading(path, results_folder, fiber_angles: dict = None, matparams: dict = None, comm=None):
 
     directory_path = Path(path)
     fname = directory_path / "PV data/PV_data.csv"
@@ -234,6 +234,7 @@ def unloading(path, results_folder, fiber_angles: dict = None, matparams: dict =
         unloaded_geometry, fiber_angles
     )
     fname = outdir.as_posix() + "/unloaded_geometry_with_fibers.h5"
+    # if comm.Get_rank()==0:
     unloaded_geometry_with_corrected_fibers.save(fname, overwrite_file=True)
 
     fname = outdir.as_posix() + "/unloaded_geometry_with_fibers_ffun.xdmf"
