@@ -9,46 +9,39 @@ from create_geometry import create_geometry
 logger = get_logger()
 
 # %%
-sample_name = '138_1'
-mesh_quality='fine'
-results_folder = "00_Results_" + mesh_quality
-
-mesh_settings = None
+sample_name = '156_1'
+mesh_quality='coarse'
+results_folder = "00_Results_test_" + mesh_quality
+h5_overwrite = True
+setting_dir = "/home/shared/dynacomp/settings"
+#%%
+setting_dir = Path(setting_dir)
+settings_fname = setting_dir / f"{sample_name}.json"
+settings = utils.load_settings(settings_fname)
+directory_path = Path(settings["path"])
+mask_settings = settings["mask"]
+mesh_settings = settings["mesh"][mesh_quality]
 fiber_angles = None
 
-paths = {
-        'OP130_2': "00_data/SHAM/6week/OP130_2",
-        '156_1':'00_data/AS/3week/156_1',
-        '129_1':'00_data/AS/6week/129_1',
-        '138_1':'00_data/AS/12week/138_1',
-}
-         
-h5_overwrite = True
-directory_path = Path(paths[sample_name])
-
-
-directory_path = Path(directory_path)
 h5_file = compile_h5(directory_path, overwrite=h5_overwrite)  
-pre_process_mask_settings = utils.get_mask_settings(sample_name)
 h5_file = pre_process_mask(
     h5_file,
     save_flag=True,
-    settings=pre_process_mask_settings,
+    settings=mask_settings,
     results_folder=results_folder,
 )
-if sample_name in {'129_1'} :
+if settings["remove_slice"]:
     h5_file = remove_slice(h5_file, slice_num=0, save_flag=True, results_folder=results_folder)  
     
-if sample_name in {'OP130_2'}:
+if settings["shift_slice_mask"]:
     slice_num = 2
     slice_num_ref = 1
     h5_file = shift_slice_mask(h5_file,slice_num,slice_num_ref,save_flag = True,results_folder=results_folder)    
 
-if sample_name in {'138_1', '129_1'} :
+if settings["close_apex"]:
     h5_file = close_apex(h5_file, itr=2, itr_dilation = 3 ,save_flag = True,results_folder=results_folder)    
 
 #%%
-mesh_settings = utils.get_mesh_settings(mesh_settings, sample_name=sample_name, mesh_quality=mesh_quality)
 LVMesh, meshdir = create_mesh(
     directory_path,
     mesh_settings,
