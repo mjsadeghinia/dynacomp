@@ -168,7 +168,7 @@ class HeartModelDynaComp:
                 tensor_proj, name, float(t + 1), dolfin.XDMFFile.Encoding.HDF5, True
             )
 
-    def save_scalar(self, scalar, fname, t, name="tensor"):
+    def save_scalar(self, scalar, fname, t, name="scalar"):
         mesh = self.problem.geometry.mesh
         tensor_element = dolfin.FiniteElement("DG", mesh.ufl_cell(), 0)
         function_space = dolfin.FunctionSpace(mesh, tensor_element)
