@@ -2,7 +2,6 @@ from pathlib import Path
 import json
 
 import arg_parser
-import utils
 import mesh_utils 
 import meshing
 import create_geometry 
@@ -49,7 +48,7 @@ def main(args=None) -> int:
     output_folder = args.output_folder
     
     settings_fname = setting_dir / f"{sample_name}.json"
-    settings = utils.load_settings(settings_fname)
+    settings = load_settings(settings_fname)
     data_dir = Path(settings["path"])
     mesh_settings = settings["mesh"][mesh_quality]
     # Creating outdir, a folder with the name of output_folder in the data_dir for saving the results
