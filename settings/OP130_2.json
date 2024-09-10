@@ -3,7 +3,7 @@
     "remove_slice": false,
     "shift_slice_mask": true,
     "close_apex": false,
-    "mask": [0, 0, 1, 1, 1, 1, 1, 1],
+    "mask": [2, 2, 2, 2, 2, 2, 1, 1, 1],
     "mesh": {
         "coarse": {
             "seed_num_base_epi": 15,
