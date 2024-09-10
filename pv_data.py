@@ -87,8 +87,16 @@ def average_array(arrays):
 
 
 # %%
-directory_path = Path("00_data/SHAM/6week/OP130_2")
-sample_name = 'OP130_2'
+sample_name = '156_1'
+
+paths = {
+        'OP130_2': "00_data/SHAM/6week/OP130_2",
+        '156_1':'00_data/AS/3week/156_1',
+        '129_1':'00_data/AS/6week/129_1',
+        '138_1':'00_data/AS/12week/138_1',
+}
+         
+directory_path = Path(paths[sample_name])
 pv_data_dir = directory_path / "PV data"
 settings = {
         '156_1': {
@@ -97,8 +105,10 @@ settings = {
             'recording_num' : 2,
             'smooth_level' : 0.1,
             'skip_initial_data': 0,
-            'skip_final_data': 0,
+            'skip_final_data': 1,
             'ind_ED' : 0,
+            'new_initial_p' : 12,
+            'new_initial_v' : 18.5,
         },
         'OP130_2': {
             'p_channel' : 1,
@@ -108,6 +118,24 @@ settings = {
             'skip_initial_data': 0,
             'skip_final_data': 1,
             'ind_ED' : 75,
+        },
+        '138_1': {
+            'p_channel' : 1,
+            'v_channel' : 2,
+            'recording_num' : 1,
+            'smooth_level' : .3,
+            'skip_initial_data': 0,
+            'skip_final_data': 1,
+            'ind_ED' : 71,
+        },
+        '129_1': {
+            'p_channel' : 1,
+            'v_channel' : 2,
+            'recording_num' : 2,
+            'smooth_level' : .3,
+            'skip_initial_data': 0,
+            'skip_final_data': 1,
+            'ind_ED' : 71,
         }
 }
 
@@ -138,14 +166,27 @@ pressures = np.hstack((p_average_sliced[ind_ED:],p_average_sliced[:ind_ED+1]))
 fig, ax = plt.subplots(figsize=(8, 6))
 for i in range(len(vols_divided)):
     ax.plot(vols_divided[i], pres_divided[i], "k", linewidth=0.02)
-ax.plot(volumes,pressures, 'k-')
+ax.plot(volumes,pressures, 'k--')
 
 min_pressure = np.min(pressures)
 if min_pressure<0:
     pressures += -min_pressure*1.1
     ax.plot(volumes,pressures, 'b-')
-    ax.scatter(volumes[0],pressures[0])
-plt.show()
+if 'new_initial_p' in settings[sample_name]:
+    if 'new_initial_v' in settings[sample_name]:
+        volumes = np.hstack((settings[sample_name]['new_initial_v'], volumes))
+    else:
+        p_ratio = settings[sample_name]['new_initial_p']/pressures[0]
+        volumes = np.hstack((volumes[0]*p_ratio, volumes))
+    pressures = np.hstack((settings[sample_name]['new_initial_p'], pressures))
+    
+
+ax.scatter(volumes[0],pressures[0])
+ax.plot(volumes,pressures, 'k-')
+plt.xlabel('Volume (RVU)')
+plt.ylabel('LV Pressure (mmHg)') 
+fname = pv_data_dir / "PV_data.png"
+plt.savefig(fname)
 #%%
 
 fname = pv_data_dir / "PV_data.csv"

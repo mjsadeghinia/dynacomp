@@ -55,8 +55,8 @@ def get_default_fiber_angles():
     angles = dict(
         alpha_endo_lv=60,  # Fiber angle on the LV endocardium
         alpha_epi_lv=-60,  # Fiber angle on the LV epicardium
-        beta_endo_lv=0,  # Sheet angle on the LV endocardium
-        beta_epi_lv=0,  # Sheet angle on the LV epicardium
+        beta_endo_lv=-15,  # Sheet angle on the LV endocardium
+        beta_epi_lv=15,  # Sheet angle on the LV epicardium
     )
     return angles
 
@@ -206,7 +206,7 @@ def create_geometry(
     }
     # Choose space for the fiber fields
     # This is a string on the form {family}_{degree}
-    fiber_space = "P_2"
+    fiber_space = "P_1"
 
     # Compute the microstructure
     fiber, sheet, sheet_normal = ldrb.dolfin_ldrb(
