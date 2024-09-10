@@ -178,15 +178,8 @@ def pre_process_mask(
     datasets, attrs = load_from_h5(h5_path)
     K, I, T_end = attrs["number_of_slices"], attrs["image_matrix_size"], attrs["T_end"]
     mask = datasets["LVmask"]
-
-    if results_folder is not None or not results_folder == "":
-        results_folder_dir = Path(h5_path).parent / results_folder
-        results_folder_dir.mkdir(exist_ok=True)
-    else:
-        results_folder_dir = Path(h5_path).parent
-
     if save_flag:
-        output_dir = results_folder_dir / "01_GapClosed"
+        output_dir = results_folder / "01_GapClosed"
         output_dir.mkdir(exist_ok=True)
 
     mask_closed = np.empty((K, I, I, T_end))
@@ -271,14 +264,8 @@ def shift_slice_mask(
     K, I, T_end = attrs["number_of_slices"], attrs["image_matrix_size"], attrs["T_end"]
     mask = datasets["LVmask"]
 
-    if results_folder is not None or not results_folder == "":
-        results_folder_dir = Path(h5_file).parent / results_folder
-        results_folder_dir.mkdir(exist_ok=True)
-    else:
-        results_folder_dir = Path(h5_file).parent
-    
     if save_flag:
-        output_dir = results_folder_dir / "01_GapClosed"
+        output_dir = results_folder / "01_GapClosed"
         output_dir.mkdir(exist_ok=True)
         
     mask_shifted = np.empty((K, I, I, T_end))
@@ -340,14 +327,8 @@ def close_apex(
     K, I, T_end = attrs["number_of_slices"], attrs["image_matrix_size"], attrs["T_end"]
     mask = datasets["LVmask"]
 
-    if results_folder is not None or not results_folder == "":
-        results_folder_dir = Path(h5_file).parent / results_folder
-        results_folder_dir.mkdir(exist_ok=True)
-    else:
-        results_folder_dir = Path(h5_file).parent
-    
     if save_flag:
-        output_dir = results_folder_dir / "01_GapClosed"
+        output_dir = results_folder / "01_GapClosed"
         output_dir.mkdir(exist_ok=True)
         
     mask_closed_apex = np.zeros((K+1,I,I,T_end))
@@ -387,14 +368,8 @@ def repair_slice(
     K, I, T_end = attrs["number_of_slices"], attrs["image_matrix_size"], attrs["T_end"]
     mask = datasets["LVmask"]
 
-    if results_folder is not None or not results_folder == "":
-        results_folder_dir = Path(h5_file).parent / results_folder
-        results_folder_dir.mkdir(exist_ok=True)
-    else:
-        results_folder_dir = Path(h5_file).parent
-    
     if save_flag:
-        output_dir = results_folder_dir / "01_GapClosed"
+        output_dir = results_folder / "01_GapClosed"
         output_dir.mkdir(exist_ok=True)
         
     mask_repaired = np.zeros((K,I,I,T_end))
@@ -441,14 +416,8 @@ def remove_slice(
     K, I, T_end = attrs["number_of_slices"], attrs["image_matrix_size"], attrs["T_end"]
     mask = datasets["LVmask"]
 
-    if results_folder is not None or not results_folder == "":
-        results_folder_dir = Path(h5_file).parent / results_folder
-        results_folder_dir.mkdir(exist_ok=True)
-    else:
-        results_folder_dir = Path(h5_file).parent
-
     if save_flag:
-        output_dir = results_folder_dir / "01_GapClosed"
+        output_dir = results_folder / "01_GapClosed"
         output_dir.mkdir(exist_ok=True)
     
     mask_removed = np.zeros((K-1,I,I,T_end))
