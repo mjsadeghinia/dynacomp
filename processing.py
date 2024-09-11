@@ -61,7 +61,7 @@ def main(args=None) -> int:
     mesh_dir = data_dir / f"{output_folder}/Geometry"
 
     # delet files for saving again
-    outdir = arg_parser.prepare_oudir_processing(data_dir, output_folder)
+    outdir = arg_parser.prepare_oudir_processing(data_dir, output_folder, comm)
     comm.Barrier()
 
     # Loading PV Data

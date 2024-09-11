@@ -173,18 +173,24 @@ def create_bc_params(args):
 
 
 
-def prepare_oudir_processing(data_dir, output_folder):
+def prepare_oudir_processing(data_dir, output_folder, comm=None):
     outdir = data_dir / f"{output_folder}/00_Modeling"
-    # Create the directory if it doesn't exist
-    if not outdir.exists():
-        outdir.mkdir(parents=True)
-    else:
-        # Remove the directory contents but not the directory itself
-        for item in outdir.iterdir():
-            if item.is_file():
-                item.unlink()  # Remove file
-            elif item.is_dir():
-                shutil.rmtree(item)  # Remove directory
+    
+    if comm is None:
+        import dolfin
+        comm = dolfin.MPI.comm_world
+        
+    if comm.rank == 0:
+        # Create the directory if it doesn't exist
+        if not outdir.exists():
+            outdir.mkdir(parents=True)
+        else:
+            # Remove the directory contents but not the directory itself
+            for item in outdir.iterdir():
+                if item.is_file():
+                    item.unlink()  # Remove file
+                elif item.is_dir():
+                    shutil.rmtree(item)  # Remove directory
     return outdir
 
 
