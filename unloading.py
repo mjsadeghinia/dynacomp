@@ -95,7 +95,7 @@ def recreate_geometry_with_fibers(geo, fiber_angles):
     }
     # Choose space for the fiber fields
     # This is a string on the form {family}_{degree}
-    fiber_space = "DG_2"
+    fiber_space = "DG_0"
 
     # Compute the microstructure
     fiber, sheet, sheet_normal = ldrb.dolfin_ldrb(

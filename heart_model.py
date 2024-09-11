@@ -2,13 +2,27 @@
 # import dolfin.function
 import numpy as np
 from pathlib import Path
-from structlog import get_logger
+import structlog 
 import logging
 
 import pulse
 import dolfin
 
-logger = get_logger()
+
+# Configure structlog to use ConsoleRenderer with custom formatting and colors
+structlog.configure(
+    processors=[
+        structlog.processors.TimeStamper(fmt="ISO", utc=True),  # Timestamp formatting
+        structlog.processors.add_log_level,  # Add log level to output
+        structlog.dev.ConsoleRenderer(colors=True)  # Enable colors in the console
+    ],
+    context_class=dict,
+    logger_factory=structlog.PrintLoggerFactory(),
+    wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
+    cache_logger_on_first_use=True,
+)
+
+logger = structlog.get_logger()
 
 
 # %%
@@ -67,6 +81,41 @@ class HeartModelDynaComp:
         # # self.comm.Barrier()
 
         self.problem.solve()
+        
+        # def log_matrix(matrix, label = 'matrix'):
+        #     matrix = matrix.reshape(3, 3)
+        #     logger.info(f'The {label} matrix at the point is:\n' + '\n'.join([' '.join([f'{item: .6f}' for item in row]) for row in matrix]))
+
+        # # Logger function to print a vector vertically
+        # def log_vector(vector):
+        #     logger.info('The vector at the point is:\n' + '\n'.join([f'{item: .6f}' for item in vector]))
+
+
+        # logger.info(f"The inital pressure is {self.lv_pressure.values()}")
+        # logger.info(f"The inital activation is {self.activation.values()}")
+        # self.problem.solve()
+        # u, p = self.problem.state.split(deepcopy=True)
+        # point = dolfin.Point(self.geometry.mesh.coordinates()[0])
+
+        # F = pulse.kinematics.DeformationGradient(u)
+        # F_proj = dolfin.project(F, dolfin.TensorFunctionSpace(self.geometry.mesh, "DG", 0))
+        # logger.info(f'The F matrix at the point is:')
+        # log_matrix(F_proj(point),  label='matrix F')
+
+        # C = pulse.kinematics.RightCauchyGreen(F)
+        # C_proj = dolfin.project(C, dolfin.TensorFunctionSpace(self.geometry.mesh, "DG", 0))
+        # logger.info(f'The C matrix at the point is:')
+        # log_matrix(C_proj(point), label='matrix C')
+
+        # f_proj = dolfin.project(self.material.f0, dolfin.VectorFunctionSpace(self.geometry.mesh, "DG", 0))
+        # log_vector(f_proj(point))
+        # logger.info(f'The norm of the vecotr is {np.linalg.norm(f_proj(point))}')
+
+        # I4 = pulse.kinematics.I4(F, self.material.f0, self.material.isochoric)
+        # I4_proj = dolfin.project(I4, dolfin.FunctionSpace(self.geometry.mesh, "DG", 0))
+        # logger.info(f'Initially, the I4 is  {I4_proj(point)} and not unity')
+        # breakpoint()
+
 
     def compute_volume(self, activation_value: float, pressure_value: float) -> float:
         """
