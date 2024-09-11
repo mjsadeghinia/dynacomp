@@ -1,5 +1,6 @@
 import argparse
 from pathlib import Path
+import shutil
 from structlog import get_logger
 
 logger = get_logger()
@@ -118,8 +119,73 @@ def parse_arguments_processing(args=None):
     """
     Parse the command-line arguments.
     """
-    return None
+    parser = argparse.ArgumentParser()
+    
+    valid_sample_names = ["156_1", "OP130_2", "138_1", "129_1"]
+    parser.add_argument(
+        "-n",
+        "--name",
+        default="156_1",
+        choices=valid_sample_names,
+        type=str,
+        help="The sample file name to be p",
+    )
+    
+    parser.add_argument(
+        "--settings_dir",
+        default="/home/shared/dynacomp/settings",
+        type=Path,
+        help="The settings directory where json files are stored.",
+    )
+    
+    # Arguments for HeartModel boundary conditions
+    parser.add_argument(
+        "--pericardium_spring",
+        default=0.0001,
+        type=float,
+        help="HeartModel BC: The stiffness of the spring on the pericardium.",
+    )
+    parser.add_argument(
+        "--base_spring",
+        default=1,
+        type=float,
+        help="HeartModel BC: The stiffness of the spring at the base.",
+    )
+    
+    parser.add_argument(
+        "-o",
+        "--output_folder",
+        default= "output",
+        type=str,
+        help="The result folder name tha would be created in the directory of the sample.",
+    )
 
+    return parser.parse_args(args)
+
+def create_bc_params(args):
+    """
+    Create a dictionary of B.C. parameters from the parsed arguments.
+    """
+    return {
+        "pericardium_spring": args.pericardium_spring,
+        "base_spring": args.base_spring,
+    }
+
+
+
+def prepare_oudir_processing(data_dir, output_folder):
+    outdir = data_dir / f"{output_folder}/00_Modeling"
+    # Create the directory if it doesn't exist
+    if not outdir.exists():
+        outdir.mkdir(parents=True)
+    else:
+        # Remove the directory contents but not the directory itself
+        for item in outdir.iterdir():
+            if item.is_file():
+                item.unlink()  # Remove file
+            elif item.is_dir():
+                shutil.rmtree(item)  # Remove directory
+    return outdir
 
 
 def prepare_outdir(data_dir, output_folder):
