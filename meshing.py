@@ -29,13 +29,8 @@ def create_mesh(
     T = len(tck_epi[0])
     K = len(tck_epi[0][0])
     if plot_flag:
-        if results_folder is not None or not results_folder == "":
-            results_folder_dir = directory_path / results_folder
-            results_folder_dir.mkdir(exist_ok=True)
-        else:
-            results_folder_dir = directory_path
 
-        outdir = results_folder_dir / "02_ShaxBSpline"
+        outdir = results_folder / "02_ShaxBSpline"
         outdir.mkdir(exist_ok=True)
         for t in range(T):
             K_endo = len(tck_endo[0][t])
@@ -72,7 +67,7 @@ def create_mesh(
         LAX_points_endo, mesh_settings["lax_smooth_level_endo"]
     )
     if plot_flag:
-        outdir = results_folder_dir / "03_LaxBSpline"
+        outdir = results_folder / "03_LaxBSpline"
         outdir.mkdir(exist_ok=True)
         for t in range(T):
             fig = plt.figure()
@@ -101,7 +96,7 @@ def create_mesh(
         mesh_settings["z_sections_flag_endo"],
     )
     if plot_flag:
-        outdir = results_folder_dir / "04_Contours"
+        outdir = results_folder / "04_Contours"
         outdir.mkdir(exist_ok=True)
         for t in range(T):
             fig = go.Figure()
@@ -124,7 +119,7 @@ def create_mesh(
         seed_num_threshold=mesh_settings["seed_num_threshold_endo"],
     )
     if plot_flag:
-        outdir = results_folder_dir / "05_Point Cloud"
+        outdir = results_folder / "05_Point Cloud"
         outdir.mkdir(exist_ok=True)
         for t in range(T):
             fig = go.Figure()
@@ -138,7 +133,7 @@ def create_mesh(
             fnmae = outdir.as_posix() + "/" + str(t) + "_endo.html"
             fig.write_html(fnmae)
 
-    outdir = results_folder_dir / "06_Mesh/"
+    outdir = results_folder / "06_Mesh/"
     outdir.mkdir(exist_ok=True)
     LVmesh = mu.VentricMesh(
         points_cloud_epi,

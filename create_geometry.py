@@ -206,7 +206,7 @@ def create_geometry(
     }
     # Choose space for the fiber fields
     # This is a string on the form {family}_{degree}
-    fiber_space = "P_1"
+    fiber_space = "DG_2"
 
     # Compute the microstructure
     fiber, sheet, sheet_normal = ldrb.dolfin_ldrb(

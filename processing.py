@@ -1,72 +1,84 @@
 # %%
 import numpy as np
 from pathlib import Path
-import shutil
 from structlog import get_logger
+import arg_parser
+import json
 
 import dolfin
 import pulse
 from heart_model import HeartModelDynaComp
 from datacollector import DataCollector
 from coupling_solver import newton_solver
-from unloading import unloading
 
 logger = get_logger()
 
-comm = dolfin.MPI.comm_world
-
 # %%
-
 # UNITS:
 # [kg]   [mm]    [s]    [mN]     [kPa]       [mN-mm]	    g = 9.806e+03
+def load_settings(setting_dir, sample_name):
+    settings_fname = setting_dir / f"{sample_name}.json"
+    with open(settings_fname, "r") as file:
+        settings = json.load(file)
+    return settings
 
-def main(path, results_folder, matparams: dict = None, comm=None):
-    
-    directory_path = Path(path)
-    bc_params = {"base_spring": 1}
+def load_pressure_volumes(data_dir):
+    PV_data_fname = data_dir / "PV data/PV_data.csv"
+    PV_data = np.loadtxt(PV_data_fname.as_posix(), delimiter=",")
+    mmHg_to_kPa = 0.133322
+    pressures = PV_data[0, :] * mmHg_to_kPa
+    volumes = PV_data[1, :]
+    return pressures, volumes
 
-    if results_folder is not None or not results_folder == "":
-        results_folder_dir = directory_path / results_folder
-        results_folder_dir.mkdir(exist_ok=True)
+def caliberate_volumes(mesh_dir, vols, comm=None):
+    ED_geometry_fname = mesh_dir / "geometry"
+    ED_geometry = pulse.HeartGeometry.from_file(
+        ED_geometry_fname.as_posix() + ".h5", comm=comm
+    )
+    v = ED_geometry.cavity_volume()
+    RVU_to_microL = v / vols[0]
+    if comm.Get_rank() == 0:
+        logger.info(f"Caliberation is done, RVU to micro Liter is {RVU_to_microL}")
+    volumes = vols * RVU_to_microL
+    return volumes
+
+
+# %%
+def main(args=None) -> int:
+    comm = dolfin.MPI.comm_world
+    # Getting the arguments
+    if args is None:
+        args = arg_parser.parse_arguments_processing(args)
     else:
-        results_folder_dir = directory_path
-    outdir = results_folder_dir / "00_Modeling"
-    mesh_outdir = results_folder_dir / "Geometry"
-    unloaded_geometry_fname = mesh_outdir / "unloaded_geometry_with_fibers"
+        args = arg_parser.update_arguments(args, step="processing")
+
+    sample_name = args.name
+    setting_dir = args.settings_dir
+    output_folder = args.output_folder
+    settings = load_settings(setting_dir, sample_name)
+    bc_params = arg_parser.create_bc_params(args)
+    data_dir = Path(settings["path"])
+    mesh_dir = data_dir / f"{output_folder}/Geometry"
 
     # delet files for saving again
-    if outdir.is_dir() and comm.Get_rank() == 0:
-        shutil.rmtree(outdir)
-        outdir.mkdir(exist_ok=True)
+    outdir = arg_parser.prepare_oudir_processing(data_dir, output_folder, comm)
     comm.Barrier()
 
     # Loading PV Data
-    def caliberate_volumes(ED_geometry_fname, vols, comm=None):
-        ED_geometry = pulse.HeartGeometry.from_file(
-            ED_geometry_fname.as_posix() + ".h5", comm=comm
-        )
-        v = ED_geometry.cavity_volume()
-        RVU_to_microL = v / vols[0]
-        if comm.Get_rank() == 0:
-            logger.info(f"Caliberation is done, RVU to micro Liter is {RVU_to_microL}")
-        volumes = vols * RVU_to_microL
-        return volumes
-    
-    fname = directory_path / "PV data/PV_data.csv"
-    PV_data = np.loadtxt(fname.as_posix(), delimiter=",")
-    # Converting mmHg to kPa
-    mmHg_to_kPa = 0.133322
-    pressures = PV_data[0, :] * mmHg_to_kPa
-    # Converting RVU to micro liter based on calculated EDV
-    ED_geometry_fname = mesh_outdir / "geometry"
-    volumes = caliberate_volumes(ED_geometry_fname, PV_data[1, :], comm=comm)
-    # 
+    pressures, volumes = load_pressure_volumes(data_dir)
+    volumes = caliberate_volumes(mesh_dir, volumes, comm=comm)
+    #
+    unloaded_geometry_fname = mesh_dir / "unloaded_geometry_with_fibers.h5"
     unloaded_geometry = pulse.HeartGeometry.from_file(
-        unloaded_geometry_fname.as_posix() + ".h5", comm=comm
+        unloaded_geometry_fname.as_posix(), comm=comm
     )
-    heart_model = HeartModelDynaComp(geo=unloaded_geometry, bc_params=bc_params, matparams=matparams, comm=comm)
+    heart_model = HeartModelDynaComp(
+        geo=unloaded_geometry,
+        bc_params=bc_params,
+        matparams=settings["matparams"],
+        comm=comm,
+    )
     collector = DataCollector(outdir=outdir, problem=heart_model)
-
     # Initializing the model
     v = heart_model.compute_volume(activation_value=0, pressure_value=0)
     collector.collect(
@@ -85,8 +97,7 @@ def main(path, results_folder, matparams: dict = None, comm=None):
         target_volume=v,
         activation=0.0,
     )
-
-    # 
+    # Using newton method to find activation parameters based on PV data
     collector = newton_solver(
         heart_model=heart_model,
         pres=pressures[1:],
@@ -95,18 +106,6 @@ def main(path, results_folder, matparams: dict = None, comm=None):
         start_time=2,
         comm=comm,
     )
-    return collector
-    # %%
-sample_name = '156_1'
-mesh_quality='fine'
-results_folder = "00_Results_" + mesh_quality
-paths = {
-        'OP130_2': "00_data/SHAM/6week/OP130_2",
-        '156_1':'00_data/AS/3week/156_1',
-        '129_1':'00_data/AS/6week/129_1',
-        '138_1':'00_data/AS/12week/138_1',
-}
-
-matparams = dict(a=10.726,a_f=7.048,b=2.118,b_f=0.001,a_s=0.0,b_s=0.0,a_fs=0.0,b_fs=0.0)
-# unloaded_geo =  unloading(paths[sample_name], results_folder, matparams=matparams, comm=comm)
-collector = main(paths[sample_name], results_folder, matparams=matparams, comm=comm)
+    
+if __name__ == "__main__":
+    main()
