@@ -42,7 +42,7 @@ def main(args=None) -> int:
     else:
         args = arg_parser.update_arguments(args)
     
-    sample_name = args.sample_name
+    sample_name = args.name
     setting_dir = args.settings_dir
     mesh_quality= args.mesh_quality
     h5_overwrite = args.h5_overwrite

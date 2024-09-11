@@ -151,7 +151,7 @@ def main(args=None) -> int:
     else:
         args = arg_parser.update_arguments(args, step="unloading")
 
-    sample_name = args.sample_name
+    sample_name = args.name
     setting_dir = args.settings_dir
     output_folder = args.output_folder
 
