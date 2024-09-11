@@ -45,5 +45,21 @@
             "MeshSizeMin": null,
             "MeshSizeMax": 0.5
         }
-    }
+    },
+    "matparams": {
+        "a": 10.726,
+        "a_f": 7.048,
+        "b": 2.118,
+        "b_f": 0.001,
+        "a_s": 0.0,
+        "b_s": 0.0,
+        "a_fs": 0.0,
+        "b_fs": 0.0
+    },
+    "fiber_angles": {
+        "alpha_endo_lv": 60,  
+        "alpha_epi_lv": -60,  
+        "beta_endo_lv": -15,  
+        "beta_epi_lv": 15
+    }  
 }
