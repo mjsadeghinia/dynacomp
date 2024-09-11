@@ -7,8 +7,9 @@ import meshing
 import create_geometry 
 
 # %%
-def load_settings(fname):
-    with open(fname, 'r') as file:
+def load_settings(setting_dir, sample_name):
+    settings_fname = setting_dir / f"{sample_name}.json"
+    with open(settings_fname, 'r') as file:
         settings = json.load(file)
     return settings
 
@@ -47,8 +48,7 @@ def main(args=None) -> int:
     h5_overwrite = args.h5_overwrite
     output_folder = args.output_folder
     
-    settings_fname = setting_dir / f"{sample_name}.json"
-    settings = load_settings(settings_fname)
+    settings = load_settings(setting_dir, sample_name)
     data_dir = Path(settings["path"])
     mesh_settings = settings["mesh"][mesh_quality]
     # Creating outdir, a folder with the name of output_folder in the data_dir for saving the results
