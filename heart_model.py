@@ -107,9 +107,9 @@ class HeartModelDynaComp:
         # logger.info(f'The C matrix at the point is:')
         # log_matrix(C_proj(point), label='matrix C')
 
-        # f_proj = dolfin.project(self.material.f0, dolfin.VectorFunctionSpace(self.geometry.mesh, "DG", 0))
+        # f_proj = dolfin.project(self.material.f0, dolfin.VectorFunctionSpace(self.geometry.mesh, "DG", 1))
         # log_vector(f_proj(point))
-        # logger.info(f'The norm of the vecotr is {np.linalg.norm(f_proj(point))}')
+        # logger.info(f'The norm of the vecotr is {np.linalg.norm(np.linalg.norm(self.geometry.f0.vector().get_local()[:3]))}')
 
         # I4 = pulse.kinematics.I4(F, self.material.f0, self.material.isochoric)
         # I4_proj = dolfin.project(I4, dolfin.FunctionSpace(self.geometry.mesh, "DG", 0))
