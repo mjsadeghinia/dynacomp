@@ -9,8 +9,81 @@ from structlog import get_logger
 
 logger = get_logger()
 
+def compile_h5(directory_path, scan_type, overwrite=False):
+    if scan_type == 'CINE':
+        h5_file_address = compile_h5_CINE(directory_path, overwrite=overwrite)
+    elif scan_type == 'TPM':
+        h5_file_address = compile_h5_TPM(directory_path, overwrite=overwrite)
+    else:
+        logger.error(f'The settings for scan_type is invalid ({scan_type}), it should be either CINE or TPM')
+    return h5_file_address
 
-def compile_h5(directory_path, overwrite=False):
+def compile_h5_CINE(directory_path, overwrite):
+    directory_path = Path(directory_path)
+
+    # Check if directory exist
+    if not directory_path.is_dir():
+        logger.error("the folder does not exist")
+
+    # Check for existing .h5 files
+    h5_files = list(directory_path.glob("*.h5"))
+    if len(h5_files) > 1:
+        logger.error("There are multiple h5 files!")
+        return
+
+    if h5_files and not overwrite:
+        logger.warning("H5 file already exists. Set overwrite=True to overwrite it.")
+        return h5_files[0].as_posix()
+
+    # Ensure there is exactly one .mat file
+    mat_files = list(directory_path.glob("*.mat"))
+    if len(mat_files) != 1:
+        logger.error("Data folder must contain exactly 1 .mat file.")
+        return
+
+    mat_file = mat_files[0]
+    logger.info(f"{mat_file.name} is loading.")
+    try:
+        # Load .mat file
+        data = pymatreader.read_mat(mat_file)
+        data = dict(sorted(data["setstruct"].items()))
+
+        num_acquisition = len(data["IM"])
+        for i in range(num_acquisition):
+            if len(data["IM"][i].shape) == 4:
+                i_shax = i
+                break
+        
+        x_coords_epi = data["EpiX"][i_shax]
+        y_coords_epi = data["EpiY"][i_shax]
+        x_coords_endo = data["EndoX"][i_shax]
+        y_coords_endo = data["EndoY"][i_shax]
+        coords_dataset = prepare_coords_dataset(x_coords_endo,y_coords_endo,x_coords_epi,y_coords_epi, data["ResolutionX"][i_shax], data["XSize"][i_shax])
+        
+        # Prepare attributes
+        K = len(coords_dataset["coords_epi"])               # Number of slices
+        I = int(data["XSize"][i_shax])                      # Image matrix size
+        time_res = data["TIncr"][i_shax]                    # temporal resolution
+        slice_thickness = data["SliceThickness"][i_shax]    # slice thickness in mm
+        resolution = data["ResolutionX"][i_shax]
+        attrs = {
+            "image_matrix_size": I,
+            "number_of_slices": K,
+            "temporal_resolution": time_res,
+            "slice_thickness": slice_thickness,
+            "resolution": resolution,
+            }
+        
+        # exporting the dataset and attributes to the h5 file
+        h5_file_address = mat_file.with_suffix(".h5").as_posix()
+        save_to_h5(h5_file_address, coords_dataset, attrs)
+        logger.info(f"{mat_file.with_suffix('.h5').name} is created.")
+        return h5_file_address
+
+    except Exception as e:
+        logger.error(f"Failed processing due to {e}")
+
+def compile_h5_TPM(directory_path, overwrite):
     """
     Compiles .mat files from OUS datasets into a structured .h5 file.
 
@@ -111,6 +184,58 @@ def interpolate_T_array(TES, TED, K):
         T_array.append(array.tolist())
     return np.array(T_array)
 
+
+def slice_coords_data(*coords):
+    sliced_coords = []
+    for coord in coords:
+        sliced_coords.append(coord[:,0,:])
+    return sliced_coords
+
+def remove_nan_coords_data(*coords):
+    # removing the nan datatype in the coords
+    nonan_coords = []
+    for coord in coords:
+        nonan_coord = coord[:, ~np.all(np.isnan(coord), axis=0)]
+        nonan_coords.append(nonan_coord)
+    return nonan_coords
+
+def reorder_coords(x_coords, y_coords):
+    reorder_coords = []
+    k = x_coords.shape[1]
+    for i in range(k):
+        reorder_coords.append(np.column_stack((x_coords[:,i],y_coords[:,i])))
+    return reorder_coords
+            
+
+def prepare_coords_dataset(x_endo,y_endo,x_epi,y_epi, resolution, I):
+    sliced_coords = slice_coords_data(x_endo,y_endo,x_epi,y_epi)
+    nonan_coords = remove_nan_coords_data(*sliced_coords)
+    x_endo, y_endo, x_epi, y_epi = nonan_coords
+    coords_endo = reorder_coords(x_endo, y_endo)
+    coords_epi = reorder_coords(x_epi, y_epi)
+    
+    transformed_coords_epi = transform_to_img_cs_for_all_slices(coords_epi, resolution, I)
+    transformed_coords_endo = transform_to_img_cs_for_all_slices(coords_endo, resolution, I)
+        
+    return{
+        "coords_endo": transformed_coords_endo,
+        "coords_epi": transformed_coords_epi,
+    }
+
+def transform_to_img_cs_for_all_slices(coords, resolution, I):
+    transformed_coords = []
+    k = len(coords)
+    for coord in coords:
+        transformed_coord = transform_to_img_cs(coord, resolution, I)
+        transformed_coords.append(transformed_coord)
+    return transformed_coords
+    
+def transform_to_img_cs(coord, resolution, I):
+    img_coord = np.zeros((len(coord[:,0]),2))
+    img_coord[:, 0] = coord[:,1]
+    img_coord[:, 1] = coord[:,0]
+    img_coord[:, 1] = I * resolution - img_coord[:, 1]
+    return img_coord
 
 def prepare_datasets(K, I, S, T_array, data):
     """
