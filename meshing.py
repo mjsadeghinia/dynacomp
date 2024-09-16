@@ -3,6 +3,7 @@ from pathlib import Path
 import plotly.graph_objects as go
 
 
+import mesh_utils
 from ventric_mesh.create_mesh import read_data_h5
 import ventric_mesh.mesh_utils as mu
 from ventric_mesh.mesh_utils import (
@@ -10,22 +11,31 @@ from ventric_mesh.mesh_utils import (
     generate_3d_mesh_from_stl,
 )
 import matplotlib.pyplot as plt
+from structlog import get_logger
 
+logger = get_logger()
 
 # %%
 def create_mesh(
-    directory_path, mesh_settings, h5_file, plot_flag=True, results_folder="00_Results"
+    directory_path, scan_type, mesh_settings, h5_file, plot_flag=True, results_folder="00_Results"
 ):
-    mask, T_array, slice_thickness, resolution = read_data_h5(h5_file)
-    mask_epi, mask_endo = mu.get_endo_epi(mask)
+    if scan_type == "TPM":
+        mask, T_array, slice_thickness, resolution = mesh_utils.read_data_h5_TPM(h5_file)
+        mask_epi, mask_endo = mu.get_endo_epi(mask)
 
-    tck_epi = mu.get_shax_from_mask(
-        mask_epi, resolution, slice_thickness, mesh_settings["smooth_level_epi"]
-    )
-    tck_endo = mu.get_shax_from_mask(
-        mask_endo, resolution, slice_thickness, mesh_settings["smooth_level_endo"]
-    )
-
+        tck_epi = mu.get_shax_from_mask(
+            mask_epi, resolution, slice_thickness, mesh_settings["smooth_level_epi"]
+        )
+        tck_endo = mu.get_shax_from_mask(
+            mask_endo, resolution, slice_thickness, mesh_settings["smooth_level_endo"]
+        )
+    elif scan_type == "CINE":
+        coords_endo,coords_epi,slice_thickness,resolution = mesh_utils.read_data_h5_CINE(h5_file)
+        breakpoint()
+    else:
+        logger.error(f"The scan type should be either TPM or CINE now it is {scan_type}")
+    
+    breakpoint()
     T = len(tck_epi[0])
     K = len(tck_epi[0][0])
     if plot_flag:

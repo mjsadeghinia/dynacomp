@@ -13,9 +13,9 @@ def load_settings(setting_dir, sample_name):
         settings = json.load(file)
     return settings
 
-def prepare_mask(data_dir, outdir, settings, h5_overwrite):
+def prepare_mask(h5_file, outdir, settings):
     mask_settings = settings["mask"]
-    h5_file = mesh_utils.compile_h5(data_dir, overwrite=h5_overwrite)  
+     
     h5_file = mesh_utils.pre_process_mask(
         h5_file,
         save_flag=True,
@@ -53,10 +53,12 @@ def main(args=None) -> int:
     mesh_settings = settings["mesh"][mesh_quality]
     # Creating outdir, a folder with the name of output_folder in the data_dir for saving the results
     outdir = arg_parser.prepare_outdir(data_dir, output_folder)
-
-    h5_file = prepare_mask(data_dir, outdir, settings, h5_overwrite)
+    h5_file = mesh_utils.compile_h5(data_dir, settings["scan_type"], overwrite=h5_overwrite) 
+    if settings["scan_type"] == 'TPM':
+        h5_file = prepare_mask(h5_file, outdir, settings)
     LVMesh, meshdir = meshing.create_mesh(
         data_dir,
+        settings["scan_type"],
         mesh_settings,
         h5_file,
         plot_flag=True,
