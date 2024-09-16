@@ -572,3 +572,23 @@ def remove_slice(
     update_h5_file(h5_file, datasets=updated_datasets, attrs=updated_attr)
 
     return h5_file
+
+def read_data_h5_TPM(file_dir):
+    with h5py.File(file_dir, "r") as f:
+        # Read datasets
+        LVmask = f["LVmask"][:]
+        T = f["T"][:]
+        metadata = {key: value for key, value in f.attrs.items()}
+        slice_thickness=metadata['slice_thickness'] # in mm
+        resolution=metadata['resolution']           # to convert to mm/pixel
+    return LVmask,T,slice_thickness,resolution  
+
+def read_data_h5_CINE(file_dir):
+    with h5py.File(file_dir, "r") as f:
+        # Read datasets
+        coords_endo = f["coords_endo"][:]
+        coords_epi = f["coords_epi"][:]
+        metadata = {key: value for key, value in f.attrs.items()}
+        slice_thickness=metadata['slice_thickness'] # in mm
+        resolution=metadata['resolution']           # to convert to mm/pixel
+    return coords_endo,coords_epi,slice_thickness,resolution  
