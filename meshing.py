@@ -28,6 +28,8 @@ def create_mesh(
         coords_endo,coords_epi,slice_thickness,resolution, I = mesh_utils.read_data_h5_CINE(h5_file)
         coords_epi = mesh_utils.transform_to_img_cs_for_all_slices(coords_epi, resolution, I)
         coords_endo = mesh_utils.transform_to_img_cs_for_all_slices(coords_endo, resolution, I)
+        if len(coords_endo) == len(coords_epi):
+            coords_epi, coords_endo = mesh_utils.close_apex_coords(coords_epi, coords_endo)
         
     else:
         logger.error(f"The scan type should be either TPM or CINE now it is {scan_type}")

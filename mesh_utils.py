@@ -2,6 +2,8 @@
 import numpy as np
 import cv2 as cv
 import h5py
+from scipy.interpolate import splprep
+from ventric_mesh.mesh_utils import interpolate_splines, equally_spaced_points_on_spline
 
 from pathlib import Path
 import pymatreader
@@ -273,7 +275,20 @@ def prepare_coords_dataset(x_epi,y_epi,x_endo,y_endo, is_inverted):
         "coords_endo": coords_endo,
     }
 
-# import matplotlib.pyplot as plt
+def close_apex_coords(coords_epi, coords_endo):
+    # Creating 2D splines for endo and epi (using only x and y coordinates)
+    num_points = coords_endo[-1].shape[0]
+
+    tck_epi, _ = splprep([coords_epi[-1][:, 0], coords_epi[-1][:, 1], np.zeros(num_points)], s=0, per=True, k=3)
+    tck_endo, _ = splprep([coords_endo[-1][:, 0], coords_endo[-1][:, 1], np.zeros(num_points)], s=0, per=True, k=3)
+    tck_base = interpolate_splines(tck_endo, tck_epi, 1)
+    points = equally_spaced_points_on_spline(tck_base[1], num_points)
+    coords_epi.append(points[:,:2])
+    return coords_epi, coords_endo
+    
+    
+
+import matplotlib.pyplot as plt
 
 # def plot_epi_endo(corrected_coords, name = 'test'):
 #     x_epi, y_epi, x_endo, y_endo = corrected_coords  # Unpack the corrected coordinates
