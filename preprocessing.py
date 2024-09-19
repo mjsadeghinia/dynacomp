@@ -53,7 +53,7 @@ def main(args=None) -> int:
     mesh_settings = settings["mesh"][mesh_quality]
     # Creating outdir, a folder with the name of output_folder in the data_dir for saving the results
     outdir = arg_parser.prepare_outdir(data_dir, output_folder)
-    h5_file = mesh_utils.compile_h5(data_dir, settings["scan_type"], overwrite=h5_overwrite) 
+    h5_file = mesh_utils.compile_h5(data_dir, settings["scan_type"], overwrite=h5_overwrite, is_inverted=settings["is_inverted"]) 
     if settings["scan_type"] == 'TPM':
         h5_file = prepare_mask(h5_file, outdir, settings)
     LVMesh, meshdir = meshing.create_mesh(
