@@ -1,5 +1,5 @@
 {
-    "path": "00_data/InitialData/AS/12week/138_1",
+    "path": "00_data/TPMData/AS/12week/138_1",
     "scan_type": "TPM",
     "remove_slice": false,
     "shift_slice_mask": false,
@@ -7,7 +7,7 @@
     "mask": [3, 3, 3, 3, 3, 3, 1, 1, 1, 1],
     "mesh": {
         "coarse": {
-            "seed_num_base_epi": 24,
+            "seed_num_base_epi": 28,
             "seed_num_base_endo": 15,
             "num_z_sections_epi": 12,
             "num_z_sections_endo": 11,

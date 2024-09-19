@@ -1,5 +1,5 @@
 {
-    "path": "00_data/InitialData/SHAM/6week/OP130_2",
+    "path": "00_data/TPMData/SHAM/6week/OP130_2",
     "scan_type": "TPM",
     "remove_slice": false,
     "shift_slice_mask": true,
