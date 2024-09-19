@@ -44,11 +44,11 @@ def create_mesh(
         K_endo = len(tck_endo)
         for k in range(K):
             mu.plot_shax_with_coords(
-                mask_epi, tck_epi, k, resolution, new_plot=True
+                coords_epi, tck_epi, k, new_plot=True
             )
             if k < K_endo:
                 mu.plot_shax_with_coords(
-                    mask_endo, tck_endo, k, resolution, color="b"
+                    coords_endo, tck_endo, k, color="b"
                 )
             fnmae = outdir.as_posix() + "/" + fname_prefix + "_" + str(k) + ".png"
             plt.savefig(fnmae)

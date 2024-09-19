@@ -9,16 +9,16 @@ from structlog import get_logger
 
 logger = get_logger()
 
-def compile_h5(directory_path, scan_type, overwrite=False):
+def compile_h5(directory_path, scan_type, overwrite=False, is_inverted = False ):
     if scan_type == 'CINE':
-        h5_file_address = compile_h5_CINE(directory_path, overwrite=overwrite)
+        h5_file_address = compile_h5_CINE(directory_path, overwrite=overwrite, is_inverted=is_inverted)
     elif scan_type == 'TPM':
         h5_file_address = compile_h5_TPM(directory_path, overwrite=overwrite)
     else:
         logger.error(f'The settings for scan_type is invalid ({scan_type}), it should be either CINE or TPM')
     return h5_file_address
 
-def compile_h5_CINE(directory_path, overwrite):
+def compile_h5_CINE(directory_path, overwrite, is_inverted):
     directory_path = Path(directory_path)
 
     # Check if directory exist
@@ -58,8 +58,8 @@ def compile_h5_CINE(directory_path, overwrite):
         y_coords_epi = data["EpiY"][i_shax]
         x_coords_endo = data["EndoX"][i_shax]
         y_coords_endo = data["EndoY"][i_shax]
-        coords_dataset = prepare_coords_dataset(x_coords_endo,y_coords_endo,x_coords_epi,y_coords_epi, data["ResolutionX"][i_shax], data["XSize"][i_shax])
-        
+        coords_dataset = prepare_coords_dataset(x_coords_epi,y_coords_epi,x_coords_endo,y_coords_endo, is_inverted)
+
         # Prepare attributes
         K = len(coords_dataset["coords_epi"])               # Number of slices
         I = int(data["XSize"][i_shax])                      # Image matrix size
@@ -185,17 +185,25 @@ def interpolate_T_array(TES, TED, K):
     return np.array(T_array)
 
 
-def slice_coords_data(*coords):
+def get_first_timestep_from_coords_data(*coords):
     sliced_coords = []
     for coord in coords:
         sliced_coords.append(coord[:,0,:])
     return sliced_coords
 
+def invert_coords(*coords):
+    inverted_coords = []
+    for coord in coords:
+        inverted_coords.append(coord[:, ::-1])
+    return inverted_coords
+
 def remove_nan_coords_data(*coords):
     # removing the nan datatype in the coords
     nonan_coords = []
+    epi_x_coord = coords[0]
+    valid_coords = ~np.all(np.isnan(epi_x_coord), axis=0)
     for coord in coords:
-        nonan_coord = coord[:, ~np.all(np.isnan(coord), axis=0)]
+        nonan_coord = coord[:, valid_coords]
         nonan_coords.append(nonan_coord)
     return nonan_coords
 
@@ -206,21 +214,96 @@ def reorder_coords(x_coords, y_coords):
         reorder_coords.append(np.column_stack((x_coords[:,i],y_coords[:,i])))
     return reorder_coords
             
-
-def prepare_coords_dataset(x_endo,y_endo,x_epi,y_epi, resolution, I):
-    sliced_coords = slice_coords_data(x_endo,y_endo,x_epi,y_epi)
-    nonan_coords = remove_nan_coords_data(*sliced_coords)
-    x_endo, y_endo, x_epi, y_epi = nonan_coords
-    coords_endo = reorder_coords(x_endo, y_endo)
-    coords_epi = reorder_coords(x_epi, y_epi)
-    
-    # transformed_coords_epi = transform_to_img_cs_for_all_slices(coords_epi, resolution, I)
-    # transformed_coords_endo = transform_to_img_cs_for_all_slices(coords_endo, resolution, I)
+def remove_incomplete_coords(*coords):
+    # the epis may be incomplete, i.e., not corresponding to a circle.
+    removed_incomplete_coords = []
+    K = coords[0].shape[1]
+    valid_coords = np.zeros(K, dtype=bool)
+    for k in range(K):
+        epi_coord_k = np.column_stack((coords[0][:,k],coords[1][:,k]))
+        area = calculate_enclosed_area(epi_coord_k)
+        radius_ave, radius_std = calculate_avg_std_radius(epi_coord_k)
+        ave_area_circle = np.pi * radius_ave**2
+        if area/ave_area_circle>0.75:
+            valid_coords[k] = True
+    for coord in coords:
+        removed_incomplete_coord = coord[:,valid_coords]
+        removed_incomplete_coords.append(removed_incomplete_coord)
         
+    # Log a warning for the indices being removed
+    removed_indices = np.where(valid_coords == False)[0]
+    if removed_indices.size > 0:
+        for idx in removed_indices:
+            logger.warning(f"Slice no. {idx} is removed due to incomplete circular shape, possibly above basal plane.")
+
+    return removed_incomplete_coords
+    
+def calculate_enclosed_area(coords):
+    x = coords[:,0]
+    y = coords[:,1]
+    # Use the shoelace formula to calculate the area
+    area = 0.5 * np.abs(np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1)))
+    return area
+
+def calculate_avg_std_radius(coords):
+    center_x = np.mean(coords[:, 0])
+    center_y = np.mean(coords[:, 1])
+    
+    radius = np.sqrt((coords[:, 0] - center_x)**2 + (coords[:, 1] - center_y)**2)
+    
+    radius_ave = np.mean(radius)
+    radius_std = np.std(radius)
+    
+    return radius_ave, radius_std
+
+def prepare_coords_dataset(x_epi,y_epi,x_endo,y_endo, is_inverted):
+    t0_coords = get_first_timestep_from_coords_data(x_epi, y_epi, x_endo, y_endo)
+    if is_inverted: 
+        corrected_coords = invert_coords(*t0_coords)
+    else:
+        corrected_coords = t0_coords
+    nonan_coords = remove_nan_coords_data(*corrected_coords)
+    removed_incomplete_coords = remove_incomplete_coords(*nonan_coords)
+    
+    x_epi, y_epi, x_endo, y_endo = removed_incomplete_coords
+    coords_epi = reorder_coords(x_epi, y_epi)
+    coords_endo = reorder_coords(x_endo, y_endo)
     return{
-        "coords_endo": coords_endo,
         "coords_epi": coords_epi,
+        "coords_endo": coords_endo,
     }
+
+# import matplotlib.pyplot as plt
+
+# def plot_epi_endo(corrected_coords, name = 'test'):
+#     x_epi, y_epi, x_endo, y_endo = corrected_coords  # Unpack the corrected coordinates
+#     k = x_endo.shape[1]  # Number of slices
+#     nrows = 5
+#     ncols = 3
+
+#     fig, axs = plt.subplots(nrows, ncols, figsize=(15, 15))  # Create 5x3 subplots
+    
+#     for i in range(k):
+#         row = i // ncols
+#         col = i % ncols
+#         # Plot the endocardial curve for slice i
+#         axs[row, col].plot(x_endo[:, i], y_endo[:, i], label='Endo', color='blue')
+#         # Plot the epicardial curve for slice i
+#         axs[row, col].plot(x_epi[:, i], y_epi[:, i], label='Epi', color='red')
+        
+#         # Setting titles and labels for clarity
+#         axs[row, col].set_title(f'Slice {i+1}')
+#         axs[row, col].set_xlabel('X')
+#         axs[row, col].set_ylabel('Y')
+#         axs[row, col].legend()
+    
+#     # Hide any unused subplots if k < 15
+#     for j in range(k, nrows * ncols):
+#         fig.delaxes(axs.flatten()[j])
+
+#     # Adjust layout for better spacing
+#     plt.tight_layout()
+#     plt.savefig(name)
 
 def transform_to_img_cs_for_all_slices(coords, resolution, I):
     transformed_coords = []
