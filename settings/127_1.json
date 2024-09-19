@@ -1,11 +1,7 @@
 {
-    "path": "00_data/TPMData/AS/3week/156_1",
-    "scan_type": "TPM",
-    "is_inverted": false,
-    "remove_slice": false,
-    "shift_slice_mask": false,
-    "close_apex": false,
-    "mask": [0, 0, 1, 1, 1, 1, 1, 1],
+    "path": "/home/shared/dynacomp/00_data/CineData/AS/6weeks/130/OP127_1",
+    "scan_type": "CINE",
+    "is_inverted": true,
     "mesh": {
         "coarse": {
             "seed_num_base_epi": 15,
@@ -22,30 +18,30 @@
             "z_sections_flag_endo": 1,
             "seed_num_threshold_epi": 8,
             "seed_num_threshold_endo": 8,
-            "scale_for_delauny": 1.2,
+            "scale_for_delauny": 1.5,
             "t_mesh": -1,
             "MeshSizeMin": null,
             "MeshSizeMax": null
         },
         "fine": {
-            "seed_num_base_epi": 30,
-            "seed_num_base_endo": 26,
-            "num_z_sections_epi": 15,
-            "num_z_sections_endo": 19,
+            "seed_num_base_epi": 45,
+            "seed_num_base_endo": 30,
+            "num_z_sections_epi": 20,
+            "num_z_sections_endo": 18,
             "num_mid_layers_base": 3,
-            "smooth_level_epi": 0.08,
-            "smooth_level_endo": 0.11,
+            "smooth_level_epi": 0.1,
+            "smooth_level_endo": 0.15,
             "num_lax_points": 32,
             "lax_smooth_level_epi": 1,
-            "lax_smooth_level_endo": 1.5,
+            "lax_smooth_level_endo": 2.5,
             "z_sections_flag_epi": 1,
-            "z_sections_flag_endo": 1,
-            "seed_num_threshold_epi": 8,
-            "seed_num_threshold_endo": 15,
-            "scale_for_delauny": 1.2,
+            "z_sections_flag_endo": 0,
+            "seed_num_threshold_epi": 18,
+            "seed_num_threshold_endo": 12,
+            "scale_for_delauny": 1.5,
             "t_mesh": -1,
             "MeshSizeMin": null,
-            "MeshSizeMax": 0.5
+            "MeshSizeMax": 0.75
         }
     },
     "matparams": {

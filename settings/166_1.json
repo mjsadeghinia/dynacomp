@@ -1,6 +1,7 @@
 {
     "path": "/home/shared/dynacomp/00_data/CineData/SHAM/12weeks/OP166_1",
     "scan_type": "CINE",
+    "is_inverted": true,
     "mesh": {
         "coarse": {
             "seed_num_base_epi": 15,
