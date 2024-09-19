@@ -199,12 +199,27 @@ def invert_coords(*coords):
         inverted_coords.append(coord[:, ::-1])
     return inverted_coords
 
-def remove_nan_coords_data(*coords):
-    # removing the nan datatype in the coords
+def remove_nan_coords_data_epi(*coords):
+    # removing the nan datatype in the coords based on epi
     nonan_coords = []
     epi_x_coord = coords[0]
     valid_coords = ~np.all(np.isnan(epi_x_coord), axis=0)
     for coord in coords:
+        nonan_coord = coord[:, valid_coords]
+        nonan_coords.append(nonan_coord)
+    return nonan_coords
+
+def remove_nan_coords_data_endo(*coords):
+    # removing the nan datatype in the endo coords based on endo
+    nonan_coords = []
+    nonan_coords.append(coords[0])
+    nonan_coords.append(coords[1])
+    endo_x_coord = coords[2]
+    valid_coords = ~np.all(np.isnan(endo_x_coord), axis=0)
+    i = 1
+    for coord in coords[2:]:
+        print(i)
+        i += 1
         nonan_coord = coord[:, valid_coords]
         nonan_coords.append(nonan_coord)
     return nonan_coords
@@ -226,7 +241,7 @@ def remove_incomplete_coords(*coords):
         area = calculate_enclosed_area(epi_coord_k)
         radius_ave, radius_std = calculate_avg_std_radius(epi_coord_k)
         ave_area_circle = np.pi * radius_ave**2
-        if area/ave_area_circle>0.75:
+        if area/ave_area_circle>0.85:
             valid_coords[k] = True
     for coord in coords:
         removed_incomplete_coord = coord[:,valid_coords]
@@ -264,10 +279,10 @@ def prepare_coords_dataset(x_epi,y_epi,x_endo,y_endo, is_inverted):
         corrected_coords = invert_coords(*t0_coords)
     else:
         corrected_coords = t0_coords
-    nonan_coords = remove_nan_coords_data(*corrected_coords)
+    nonan_coords = remove_nan_coords_data_epi(*corrected_coords)
     removed_incomplete_coords = remove_incomplete_coords(*nonan_coords)
-    
-    x_epi, y_epi, x_endo, y_endo = removed_incomplete_coords
+    removed_incomplete_coords_nonan_endo = remove_nan_coords_data_endo(*removed_incomplete_coords)
+    x_epi, y_epi, x_endo, y_endo = removed_incomplete_coords_nonan_endo
     coords_epi = reorder_coords(x_epi, y_epi)
     coords_endo = reorder_coords(x_endo, y_endo)
     return{
@@ -288,7 +303,7 @@ def close_apex_coords(coords_epi, coords_endo):
     
     
 
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 # def plot_epi_endo(corrected_coords, name = 'test'):
 #     x_epi, y_epi, x_endo, y_endo = corrected_coords  # Unpack the corrected coordinates

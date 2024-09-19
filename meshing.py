@@ -30,9 +30,9 @@ def create_mesh(
         coords_endo = mesh_utils.transform_to_img_cs_for_all_slices(coords_endo, resolution, I)
         if len(coords_endo) == len(coords_epi):
             coords_epi, coords_endo = mesh_utils.close_apex_coords(coords_epi, coords_endo)
-        
     else:
         logger.error(f"The scan type should be either TPM or CINE now it is {scan_type}")
+    
     tck_epi = mu.get_shax_from_coords(
             coords_epi, resolution, slice_thickness, mesh_settings["smooth_level_epi"]
         )
