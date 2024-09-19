@@ -214,12 +214,12 @@ def prepare_coords_dataset(x_endo,y_endo,x_epi,y_epi, resolution, I):
     coords_endo = reorder_coords(x_endo, y_endo)
     coords_epi = reorder_coords(x_epi, y_epi)
     
-    transformed_coords_epi = transform_to_img_cs_for_all_slices(coords_epi, resolution, I)
-    transformed_coords_endo = transform_to_img_cs_for_all_slices(coords_endo, resolution, I)
+    # transformed_coords_epi = transform_to_img_cs_for_all_slices(coords_epi, resolution, I)
+    # transformed_coords_endo = transform_to_img_cs_for_all_slices(coords_endo, resolution, I)
         
     return{
-        "coords_endo": transformed_coords_endo,
-        "coords_epi": transformed_coords_epi,
+        "coords_endo": coords_endo,
+        "coords_epi": coords_epi,
     }
 
 def transform_to_img_cs_for_all_slices(coords, resolution, I):
@@ -227,15 +227,29 @@ def transform_to_img_cs_for_all_slices(coords, resolution, I):
     k = len(coords)
     for coord in coords:
         transformed_coord = transform_to_img_cs(coord, resolution, I)
-        transformed_coords.append(transformed_coord)
+        # Remove duplicates
+        transformed_coord_unique = remove_duplicates(transformed_coord)
+        transformed_coords.append(transformed_coord_unique)
     return transformed_coords
     
 def transform_to_img_cs(coord, resolution, I):
     img_coord = np.zeros((len(coord[:,0]),2))
-    img_coord[:, 0] = coord[:,1]
-    img_coord[:, 1] = coord[:,0]
+    img_coord[:, 0] = coord[:,1] * resolution
+    img_coord[:, 1] = coord[:,0] * resolution
     img_coord[:, 1] = I * resolution - img_coord[:, 1]
     return img_coord
+
+# Function to remove duplicates while preserving the order
+def remove_duplicates(points):
+    seen = set()
+    unique_points = []
+    for point in points:
+        # Convert point to tuple to make it hashable for the set
+        point_tuple = tuple(point)
+        if point_tuple not in seen:
+            seen.add(point_tuple)
+            unique_points.append(point)
+    return np.array(unique_points)
 
 def prepare_datasets(K, I, S, T_array, data):
     """
@@ -581,7 +595,8 @@ def read_data_h5_TPM(file_dir):
         metadata = {key: value for key, value in f.attrs.items()}
         slice_thickness=metadata['slice_thickness'] # in mm
         resolution=metadata['resolution']           # to convert to mm/pixel
-    return LVmask,T,slice_thickness,resolution  
+        I = metadata["image_matrix_size"]
+    return LVmask,T,slice_thickness,resolution, I  
 
 def read_data_h5_CINE(file_dir):
     with h5py.File(file_dir, "r") as f:
@@ -591,4 +606,5 @@ def read_data_h5_CINE(file_dir):
         metadata = {key: value for key, value in f.attrs.items()}
         slice_thickness=metadata['slice_thickness'] # in mm
         resolution=metadata['resolution']           # to convert to mm/pixel
-    return coords_endo,coords_epi,slice_thickness,resolution  
+        I = metadata["image_matrix_size"]
+    return coords_endo,coords_epi,slice_thickness,resolution, I 
