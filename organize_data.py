@@ -9,34 +9,21 @@ def get_name_category_week(row):
     weeks = row[4].value  # Weeks
     return name, category, weeks
 
-# Function to loop over the rows and get the output directory path
-def get_output_directory(excel_file_path, directory_path, sample_name):
-    # Load the Excel workbook
-    workbook = openpyxl.load_workbook(excel_file_path)
-    sheet = workbook.active
-    
-    # Loop over the rows in the Excel sheet (excluding the header row)
-    for row in sheet.iter_rows(min_row=2, values_only=False):
-        # Extract the name, category, and weeks using the helper function
-        name, category, weeks = get_name_category_week(row)
+# Function to get the output directory path based on name, category, and weeks
+def get_output_directory(directory_path, sample_name, category, weeks):
+    # If the category is 'Sham', build the output directory path
+    if category == "Sham":
+        # x is the weeks value minus the last character
+        x = weeks[:-1]
         
-        # Check if the current row matches the sample name
-        if name == sample_name:
-            # If the category is 'Sham', build the output directory path
-            if category == "Sham":
-                # x is the weeks value minus the last character
-                x = weeks[:-1]
-                
-                # s is the sample name with the second to last character replaced by '_'
-                s = name[:-2] + "_" + name[-1]
-                
-                # Build the output directory path
-                outdir = os.path.join(directory_path, f'SHAM/{x}weeks/{s}')
-                return outdir
-
-    # If the sample name is not found, return None or raise an error
-    return None
-
+        # s is the sample name with the second to last character replaced by '_'
+        s = sample_name[:-2] + "_" + sample_name[-1]
+        
+        # Build the output directory path
+        outdir = os.path.join(directory_path, f'SHAM/{x}weeks/{s}')
+        return outdir
+    else:
+        return None
 
 def main(args=None) -> int:
     """
@@ -56,7 +43,7 @@ def main(args=None) -> int:
         "--sample",
         default="OP100.1",
         type=str,
-        help="The full address to the excel file",
+        help="The sample name or 'all' to process all samples",
     )
     
     parser.add_argument(
@@ -64,7 +51,7 @@ def main(args=None) -> int:
         "--outdir",
         default="/home/shared/dynacomp/00_data/CineData/",
         type=str,
-        help="The full address to the excel file",
+        help="The full address to the output directory",
     )
     
     args = parser.parse_args(args)
@@ -72,12 +59,31 @@ def main(args=None) -> int:
     sample_name = args.sample
     outdir = args.outdir
     
-    output_directory = get_output_directory(excel_file_path, outdir, sample_name)
-    print(output_directory)
+    # Load the Excel workbook
+    workbook = openpyxl.load_workbook(excel_file_path)
+    sheet = workbook.active
     
+    # Process all rows if sample_name is "all"
+    if sample_name.lower() == "all":
+        for row in sheet.iter_rows(min_row=2, values_only=False):
+            name, category, weeks = get_name_category_week(row)
+            output_directory = get_output_directory(outdir, name, category, weeks)
+            if output_directory:
+                print(f"{name}: {output_directory}")
+        return
+    
+    # Otherwise, process only the specific sample
+    for row in sheet.iter_rows(min_row=2, values_only=False):
+        name, category, weeks = get_name_category_week(row)
+        
+        # Check if the current row matches the sample name
+        if name == sample_name:
+            output_directory = get_output_directory(outdir, name, category, weeks)
+            if output_directory:
+                print(output_directory)
+            return
+
+    print(f"Sample {sample_name} not found.")
+
 if __name__ == "__main__":
     main()
-
-    
-    
-    
