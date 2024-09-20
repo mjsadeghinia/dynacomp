@@ -2,6 +2,8 @@
 import numpy as np
 import cv2 as cv
 import h5py
+from scipy.interpolate import splprep
+from ventric_mesh.mesh_utils import interpolate_splines, equally_spaced_points_on_spline
 
 from pathlib import Path
 import pymatreader
@@ -9,8 +11,83 @@ from structlog import get_logger
 
 logger = get_logger()
 
+def compile_h5(directory_path, scan_type, overwrite=False, is_inverted = False ):
+    if scan_type == 'CINE':
+        h5_file_address = compile_h5_CINE(directory_path, overwrite=overwrite, is_inverted=is_inverted)
+    elif scan_type == 'TPM':
+        h5_file_address = compile_h5_TPM(directory_path, overwrite=overwrite)
+    else:
+        logger.error(f'The settings for scan_type is invalid ({scan_type}), it should be either CINE or TPM')
+    return h5_file_address
 
-def compile_h5(directory_path, overwrite=False):
+def compile_h5_CINE(directory_path, overwrite, is_inverted):
+    directory_path = Path(directory_path)
+
+    # Check if directory exist
+    if not directory_path.is_dir():
+        logger.error("the folder does not exist")
+
+    # Check for existing .h5 files
+    h5_files = list(directory_path.glob("*.h5"))
+    if len(h5_files) > 1:
+        logger.error("There are multiple h5 files!")
+        return
+
+    if h5_files and not overwrite:
+        logger.warning("H5 file already exists. Set overwrite=True to overwrite it.")
+        return h5_files[0].as_posix()
+
+    # Ensure there is exactly one .mat file
+    mat_files = list(directory_path.glob("*.mat"))
+    if len(mat_files) != 1:
+        logger.error("Data folder must contain exactly 1 .mat file.")
+        return
+
+    mat_file = mat_files[0]
+    logger.info(f"{mat_file.name} is loading.")
+    try:
+        # Load .mat file
+        data = pymatreader.read_mat(mat_file)
+        data = dict(sorted(data["setstruct"].items()))
+
+        num_acquisition = len(data["IM"])
+        for i in range(num_acquisition):
+            if len(data["IM"][i].shape) == 4:
+                if len(data["EpiX"][i]) == 0 or len(data["EpiY"][i]) == 0 or len(data["EndoX"][i]) == 0 or len(data["EndoY"][i]) == 0:
+                    continue
+                else:
+                    i_shax = i
+                    break
+        x_coords_epi = data["EpiX"][i_shax]
+        y_coords_epi = data["EpiY"][i_shax]
+        x_coords_endo = data["EndoX"][i_shax]
+        y_coords_endo = data["EndoY"][i_shax]
+        coords_dataset = prepare_coords_dataset(x_coords_epi,y_coords_epi,x_coords_endo,y_coords_endo, is_inverted)
+
+        # Prepare attributes
+        K = len(coords_dataset["coords_epi"])               # Number of slices
+        I = int(data["XSize"][i_shax])                      # Image matrix size
+        time_res = data["TIncr"][i_shax]                    # temporal resolution
+        slice_thickness = data["SliceThickness"][i_shax]    # slice thickness in mm
+        resolution = data["ResolutionX"][i_shax]
+        attrs = {
+            "image_matrix_size": I,
+            "number_of_slices": K,
+            "temporal_resolution": time_res,
+            "slice_thickness": slice_thickness,
+            "resolution": resolution,
+            }
+        
+        # exporting the dataset and attributes to the h5 file
+        h5_file_address = mat_file.with_suffix(".h5").as_posix()
+        save_to_h5(h5_file_address, coords_dataset, attrs)
+        logger.info(f"{mat_file.with_suffix('.h5').name} is created.")
+        return h5_file_address
+
+    except Exception as e:
+        logger.error(f"Failed processing due to {e}")
+
+def compile_h5_TPM(directory_path, overwrite):
     """
     Compiles .mat files from OUS datasets into a structured .h5 file.
 
@@ -111,6 +188,195 @@ def interpolate_T_array(TES, TED, K):
         T_array.append(array.tolist())
     return np.array(T_array)
 
+
+def get_first_timestep_from_coords_data(*coords):
+    sliced_coords = []
+    for coord in coords:
+        sliced_coords.append(coord[:,0,:])
+    return sliced_coords
+
+def invert_coords(*coords):
+    inverted_coords = []
+    for coord in coords:
+        inverted_coords.append(coord[:, ::-1])
+    return inverted_coords
+
+def remove_nan_coords_data_epi(*coords):
+    # removing the nan datatype in the coords based on epi
+    nonan_coords = []
+    epi_x_coord = coords[0]
+    valid_coords = ~np.all(np.isnan(epi_x_coord), axis=0)
+    for coord in coords:
+        nonan_coord = coord[:, valid_coords]
+        nonan_coords.append(nonan_coord)
+    return nonan_coords
+
+def remove_nan_coords_data_endo(*coords):
+    # removing the nan datatype in the endo coords based on endo
+    nonan_coords = []
+    nonan_coords.append(coords[0])
+    nonan_coords.append(coords[1])
+    endo_x_coord = coords[2]
+    valid_coords = ~np.all(np.isnan(endo_x_coord), axis=0)
+    i = 1
+    for coord in coords[2:]:
+        print(i)
+        i += 1
+        nonan_coord = coord[:, valid_coords]
+        nonan_coords.append(nonan_coord)
+    return nonan_coords
+
+def reorder_coords(x_coords, y_coords):
+    reorder_coords = []
+    k = x_coords.shape[1]
+    for i in range(k):
+        reorder_coords.append(np.column_stack((x_coords[:,i],y_coords[:,i])))
+    return reorder_coords
+            
+def remove_incomplete_coords(*coords):
+    # the epis may be incomplete, i.e., not corresponding to a circle.
+    removed_incomplete_coords = []
+    K = coords[0].shape[1]
+    valid_coords = np.zeros(K, dtype=bool)
+    for k in range(K):
+        epi_coord_k = np.column_stack((coords[0][:,k],coords[1][:,k]))
+        area = calculate_enclosed_area(epi_coord_k)
+        radius_ave, radius_std = calculate_avg_std_radius(epi_coord_k)
+        ave_area_circle = np.pi * radius_ave**2
+        if area/ave_area_circle>0.85:
+            valid_coords[k] = True
+    for coord in coords:
+        removed_incomplete_coord = coord[:,valid_coords]
+        removed_incomplete_coords.append(removed_incomplete_coord)
+        
+    # Log a warning for the indices being removed
+    removed_indices = np.where(valid_coords == False)[0]
+    if removed_indices.size > 0:
+        for idx in removed_indices:
+            logger.warning(f"Slice no. {idx} is removed due to incomplete circular shape, possibly above basal plane.")
+
+    return removed_incomplete_coords
+    
+def calculate_enclosed_area(coords):
+    x = coords[:,0]
+    y = coords[:,1]
+    # Use the shoelace formula to calculate the area
+    area = 0.5 * np.abs(np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1)))
+    return area
+
+def calculate_avg_std_radius(coords):
+    center_x = np.mean(coords[:, 0])
+    center_y = np.mean(coords[:, 1])
+    
+    radius = np.sqrt((coords[:, 0] - center_x)**2 + (coords[:, 1] - center_y)**2)
+    
+    radius_ave = np.mean(radius)
+    radius_std = np.std(radius)
+    
+    return radius_ave, radius_std
+
+def prepare_coords_dataset(x_epi,y_epi,x_endo,y_endo, is_inverted):
+    t0_coords = get_first_timestep_from_coords_data(x_epi, y_epi, x_endo, y_endo)
+    if is_inverted: 
+        corrected_coords = invert_coords(*t0_coords)
+    else:
+        corrected_coords = t0_coords
+    nonan_coords = remove_nan_coords_data_epi(*corrected_coords)
+    removed_incomplete_coords = remove_incomplete_coords(*nonan_coords)
+    removed_incomplete_coords_nonan_endo = remove_nan_coords_data_endo(*removed_incomplete_coords)
+    x_epi, y_epi, x_endo, y_endo = removed_incomplete_coords_nonan_endo
+    coords_epi = reorder_coords(x_epi, y_epi)
+    coords_endo = reorder_coords(x_endo, y_endo)
+    return{
+        "coords_epi": coords_epi,
+        "coords_endo": coords_endo,
+    }
+
+def close_apex_coords(coords_epi, coords_endo):
+    # Creating 2D splines for endo and epi (using only x and y coordinates)
+    num_points = coords_endo[-1].shape[0]
+
+    tck_epi, _ = splprep([coords_epi[-1][:, 0], coords_epi[-1][:, 1], np.zeros(num_points)], s=0, per=True, k=3)
+    tck_endo, _ = splprep([coords_endo[-1][:, 0], coords_endo[-1][:, 1], np.zeros(num_points)], s=0, per=True, k=3)
+    tck_base = interpolate_splines(tck_endo, tck_epi, 1)
+    points = equally_spaced_points_on_spline(tck_base[1], num_points)
+    coords_epi.append(points[:,:2])
+    return coords_epi, coords_endo
+    
+    
+
+# import matplotlib.pyplot as plt
+
+# def plot_epi_endo(corrected_coords, name = 'test'):
+#     x_epi, y_epi, x_endo, y_endo = corrected_coords  # Unpack the corrected coordinates
+#     k = x_endo.shape[1]  # Number of slices
+#     nrows = 5
+#     ncols = 3
+
+#     fig, axs = plt.subplots(nrows, ncols, figsize=(15, 15))  # Create 5x3 subplots
+    
+#     for i in range(k):
+#         row = i // ncols
+#         col = i % ncols
+#         # Plot the endocardial curve for slice i
+#         axs[row, col].plot(x_endo[:, i], y_endo[:, i], label='Endo', color='blue')
+#         # Plot the epicardial curve for slice i
+#         axs[row, col].plot(x_epi[:, i], y_epi[:, i], label='Epi', color='red')
+        
+#         # Setting titles and labels for clarity
+#         axs[row, col].set_title(f'Slice {i+1}')
+#         axs[row, col].set_xlabel('X')
+#         axs[row, col].set_ylabel('Y')
+#         axs[row, col].legend()
+    
+#     # Hide any unused subplots if k < 15
+#     for j in range(k, nrows * ncols):
+#         fig.delaxes(axs.flatten()[j])
+
+#     # Adjust layout for better spacing
+#     plt.tight_layout()
+#     plt.savefig(name)
+
+def transform_to_img_cs_for_all_slices(coords, resolution, I):
+    transformed_coords = []
+    k = len(coords)
+    for coord in coords:
+        transformed_coord = transform_to_img_cs(coord, resolution, I)
+        # Remove duplicates
+        transformed_coord_unique = remove_duplicates(transformed_coord)
+        transformed_coords.append(transformed_coord_unique)
+    return transformed_coords
+    
+def transform_to_img_cs(coord, resolution, I):
+    img_coord = np.zeros((len(coord[:,0]),2))
+    img_coord[:, 0] = coord[:,1] * resolution
+    img_coord[:, 1] = coord[:,0] * resolution
+    img_coord[:, 1] = I * resolution - img_coord[:, 1]
+    return img_coord
+
+# Function to remove duplicates while preserving the order
+def remove_duplicates(points):
+    seen = set()
+    unique_points = []
+    for point in points:
+        # Convert point to tuple to make it hashable for the set
+        point_tuple = tuple(point)
+        if point_tuple not in seen:
+            seen.add(point_tuple)
+            unique_points.append(point)
+    return np.array(unique_points)
+
+def remove_coords(h5_file, remove_coords_num, results_folder):
+    coords_endo,coords_epi,slice_thickness,resolution, I = read_data_h5_CINE(h5_file)
+    coords_epi = coords_epi[remove_coords_num[0]:, :, :]
+    coords_endo = coords_endo[remove_coords_num[0]:, :, :]
+    logger.info(f"Coords from slice no. {remove_coords_num} has been removed")
+    updated_datasets = {
+        "coords_epi": coords_epi,
+        "coords_endo": coords_endo,
+        }
+    update_h5_file(h5_file, datasets=updated_datasets)
+    return h5_file
 
 def prepare_datasets(K, I, S, T_array, data):
     """
@@ -447,3 +713,25 @@ def remove_slice(
     update_h5_file(h5_file, datasets=updated_datasets, attrs=updated_attr)
 
     return h5_file
+
+def read_data_h5_TPM(file_dir):
+    with h5py.File(file_dir, "r") as f:
+        # Read datasets
+        LVmask = f["LVmask"][:]
+        T = f["T"][:]
+        metadata = {key: value for key, value in f.attrs.items()}
+        slice_thickness=metadata['slice_thickness'] # in mm
+        resolution=metadata['resolution']           # to convert to mm/pixel
+        I = metadata["image_matrix_size"]
+    return LVmask,T,slice_thickness,resolution, I  
+
+def read_data_h5_CINE(file_dir):
+    with h5py.File(file_dir, "r") as f:
+        # Read datasets
+        coords_endo = f["coords_endo"][:]
+        coords_epi = f["coords_epi"][:]
+        metadata = {key: value for key, value in f.attrs.items()}
+        slice_thickness=metadata['slice_thickness'] # in mm
+        resolution=metadata['resolution']           # to convert to mm/pixel
+        I = metadata["image_matrix_size"]
+    return coords_endo,coords_epi,slice_thickness,resolution, I 

@@ -33,12 +33,10 @@ def parse_arguments_pre(args=None):
 
     # Geometry parameters
     
-    valid_sample_names = ["156_1", "OP130_2", "138_1", "129_1"]
     parser.add_argument(
         "-n",
         "--name",
         default="156_1",
-        choices=valid_sample_names,
         type=str,
         help="The sample file name to be p",
     )
