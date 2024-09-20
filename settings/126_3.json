@@ -2,6 +2,11 @@
     "path": "/home/shared/dynacomp/00_data/CineData/AS/6weeks/130/OP126_3",
     "scan_type": "CINE",
     "is_inverted": false,
+    "remove_coords": [],
+    "remove_slice": false,
+    "shift_slice_mask": false,
+    "close_apex": false,
+    "mask": [],
     "mesh": {
         "coarse": {
             "seed_num_base_epi": 15,
