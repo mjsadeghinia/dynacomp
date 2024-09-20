@@ -91,6 +91,11 @@ def create_json_file(json_files_dir, sample_name, output_directory):
         "path": output_directory,
         "scan_type": "CINE",
         "is_inverted": True,
+        "remove_coords": [],
+        "remove_slice": False,
+        "shift_slice_mask": False,
+        "close_apex": False,
+        "mask": [],
         "mesh": {
             "coarse": {
                 "seed_num_base_epi": 15,
@@ -220,8 +225,8 @@ def main(args=None) -> int:
     )
     
     parser.add_argument(
-        "-s",
-        "--sample",
+        "-n",
+        "--sample_name",
         default="OP100.1",
         type=str,
         help="The sample name or 'all' to process all samples",
@@ -268,7 +273,7 @@ def main(args=None) -> int:
     
     args = parser.parse_args(args)
     excel_file_path = args.excel
-    sample_name = args.sample
+    sample_name = args.sample_name
     outdir = args.outdir
     mkdir_flag = args.mkdir
     segmentation_directory = args.segdir
