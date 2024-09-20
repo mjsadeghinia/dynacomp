@@ -1,8 +1,8 @@
 {
     "path": "/home/shared/dynacomp/00_data/CineData/SHAM/12weeks/OP132_2",
     "scan_type": "CINE",
-    "is_inverted": true,
-    "remove_coords": [],
+    "is_inverted": false,
+    "remove_coords": [2],
     "remove_slice": false,
     "shift_slice_mask": false,
     "close_apex": false,
