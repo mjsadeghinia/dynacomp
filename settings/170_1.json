@@ -2,7 +2,7 @@
     "path": "/home/shared/dynacomp/00_data/CineData/AS/12weeks/107/OP170_1",
     "scan_type": "CINE",
     "is_inverted": true,
-    "remove_coords": [],
+    "remove_coords": [1],
     "remove_slice": false,
     "shift_slice_mask": false,
     "close_apex": false,

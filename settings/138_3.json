@@ -1,7 +1,7 @@
 {
     "path": "/home/shared/dynacomp/00_data/CineData/AS/12weeks/130/OP138_3",
     "scan_type": "CINE",
-    "is_inverted": true,
+    "is_inverted": false,
     "remove_coords": [],
     "remove_slice": false,
     "shift_slice_mask": false,
@@ -15,7 +15,7 @@
             "num_z_sections_endo": 9,
             "num_mid_layers_base": 1,
             "smooth_level_epi": 0.1,
-            "smooth_level_endo": 0.15,
+            "smooth_level_endo": 0.05,
             "num_lax_points": 16,
             "lax_smooth_level_epi": 1,
             "lax_smooth_level_endo": 1.5,

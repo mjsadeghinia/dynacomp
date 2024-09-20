@@ -8,6 +8,9 @@ logger = get_logger()
 # Define the directory containing the files
 settings_dir = Path("/home/shared/dynacomp/settings")
 
+# sample names to skip
+skip_names = ['138_3','144_2', '150_2' ]
+
 # List to keep track of files that failed to process
 failed_files = []
 
@@ -16,15 +19,15 @@ sorted_files = sorted([file for file in settings_dir.iterdir() if file.is_file()
 
 # Loop through the first five .json files in the sorted list
 for idx, file_path in enumerate(sorted_files):
-    # Process only the first five files
-    if idx >= 5:
-        break
     
     # Extract the file name without extension
     name = file_path.stem
 
     # Log the start of processing for this file
     logger.info(f"=========== Start processing file {name} ===========")
+    
+    if name in skip_names:
+        continue
     
     # Construct the command
     command = f'python3 preprocessing.py -o "test" -n "{name}"'
