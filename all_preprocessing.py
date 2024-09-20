@@ -45,6 +45,13 @@ def main(args=None) -> int:
         help="List of file names to skip during processing (without extensions)",
     )
     
+    parser.add_argument(
+        "-n",
+        "--number",
+        type=int,
+        help="Process only the nth file in the sorted list (1-based index).",
+    )
+    
     # Parse the command-line arguments
     args = parser.parse_args(args)
 
@@ -57,7 +64,14 @@ def main(args=None) -> int:
     # Get the list of .json files in the directory and sort them by name
     sorted_files = sorted([file for file in settings_dir.iterdir() if file.is_file() and file.suffix == '.json'])
 
-    # Loop through the .json files in the sorted list
+    # If --number is specified, process only the nth file
+    if args.number is not None:
+        if 1 <= args.number <= len(sorted_files):
+            sorted_files = [sorted_files[args.number - 1]]  # Get only the nth file (convert 1-based to 0-based index)
+        else:
+            logger.error(f"Invalid value for --number. Must be between 1 and {len(sorted_files)}.")
+            return 1
+    # Loop through the selected .json files in the sorted list
     for idx, file_path in enumerate(sorted_files):
         
         # Extract the file name without extension
