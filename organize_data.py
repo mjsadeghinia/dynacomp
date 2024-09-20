@@ -29,8 +29,8 @@ def get_output_directory(directory_path, sample_name, category, weeks):
     
     return outdir
 
-# New function to handle directory path generation based on sample name or "all"
-def get_outdir(sheet, outdir, sample_name):
+# Updated function to handle directory path generation and optional directory creation
+def get_outdir(sheet, outdir, sample_name, mkdir_flag):
     if sample_name.lower() == "all":
         # Process all rows if sample_name is "all"
         for row in sheet.iter_rows(min_row=2, values_only=False):
@@ -38,6 +38,8 @@ def get_outdir(sheet, outdir, sample_name):
             output_directory = get_output_directory(outdir, name, category, weeks)
             if output_directory:
                 print(f"{name}: {output_directory}")
+                if mkdir_flag:
+                    os.makedirs(output_directory, exist_ok=True)
     else:
         # Process only the specific sample
         for row in sheet.iter_rows(min_row=2, values_only=False):
@@ -48,6 +50,8 @@ def get_outdir(sheet, outdir, sample_name):
                 output_directory = get_output_directory(outdir, name, category, weeks)
                 if output_directory:
                     print(output_directory)
+                    if mkdir_flag:
+                        os.makedirs(output_directory, exist_ok=True)
                 return
         
         print(f"Sample {sample_name} not found.")
@@ -81,17 +85,25 @@ def main(args=None) -> int:
         help="The full address to the output directory",
     )
     
+    parser.add_argument(
+        "-m",
+        "--mkdir",
+        action='store_true',
+        help="Flag to create directories if set",
+    )
+    
     args = parser.parse_args(args)
     excel_file_path = args.excel
     sample_name = args.sample
     outdir = args.outdir
+    mkdir_flag = args.mkdir
     
     # Load the Excel workbook
     workbook = openpyxl.load_workbook(excel_file_path)
     sheet = workbook.active
     
-    # Call the get_outdir function to handle the directory path generation
-    get_outdir(sheet, outdir, sample_name)
+    # Call the get_outdir function to handle the directory path generation and directory creation
+    get_outdir(sheet, outdir, sample_name, mkdir_flag)
 
 if __name__ == "__main__":
     main()
