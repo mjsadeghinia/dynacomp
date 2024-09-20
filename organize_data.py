@@ -2,6 +2,7 @@ import os
 import argparse
 import openpyxl
 import shutil
+import json
 
 # Function to extract name, category, weeks, and segmentation filename for a given sample name
 def get_name_category_week_segmentation(row):
@@ -80,8 +81,87 @@ def copy_PV_files(PV_fname, PV_directory, dest_directory):
         else:
             print(f"PV file {PV_fname + ext} not found in {PV_directory}")
 
+# Function to create and save a JSON file with the specified data
+def create_json_file(json_files_dir, sample_name, output_directory):
+    # Remove the "OP" prefix from the sample name
+    sample_name_no_op = sample_name.replace("OP", "")
+    
+    # Create the JSON data structure
+    json_data = {
+        "path": output_directory,
+        "scan_type": "CINE",
+        "is_inverted": True,
+        "mesh": {
+            "coarse": {
+                "seed_num_base_epi": 15,
+                "seed_num_base_endo": 10,
+                "num_z_sections_epi": 10,
+                "num_z_sections_endo": 9,
+                "num_mid_layers_base": 1,
+                "smooth_level_epi": 0.1,
+                "smooth_level_endo": 0.15,
+                "num_lax_points": 16,
+                "lax_smooth_level_epi": 1,
+                "lax_smooth_level_endo": 1.5,
+                "z_sections_flag_epi": 0,
+                "z_sections_flag_endo": 1,
+                "seed_num_threshold_epi": 8,
+                "seed_num_threshold_endo": 8,
+                "scale_for_delauny": 1.5,
+                "t_mesh": -1,
+                "MeshSizeMin": None,
+                "MeshSizeMax": None
+            },
+            "fine": {
+                "seed_num_base_epi": 45,
+                "seed_num_base_endo": 30,
+                "num_z_sections_epi": 20,
+                "num_z_sections_endo": 18,
+                "num_mid_layers_base": 3,
+                "smooth_level_epi": 0.1,
+                "smooth_level_endo": 0.15,
+                "num_lax_points": 32,
+                "lax_smooth_level_epi": 1,
+                "lax_smooth_level_endo": 2.5,
+                "z_sections_flag_epi": 1,
+                "z_sections_flag_endo": 0,
+                "seed_num_threshold_epi": 18,
+                "seed_num_threshold_endo": 12,
+                "scale_for_delauny": 1.5,
+                "t_mesh": -1,
+                "MeshSizeMin": None,
+                "MeshSizeMax": 0.75
+            }
+        },
+        "matparams": {
+            "a": 10.726,
+            "a_f": 7.048,
+            "b": 2.118,
+            "b_f": 0.001,
+            "a_s": 0.0,
+            "b_s": 0.0,
+            "a_fs": 0.0,
+            "b_fs": 0.0
+        },
+        "fiber_angles": {
+            "alpha_endo_lv": 60,
+            "alpha_epi_lv": -60,
+            "beta_endo_lv": -15,
+            "beta_epi_lv": 15
+        }
+    }
+    
+    # Save the JSON file with the name based on the sample name without "OP"
+    json_filename = f"{sample_name_no_op[:-2]}_{sample_name_no_op[-1]}.json"
+    json_file_path = os.path.join(json_files_dir, json_filename)
+    
+    with open(json_file_path, 'w') as json_file:
+        json.dump(json_data, json_file, indent=4)
+    
+    print(f"Saved JSON file for {sample_name}: {json_file_path}")
+
 # Updated function to handle directory path generation and optional directory creation
-def organise_folders(sheet, outdir, sample_name, mkdir_flag, segmentation_directory, PV_directory):
+def organise_folders(sheet, outdir, sample_name, mkdir_flag, segmentation_directory, PV_directory, json_files_dir):
     if sample_name.lower() == "all":
         # Process all rows if sample_name is "all"
         for row in sheet.iter_rows(min_row=2, values_only=False):
@@ -99,6 +179,8 @@ def organise_folders(sheet, outdir, sample_name, mkdir_flag, segmentation_direct
                     # Copy the PV files (.adicht and .mat) to the "PV Data" subfolder
                     if PV_fname:
                         copy_PV_files(PV_fname, PV_directory, output_directory)
+                    # Create and save the JSON file
+                    create_json_file(json_files_dir, name, output_directory)
     else:
         # Process only the specific sample
         for row in sheet.iter_rows(min_row=2, values_only=False):
@@ -118,6 +200,8 @@ def organise_folders(sheet, outdir, sample_name, mkdir_flag, segmentation_direct
                         # Copy the PV files (.adicht and .mat) to the "PV Data" subfolder
                         if PV_fname:
                             copy_PV_files(PV_fname, PV_directory, output_directory)
+                        # Create and save the JSON file
+                        create_json_file(json_files_dir, name, output_directory)
                 return
         
         print(f"Sample {sample_name} not found.")
@@ -174,6 +258,14 @@ def main(args=None) -> int:
         help="The directory where PV files are located",
     )
     
+    parser.add_argument(
+        "-jd",
+        "--jsondir",
+        default="/home/shared/dynacomp/settings",
+        type=str,
+        help="The directory where JSON files should be saved",
+    )
+    
     args = parser.parse_args(args)
     excel_file_path = args.excel
     sample_name = args.sample
@@ -181,13 +273,14 @@ def main(args=None) -> int:
     mkdir_flag = args.mkdir
     segmentation_directory = args.segdir
     PV_directory = args.pvdir
+    json_files_dir = args.jsondir
     
     # Load the Excel workbook
     workbook = openpyxl.load_workbook(excel_file_path)
     sheet = workbook.active
     
     # Call the organise_folders function to handle the directory path generation, directory creation, and file copying
-    organise_folders(sheet, outdir, sample_name, mkdir_flag, segmentation_directory, PV_directory)
+    organise_folders(sheet, outdir, sample_name, mkdir_flag, segmentation_directory, PV_directory, json_files_dir)
 
 if __name__ == "__main__":
     main()
