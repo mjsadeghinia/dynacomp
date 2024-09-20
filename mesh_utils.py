@@ -53,9 +53,11 @@ def compile_h5_CINE(directory_path, overwrite, is_inverted):
         num_acquisition = len(data["IM"])
         for i in range(num_acquisition):
             if len(data["IM"][i].shape) == 4:
-                i_shax = i
-                break
-        
+                if len(data["EpiX"][i]) == 0 or len(data["EpiY"][i]) == 0 or len(data["EndoX"][i]) == 0 or len(data["EndoY"][i]) == 0:
+                    continue
+                else:
+                    i_shax = i
+                    break
         x_coords_epi = data["EpiX"][i_shax]
         y_coords_epi = data["EpiY"][i_shax]
         x_coords_endo = data["EndoX"][i_shax]
