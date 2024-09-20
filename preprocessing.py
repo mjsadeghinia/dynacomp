@@ -34,6 +34,14 @@ def prepare_mask(h5_file, outdir, settings):
         h5_file = mesh_utils.close_apex(h5_file, itr=2, itr_dilation = 3 ,save_flag = True, results_folder=outdir)    
     return h5_file
 
+def prepare_coords(h5_file, outdir, settings):
+    remove_coords_num = settings["remove_coords"]
+    
+    if len(remove_coords_num)>0:
+        h5_file = mesh_utils.remove_coords(h5_file, remove_coords_num, results_folder=outdir)  
+        
+    return h5_file
+
 #%%
 def main(args=None) -> int:
     # Getting the arguments
@@ -54,8 +62,12 @@ def main(args=None) -> int:
     # Creating outdir, a folder with the name of output_folder in the data_dir for saving the results
     outdir = arg_parser.prepare_outdir(data_dir, output_folder)
     h5_file = mesh_utils.compile_h5(data_dir, settings["scan_type"], overwrite=h5_overwrite, is_inverted=settings["is_inverted"]) 
+    
     if settings["scan_type"] == 'TPM':
         h5_file = prepare_mask(h5_file, outdir, settings)
+    if settings["scan_type"] == 'CINE':
+        h5_file = prepare_coords(h5_file, outdir, settings)   
+    
     LVMesh, meshdir = meshing.create_mesh(
         data_dir,
         settings["scan_type"],
