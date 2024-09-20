@@ -364,6 +364,18 @@ def remove_duplicates(points):
             unique_points.append(point)
     return np.array(unique_points)
 
+def remove_coords(h5_file, remove_coords_num, results_folder):
+    coords_endo,coords_epi,slice_thickness,resolution, I = read_data_h5_CINE(h5_file)
+    coords_epi = coords_epi[remove_coords_num[0]:, :, :]
+    coords_endo = coords_endo[remove_coords_num[0]:, :, :]
+    logger.info(f"Coords from slice no. {remove_coords_num} has been removed")
+    updated_datasets = {
+        "coords_epi": coords_epi,
+        "coords_endo": coords_endo,
+        }
+    update_h5_file(h5_file, datasets=updated_datasets)
+    return h5_file
+
 def prepare_datasets(K, I, S, T_array, data):
     """
     Prepares datasets for saving to H5.
