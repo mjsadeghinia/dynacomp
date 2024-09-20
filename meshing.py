@@ -1,5 +1,6 @@
 # %%
 from pathlib import Path
+import numpy as np
 import plotly.graph_objects as go
 
 
@@ -136,6 +137,12 @@ def create_mesh(
             mu.plot_3d_points_on_figure(points, fig=fig)
         fnmae = outdir.as_posix() + "/" + fname_prefix + "_endo.html"
         fig.write_html(fnmae)
+    stacked_points_epi = np.vstack(points_cloud_epi)
+    fnmae = outdir.as_posix() + "/" + fname_prefix + "_epi.csv"
+    np.savetxt(fnmae, stacked_points_epi, delimiter=",", header="x,y,z", comments='')
+    stacked_points_endo = np.vstack(points_cloud_endo)
+    fnmae = outdir.as_posix() + "/" + fname_prefix + "_endo.csv"
+    np.savetxt(fnmae, stacked_points_endo, delimiter=",", header="x,y,z", comments='')
     outdir = results_folder / "06_Mesh/"
     outdir.mkdir(exist_ok=True)
     LVmesh = mu.VentricMesh(
