@@ -181,8 +181,9 @@ def create_geometry(
     for facet in facet_epi_id:
         ffun[facet] = 7
     if plot_flag:
+        fname = mesh_fname[:-4] + "_plotly"
         # plotting the face function
-        plot(ffun, wireframe=True)
+        plot(ffun, wireframe=True, filename=fname)
 
     # Saving ffun
     fname = mesh_fname[:-4] + "_ffun.xdmf"
