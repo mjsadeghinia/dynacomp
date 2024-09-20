@@ -11,6 +11,18 @@ def get_name_category_week_segmentation(row):
     segmentation_fname = row[2].value  # Cine information (Segmentation filename)
     return name, category, weeks, segmentation_fname
 
+# Function to extract PV filename from the PV data column (2nd column)
+def get_PV_fname(PV_data):
+    # Find the last backslash in the path
+    last_backslash_index = PV_data.rfind('\\')
+    
+    # Extract the file name after the last backslash and remove the last 7 characters
+    if last_backslash_index != -1:
+        PV_fname = PV_data[last_backslash_index + 1:-7]
+        return PV_fname
+    else:
+        return None
+
 # Function to get the output directory path based on name, category, and weeks
 def get_output_directory(directory_path, sample_name, category, weeks):
     # x is the weeks value minus the last character
@@ -47,12 +59,36 @@ def copy_segmentation_file(segmentation_fname, segmentation_directory, dest_dire
     else:
         print(f"Segmentation file {segmentation_fname_with_extension} not found in {segmentation_directory}")
 
+# Function to copy both .adicht and .mat PV files to the "PV Data" folder inside the destination directory
+def copy_PV_files(PV_fname, PV_directory, dest_directory):
+    # Create a "PV Data" subfolder inside the destination directory
+    pv_data_folder = os.path.join(dest_directory, "PV Data")
+    os.makedirs(pv_data_folder, exist_ok=True)
+    
+    # Define the two file extensions we are looking for
+    file_extensions = [".adicht", ".mat"]
+    
+    # Attempt to copy both files
+    for ext in file_extensions:
+        source_file = os.path.join(PV_directory, PV_fname + ext)
+        
+        # Check if the file exists in the PV directory
+        if os.path.exists(source_file):
+            # Copy the file to the "PV Data" subfolder
+            shutil.copy(source_file, pv_data_folder)
+            print(f"Copied {PV_fname + ext} to {pv_data_folder}")
+        else:
+            print(f"PV file {PV_fname + ext} not found in {PV_directory}")
+
 # Updated function to handle directory path generation and optional directory creation
-def organise_folders(sheet, outdir, sample_name, mkdir_flag, segmentation_directory):
+def organise_folders(sheet, outdir, sample_name, mkdir_flag, segmentation_directory, PV_directory):
     if sample_name.lower() == "all":
         # Process all rows if sample_name is "all"
         for row in sheet.iter_rows(min_row=2, values_only=False):
             name, category, weeks, segmentation_fname = get_name_category_week_segmentation(row)
+            PV_data = row[1].value  # PV data is the second column
+            PV_fname = get_PV_fname(PV_data)
+            
             output_directory = get_output_directory(outdir, name, category, weeks)
             if output_directory:
                 print(f"{name}: {output_directory}")
@@ -60,10 +96,15 @@ def organise_folders(sheet, outdir, sample_name, mkdir_flag, segmentation_direct
                     os.makedirs(output_directory, exist_ok=True)
                     # Copy the segmentation file to the created directory
                     copy_segmentation_file(segmentation_fname, segmentation_directory, output_directory)
+                    # Copy the PV files (.adicht and .mat) to the "PV Data" subfolder
+                    if PV_fname:
+                        copy_PV_files(PV_fname, PV_directory, output_directory)
     else:
         # Process only the specific sample
         for row in sheet.iter_rows(min_row=2, values_only=False):
             name, category, weeks, segmentation_fname = get_name_category_week_segmentation(row)
+            PV_data = row[1].value  # PV data is the second column
+            PV_fname = get_PV_fname(PV_data)
             
             # Check if the current row matches the sample name
             if name == sample_name:
@@ -74,6 +115,9 @@ def organise_folders(sheet, outdir, sample_name, mkdir_flag, segmentation_direct
                         os.makedirs(output_directory, exist_ok=True)
                         # Copy the segmentation file to the created directory
                         copy_segmentation_file(segmentation_fname, segmentation_directory, output_directory)
+                        # Copy the PV files (.adicht and .mat) to the "PV Data" subfolder
+                        if PV_fname:
+                            copy_PV_files(PV_fname, PV_directory, output_directory)
                 return
         
         print(f"Sample {sample_name} not found.")
@@ -122,19 +166,28 @@ def main(args=None) -> int:
         help="The directory where segmentation files are located",
     )
     
+    parser.add_argument(
+        "-pd",
+        "--pvdir",
+        default="/home/shared/dynacomp/00_data/CineData/Raw Data/PV",
+        type=str,
+        help="The directory where PV files are located",
+    )
+    
     args = parser.parse_args(args)
     excel_file_path = args.excel
     sample_name = args.sample
     outdir = args.outdir
     mkdir_flag = args.mkdir
     segmentation_directory = args.segdir
+    PV_directory = args.pvdir
     
     # Load the Excel workbook
     workbook = openpyxl.load_workbook(excel_file_path)
     sheet = workbook.active
     
-    # Call the get_outdir function to handle the directory path generation, directory creation, and file copying
-    organise_folders(sheet, outdir, sample_name, mkdir_flag, segmentation_directory)
+    # Call the organise_folders function to handle the directory path generation, directory creation, and file copying
+    organise_folders(sheet, outdir, sample_name, mkdir_flag, segmentation_directory, PV_directory)
 
 if __name__ == "__main__":
     main()
