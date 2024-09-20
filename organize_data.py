@@ -11,19 +11,23 @@ def get_name_category_week(row):
 
 # Function to get the output directory path based on name, category, and weeks
 def get_output_directory(directory_path, sample_name, category, weeks):
-    # If the category is 'Sham', build the output directory path
+    # x is the weeks value minus the last character
+    x = weeks[:-1]
+    
+    # s is the sample name with the second to last character replaced by '_'
+    s = sample_name[:-2] + "_" + sample_name[-1]
+    
+    # Check the category to determine the output directory
     if category == "Sham":
-        # x is the weeks value minus the last character
-        x = weeks[:-1]
-        
-        # s is the sample name with the second to last character replaced by '_'
-        s = sample_name[:-2] + "_" + sample_name[-1]
-        
-        # Build the output directory path
+        # Build the output directory for Sham category
         outdir = os.path.join(directory_path, f'SHAM/{x}weeks/{s}')
-        return outdir
     else:
-        return None
+        # Convert the category value to double and multiply by 100
+        c = float(category.replace(',', '.')) * 100
+        # Build the output directory for non-Sham category
+        outdir = os.path.join(directory_path, f'AS/{x}weeks/{c:.0f}/{s}')
+    
+    return outdir
 
 def main(args=None) -> int:
     """
