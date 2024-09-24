@@ -3,7 +3,6 @@ from pathlib import Path
 import numpy as np
 import plotly.graph_objects as go
 
-import poisson_mesh
 import mesh_utils
 from ventric_mesh.create_mesh import read_data_h5
 import ventric_mesh.mesh_utils as mu
