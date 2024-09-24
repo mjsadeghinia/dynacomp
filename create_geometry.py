@@ -1,5 +1,8 @@
 # %%
 import numpy as np
+from scipy.spatial import KDTree
+import itertools
+
 from pathlib import Path
 from structlog import get_logger
 
@@ -68,20 +71,18 @@ def create_geometry(
     # Reading the gmsh file and create a xdmf to be read by dolfin
     msh = meshio.read(mesh_fname)
 
+    # Find the Epi, Endo and Base triangle indices
+    Epi_triangles = msh.cell_sets_dict['Epi']['triangle']
+    Endo_triangles = msh.cell_sets_dict['Endo']['triangle']
+    Base_triangles = msh.cell_sets_dict['Base']['triangle']
+
     # Find the indices for 'tetra' and 'triangle' cells
-
     tetra_index = next(i for i, item in enumerate(msh.cells) if item.type == "tetra")
-    # triangle_index = next(
-    #     i for i, item in enumerate(msh.cells) if item.type == "triangle"
-    # )
-
     # Extract the corresponding cells
     tetra_cells = msh.cells[tetra_index].data
-    # triangle_cells = msh.cells[triangle_index].data
-
-    # Extract the corresponding cell data
-    # triangle_cell_data = msh.cell_data["gmsh:geometrical"][triangle_index]
-
+    # Find the indices for 'triangle' cells (surface elements)
+    triangle_index = next(i for i, item in enumerate(msh.cells) if item.type == "triangle")
+    triangle_cells = msh.cells[triangle_index].data
     # Write the mesh and mesh function
     fname = mesh_fname[:-4] + ".xdmf"
     meshio.write(fname, meshio.Mesh(points=msh.points, cells={"tetra": tetra_cells}))
@@ -102,84 +103,70 @@ def create_geometry(
     ffun = dolfin.MeshFunction("size_t", mesh, 2)
     ffun.set_all(0)
 
+    # Assuming msh.cells[i].data contains the indices of the vertices for each face
+    epi_face_indices = msh.cells[0].data 
+    endo_face_indices = msh.cells[1].data 
+    base_face_indices = msh.cells[2].data  
+    # msh.points contains the coordinates of each vertex
+    vertex_coordinates = msh.points  
+
+    # Get the coordinates for each face by indexing msh.points with face_indices
+    epi_face_coordinates = vertex_coordinates[epi_face_indices] 
+    endo_face_coordinates = vertex_coordinates[endo_face_indices]
+    base_face_coordinates = vertex_coordinates[base_face_indices]
+
+    def are_triangles_similar(tri1, tri2, tol=1e-6):
+        """
+        Checks whether two triangles (arrays of shape (3, 3)) contain the same set of points,
+        regardless of order, within a specified tolerance.
+        """
+        for perm in itertools.permutations(range(3)):
+            tri2_perm = tri2[list(perm)]
+            if np.allclose(tri1, tri2_perm, atol=tol):
+                return True
+        return False
+
+    def check_face_similarity(face, coord, tol=1e-6):
+        """
+        Checks if coord is similar to any set of 3 points in face.
+
+        Parameters:
+        - face: NumPy array of shape (n, 3, 3), where each face[i] is a set of 3 points.
+        - coord: NumPy array of shape (3, 3), representing a set of 3 points.
+        - tol: Numerical tolerance for floating-point comparisons.
+
+        Returns:
+        - True if coord is similar to any face[i] in face; False otherwise.
+        """
+        for i in range(face.shape[0]):
+            if are_triangles_similar(face[i], coord, tol=tol):
+                return True
+        return False
+
     # Annotating the base mesh function
     # we set the markers as base=5, endo=6, epi=7
     # First we find all the exterior surface with z coords equal to 0 which corresponds to the base facets
     # facet_exterior_all is the index of facets on the exterior surfaces and coord_exterior_all is the coordinates
-    facet_exterior_all = []
     # coord_exterior_all=[]
     for fc in dolfin.facets(geometry.mesh):
         if fc.exterior():
-            facet_exterior_all.append(fc.index())
-            # coord_exterior_all.append(geometry.mesh.coordinates()[fc.entities(0), 2])
-            z_coords = np.mean(geometry.mesh.coordinates()[fc.entities(0), 2])
-            if dolfin.near(z_coords, 0):
+            idx = fc.index()
+            #print(set(msh.point_data['gmsh:dim_tags'][:,1]))
+            #print(mesh.coordinates()[fc.entities(0)])
+            #breakpoint()
+            coord = mesh.coordinates()[fc.entities(0)]
+            if check_face_similarity(epi_face_coordinates, coord, tol=1e-6):
+                ffun[fc] = 7
+            elif check_face_similarity(endo_face_coordinates, coord, tol=1e-6):
+                ffun[fc] = 6
+            elif check_face_similarity(base_face_coordinates, coord, tol=1e-6):
                 ffun[fc] = 5
-
-    # Finding the exterior facets without the base for annotating the epi and endo
-    # facet_exterior is the index of facets on the exterior surfaces excluding the base and coord_exterior is the coordinates and nodes are a n*3 matrix of node numbers of each corresponding facet
-    facet_exterior = []
-    node_exterior = []
-    for fc in dolfin.facets(geometry.mesh):
-        if fc.exterior() and not (dolfin.near(ffun[fc], 5)):
-            facet_exterior.append(fc.index())
-            node_exterior.extend(fc.entities(0))
-
-    # Creating a dictionary (a graph in fact) to find all the connected facets with each other
-    node_exterior = [node_exterior[i : i + 3] for i in range(0, len(node_exterior), 3)]
-    graph = {fc: set() for fc in facet_exterior}
-    for i, nodes_i in enumerate(node_exterior):
-        for j, nodes_j in enumerate(node_exterior):
-            if i != j and set(nodes_i).intersection(set(nodes_j)):
-                graph[facet_exterior[i]].add(facet_exterior[j])
-
-    #
-
-    # we find a first set as facet_1, however we do not know if it is epi or endo
-    facet_1 = set()
-    facet_i = list(graph.keys())[0]
-    dfs(graph, facet_i, facet_1)
-    facet_exterior_set = set(facet_exterior)
-    facet_2 = facet_exterior_set - facet_1
-
-    # Determining the endo and epi based on area comparison
-
-    facet_1_id = np.array(list(dolfin.facets(geometry.mesh)))[list(facet_1)]
-    facet_2_id = np.array(list(dolfin.facets(geometry.mesh)))[list(facet_2)]
-    all_cells = np.array(list(dolfin.cells(geometry.mesh)))
-
-    f_to_c = mesh.topology()(fdim, tdim)
-    c_to_f = mesh.topology()(tdim, fdim)
-
-    facet_1_area = []
-    for facet in facet_1_id:
-        cell = all_cells[f_to_c(facet.index())[0]]
-        local_facets = c_to_f(cell.index())
-        local_index = np.flatnonzero(local_facets == facet.index())
-        area = cell.facet_area(local_index)
-        facet_1_area.append(area)
-
-    facet_2_area = []
-    for facet in facet_2_id:
-        cell = all_cells[f_to_c(facet.index())[0]]
-        local_facets = c_to_f(cell.index())
-        local_index = np.flatnonzero(local_facets == facet.index())
-        area = cell.facet_area(local_index)
-        facet_2_area.append(area)
-
-    if np.sum(facet_1_area) > np.sum(facet_2_area):
-        facet_endo = facet_2
-        facet_epi = facet_1
-    else:
-        facet_endo = facet_1
-        facet_epi = facet_2
-
-    facet_endo_id = np.array(list(dolfin.facets(geometry.mesh)))[list(facet_endo)]
-    facet_epi_id = np.array(list(dolfin.facets(geometry.mesh)))[list(facet_epi)]
-    for facet in facet_endo_id:
-        ffun[facet] = 6
-    for facet in facet_epi_id:
-        ffun[facet] = 7
+#            if idx in set(Base_triangles):
+#                ffun[fc] = 5
+#            elif idx in set(Endo_triangles):
+#                ffun[fc] = 6
+#            elif idx in set(Epi_triangles):
+#                ffun[idx] = 7
     if plot_flag:
         fname = mesh_fname[:-4] + "_plotly"
         # plotting the face function
@@ -189,7 +176,7 @@ def create_geometry(
     fname = mesh_fname[:-4] + "_ffun.xdmf"
     with dolfin.XDMFFile(fname) as infile:
         infile.write(ffun)
-
+    breakpoint()
     marker_functions = pulse.MarkerFunctions(ffun=ffun)
     markers = {"BASE": [5, 2], "ENDO": [6, 2], "EPI": [7, 2]}
     geometry = pulse.HeartGeometry(
