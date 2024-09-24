@@ -48,12 +48,10 @@ def parse_arguments_pre(args=None):
         help="The settings directory where json files are stored.",
     )
     
-    valid_mesh_qualities = ['coarse', 'fine']
     parser.add_argument(
         "-m",
         "--mesh_quality",
         default='coarse',
-        choices=valid_mesh_qualities,
         type=str,
         help="The mesh quality. Settings will be loaded accordingly from json file",
     )
