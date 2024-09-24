@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import plotly.graph_objects as go
 
-
+import poisson_mesh
 import mesh_utils
 from ventric_mesh.create_mesh import read_data_h5
 import ventric_mesh.mesh_utils as mu
@@ -137,28 +137,19 @@ def create_mesh(
             mu.plot_3d_points_on_figure(points, fig=fig)
         fnmae = outdir.as_posix() + "/" + fname_prefix + "_endo.html"
         fig.write_html(fnmae)
-    stacked_points_epi = np.vstack(points_cloud_epi)
-    fnmae = outdir.as_posix() + "/" + fname_prefix + "_epi.csv"
-    np.savetxt(fnmae, stacked_points_epi, delimiter=",", header="x,y,z", comments='')
-    stacked_points_endo = np.vstack(points_cloud_endo)
-    fnmae = outdir.as_posix() + "/" + fname_prefix + "_endo.csv"
-    np.savetxt(fnmae, stacked_points_endo, delimiter=",", header="x,y,z", comments='')
-    outdir = results_folder / "06_Mesh/"
+    
+    outdir = results_folder / "06_Mesh"
     outdir.mkdir(exist_ok=True)
-    LVmesh = mu.VentricMesh(
+    LVmesh = mu.VentricMesh_poisson(
         points_cloud_epi,
         points_cloud_endo,
         mesh_settings["num_mid_layers_base"],
-        k_apex_epi, 
-        k_apex_endo,
-        scale_for_delauny = mesh_settings["scale_for_delauny"],
+        mesh_size_epi=1,
+        mesh_size_endo=1,
         save_flag=True,
         result_folder=outdir.as_posix() + "/",
     )
 
-    stl_path = outdir.as_posix() + "/Mesh.stl"
-    mesh_3d_path = outdir.as_posix() + "/Mesh_3D.msh"
-    check_mesh_quality(LVmesh,file_path=stl_path[:-4]+'_report.txt')
-    generate_3d_mesh_from_stl(stl_path, mesh_3d_path, MeshSizeMin=mesh_settings["MeshSizeMin"], MeshSizeMax=mesh_settings["MeshSizeMax"])
+    check_mesh_quality(LVmesh,file_path=outdir.as_posix() +'/Mesh_report.txt')
 
     return LVmesh, outdir
