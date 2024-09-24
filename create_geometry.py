@@ -100,73 +100,56 @@ def create_geometry(
 
     # Creating the pulse geometry and setting ffun
     geometry = pulse.HeartGeometry(mesh=mesh)
+        
+    # Assuming 'mesh' and 'msh' are already defined
     ffun = dolfin.MeshFunction("size_t", mesh, 2)
     ffun.set_all(0)
 
-    # Assuming msh.cells[i].data contains the indices of the vertices for each face
-    epi_face_indices = msh.cells[0].data 
-    endo_face_indices = msh.cells[1].data 
-    base_face_indices = msh.cells[2].data  
-    # msh.points contains the coordinates of each vertex
-    vertex_coordinates = msh.points  
+    # Extract face indices from 'msh'
+    epi_face_indices = msh.cells[0].data
+    endo_face_indices = msh.cells[1].data
+    base_face_indices = msh.cells[2].data
 
-    # Get the coordinates for each face by indexing msh.points with face_indices
-    epi_face_coordinates = vertex_coordinates[epi_face_indices] 
-    endo_face_coordinates = vertex_coordinates[endo_face_indices]
-    base_face_coordinates = vertex_coordinates[base_face_indices]
+    # Get vertex coordinates
+    vertex_coordinates = msh.points
 
-    def are_triangles_similar(tri1, tri2, tol=1e-6):
+    def triangle_key(coords, tol=1e-6):
         """
-        Checks whether two triangles (arrays of shape (3, 3)) contain the same set of points,
-        regardless of order, within a specified tolerance.
+        Generates a hashable key for a triangle's coordinates.
         """
-        for perm in itertools.permutations(range(3)):
-            tri2_perm = tri2[list(perm)]
-            if np.allclose(tri1, tri2_perm, atol=tol):
-                return True
-        return False
+        rounded_coords = np.round(coords / tol).astype(int)
+        sorted_coords = np.sort(rounded_coords, axis=0)
+        key = tuple(sorted_coords.flatten())
+        return key
 
-    def check_face_similarity(face, coord, tol=1e-6):
+    def build_face_keys(face_indices, vertex_coordinates, tol=1e-6):
         """
-        Checks if coord is similar to any set of 3 points in face.
-
-        Parameters:
-        - face: NumPy array of shape (n, 3, 3), where each face[i] is a set of 3 points.
-        - coord: NumPy array of shape (3, 3), representing a set of 3 points.
-        - tol: Numerical tolerance for floating-point comparisons.
-
-        Returns:
-        - True if coord is similar to any face[i] in face; False otherwise.
+        Builds a set of unique keys for a group of faces.
         """
-        for i in range(face.shape[0]):
-            if are_triangles_similar(face[i], coord, tol=tol):
-                return True
-        return False
+        keys = set()
+        for indices in face_indices:
+            coords = vertex_coordinates[indices]
+            key = triangle_key(coords, tol=tol)
+            keys.add(key)
+        return keys
 
-    # Annotating the base mesh function
-    # we set the markers as base=5, endo=6, epi=7
-    # First we find all the exterior surface with z coords equal to 0 which corresponds to the base facets
-    # facet_exterior_all is the index of facets on the exterior surfaces and coord_exterior_all is the coordinates
-    # coord_exterior_all=[]
-    for fc in dolfin.facets(geometry.mesh):
+    # Build sets of keys for each face group
+    epi_keys = build_face_keys(epi_face_indices, vertex_coordinates)
+    endo_keys = build_face_keys(endo_face_indices, vertex_coordinates)
+    base_keys = build_face_keys(base_face_indices, vertex_coordinates)
+
+    # Annotate the mesh function using the keys
+    for fc in dolfin.facets(mesh):
         if fc.exterior():
-            idx = fc.index()
-            #print(set(msh.point_data['gmsh:dim_tags'][:,1]))
-            #print(mesh.coordinates()[fc.entities(0)])
-            #breakpoint()
             coord = mesh.coordinates()[fc.entities(0)]
-            if check_face_similarity(epi_face_coordinates, coord, tol=1e-6):
+            key = triangle_key(coord)
+            if key in epi_keys:
                 ffun[fc] = 7
-            elif check_face_similarity(endo_face_coordinates, coord, tol=1e-6):
+            elif key in endo_keys:
                 ffun[fc] = 6
-            elif check_face_similarity(base_face_coordinates, coord, tol=1e-6):
+            elif key in base_keys:
                 ffun[fc] = 5
-#            if idx in set(Base_triangles):
-#                ffun[fc] = 5
-#            elif idx in set(Endo_triangles):
-#                ffun[fc] = 6
-#            elif idx in set(Epi_triangles):
-#                ffun[idx] = 7
+                
     if plot_flag:
         fname = mesh_fname[:-4] + "_plotly"
         # plotting the face function
@@ -176,7 +159,7 @@ def create_geometry(
     fname = mesh_fname[:-4] + "_ffun.xdmf"
     with dolfin.XDMFFile(fname) as infile:
         infile.write(ffun)
-    breakpoint()
+
     marker_functions = pulse.MarkerFunctions(ffun=ffun)
     markers = {"BASE": [5, 2], "ENDO": [6, 2], "EPI": [7, 2]}
     geometry = pulse.HeartGeometry(
