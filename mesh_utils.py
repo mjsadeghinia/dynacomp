@@ -220,7 +220,6 @@ def remove_nan_coords_data_endo(*coords):
     valid_coords = ~np.all(np.isnan(endo_x_coord), axis=0)
     i = 1
     for coord in coords[2:]:
-        print(i)
         i += 1
         nonan_coord = coord[:, valid_coords]
         nonan_coords.append(nonan_coord)

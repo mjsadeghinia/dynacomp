@@ -3,6 +3,7 @@ import numpy as np
 
 from pathlib import Path
 from structlog import get_logger
+import logging
 
 import meshio
 import dolfin
@@ -138,12 +139,14 @@ def create_geometry(
     if plot_flag:
         fname = mesh_fname[:-4] + "_plotly"
         # plotting the face function
-        plot(ffun, wireframe=True, filename=fname)
+        plot(ffun, wireframe=True, filename=fname + ".html")
 
     # Saving ffun
     fname = mesh_fname[:-4] + "_ffun.xdmf"
     with dolfin.XDMFFile(fname) as infile:
         infile.write(ffun)
+
+    logger.info("Creating a pulse geometry...")
 
     marker_functions = pulse.MarkerFunctions(ffun=ffun)
     markers = {"BASE": [5, 2], "ENDO": [6, 2], "EPI": [7, 2]}
@@ -165,17 +168,21 @@ def create_geometry(
     fiber_space = "Quadrature_4"
 
     # Compute the microstructure
+    logger.info("Computing fiber angles...")
     fiber, sheet, sheet_normal = ldrb.dolfin_ldrb(
         mesh=geometry.mesh,
         fiber_space=fiber_space,
         ffun=geometry.ffun,
         markers=markers,
+        log_level=30,
         **angles,
     )
     fname = mesh_fname[:-4] + "_fiber"
 
     ldrb.fiber_to_xdmf(fiber, fname)
 
+    pulse_logger = logging.getLogger("pulse")
+    pulse_logger.setLevel(logging.WARNING)
     geometry.microstructure = pulse.Microstructure(f0=fiber, s0=sheet, n0=sheet_normal)
     fname = mesh_fname[:-4]
     geometry.save(fname, overwrite_file=True)

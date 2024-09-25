@@ -5,7 +5,6 @@ import argparse
 
 # The following files failed for fine mesh to process: ['126_3', '127_1', '128_1', '129_3', '131_1', '132_1', '132_3', '133_1', '136_1', '137_2', '139_2', '140_2', '149_2', '151_1', '158_2', '163_2', '163_3', '164_3', '166_3', '167_1', '168_1', '169_3', '172_2', '183_1', '185_1', '185_2', '187_1']
 
-
 def main(args=None) -> int:
     """
     Parse the command-line arguments and process files.
@@ -78,6 +77,7 @@ def main(args=None) -> int:
         name = file_path.stem
 
         # Log the start of processing for this file
+        logger.info(f"=======================================================")
         logger.info(f"=========== Start processing file {name} ===========")
         
         # Skip specified sample names
@@ -93,6 +93,7 @@ def main(args=None) -> int:
             subprocess.run(command, shell=True, check=True)
             # Log the successful completion of the file
             logger.info(f"=========== Finished processing file {name} ===========")
+            logger.info(f"=======================================================")
         except subprocess.CalledProcessError as e:
             # Log the error with structlog and highlight the sample name
             logger.error(f"Error processing file {name}, due to {e}")
