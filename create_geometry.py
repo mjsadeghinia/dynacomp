@@ -1,7 +1,5 @@
 # %%
 import numpy as np
-from scipy.spatial import KDTree
-import itertools
 
 from pathlib import Path
 from structlog import get_logger
@@ -30,13 +28,6 @@ def get_mesh_fname(meshdir, mesh_fname=None):
     return mesh_fname
 
 
-def dfs(graph, node, visited):
-    visited.add(node)
-    for neighbour in graph[node]:
-        if neighbour not in visited:
-            dfs(graph, neighbour, visited)
-
-
 def get_fiber_angles(fiber_angles):
     # Use provided fiber_angles or default ones if not provided
     default_fiber_angles = get_default_fiber_angles()
@@ -48,6 +39,9 @@ def get_fiber_angles(fiber_angles):
         if fiber_angles
         else default_fiber_angles
     )
+    # Check if the default values are used
+    if not fiber_angles:
+        logger.warning("Default fiber angles are being used.")
     return fiber_angles
 
 
@@ -70,22 +64,14 @@ def create_geometry(
     mesh_fname = get_mesh_fname(meshdir, mesh_fname=mesh_fname)
     # Reading the gmsh file and create a xdmf to be read by dolfin
     msh = meshio.read(mesh_fname)
-
-    # Find the Epi, Endo and Base triangle indices
-    Epi_triangles = msh.cell_sets_dict['Epi']['triangle']
-    Endo_triangles = msh.cell_sets_dict['Endo']['triangle']
-    Base_triangles = msh.cell_sets_dict['Base']['triangle']
-
     # Find the indices for 'tetra' and 'triangle' cells
     tetra_index = next(i for i, item in enumerate(msh.cells) if item.type == "tetra")
     # Extract the corresponding cells
     tetra_cells = msh.cells[tetra_index].data
-    # Find the indices for 'triangle' cells (surface elements)
-    triangle_index = next(i for i, item in enumerate(msh.cells) if item.type == "triangle")
-    triangle_cells = msh.cells[triangle_index].data
     # Write the mesh and mesh function
     fname = mesh_fname[:-4] + ".xdmf"
     meshio.write(fname, meshio.Mesh(points=msh.points, cells={"tetra": tetra_cells}))
+
     # reading xdmf file and create pvd and initializing the mesh
     mesh = dolfin.Mesh()
     with dolfin.XDMFFile(fname) as infile:
@@ -100,8 +86,8 @@ def create_geometry(
 
     # Creating the pulse geometry and setting ffun
     geometry = pulse.HeartGeometry(mesh=mesh)
-        
-    # Assuming 'mesh' and 'msh' are already defined
+
+    # Defining face function (ffun)
     ffun = dolfin.MeshFunction("size_t", mesh, 2)
     ffun.set_all(0)
 
@@ -137,7 +123,6 @@ def create_geometry(
     epi_keys = build_face_keys(epi_face_indices, vertex_coordinates)
     endo_keys = build_face_keys(endo_face_indices, vertex_coordinates)
     base_keys = build_face_keys(base_face_indices, vertex_coordinates)
-
     # Annotate the mesh function using the keys
     for fc in dolfin.facets(mesh):
         if fc.exterior():
@@ -149,7 +134,7 @@ def create_geometry(
                 ffun[fc] = 6
             elif key in base_keys:
                 ffun[fc] = 5
-                
+
     if plot_flag:
         fname = mesh_fname[:-4] + "_plotly"
         # plotting the face function
