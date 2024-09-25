@@ -303,39 +303,7 @@ def close_apex_coords(coords_epi, coords_endo):
     coords_epi.append(points[:,:2])
     return coords_epi, coords_endo
     
-    
 
-# import matplotlib.pyplot as plt
-
-# def plot_epi_endo(corrected_coords, name = 'test'):
-#     x_epi, y_epi, x_endo, y_endo = corrected_coords  # Unpack the corrected coordinates
-#     k = x_endo.shape[1]  # Number of slices
-#     nrows = 5
-#     ncols = 3
-
-#     fig, axs = plt.subplots(nrows, ncols, figsize=(15, 15))  # Create 5x3 subplots
-    
-#     for i in range(k):
-#         row = i // ncols
-#         col = i % ncols
-#         # Plot the endocardial curve for slice i
-#         axs[row, col].plot(x_endo[:, i], y_endo[:, i], label='Endo', color='blue')
-#         # Plot the epicardial curve for slice i
-#         axs[row, col].plot(x_epi[:, i], y_epi[:, i], label='Epi', color='red')
-        
-#         # Setting titles and labels for clarity
-#         axs[row, col].set_title(f'Slice {i+1}')
-#         axs[row, col].set_xlabel('X')
-#         axs[row, col].set_ylabel('Y')
-#         axs[row, col].legend()
-    
-#     # Hide any unused subplots if k < 15
-#     for j in range(k, nrows * ncols):
-#         fig.delaxes(axs.flatten()[j])
-
-#     # Adjust layout for better spacing
-#     plt.tight_layout()
-#     plt.savefig(name)
 
 def transform_to_img_cs_for_all_slices(coords, resolution, I):
     transformed_coords = []
@@ -735,3 +703,33 @@ def read_data_h5_CINE(file_dir):
         resolution=metadata['resolution']           # to convert to mm/pixel
         I = metadata["image_matrix_size"]
     return coords_endo,coords_epi,slice_thickness,resolution, I 
+
+
+def prepare_mask(h5_file, outdir, settings):
+    mask_settings = settings["mask"]
+     
+    h5_file = pre_process_mask(
+        h5_file,
+        save_flag=True,
+        settings=mask_settings,
+        results_folder=outdir,
+    )
+    if settings["remove_slice"]:
+        h5_file = remove_slice(h5_file, slice_num=0, save_flag=True, results_folder=outdir)  
+        
+    if settings["shift_slice_mask"]:
+        slice_num = 2
+        slice_num_ref = 1
+        h5_file = shift_slice_mask(h5_file,slice_num,slice_num_ref,save_flag = True, results_folder=outdir)    
+
+    if settings["close_apex"]:
+        h5_file = close_apex(h5_file, itr=2, itr_dilation = 3 ,save_flag = True, results_folder=outdir)    
+    return h5_file
+
+def prepare_coords(h5_file, outdir, settings):
+    remove_coords_num = settings["remove_coords"]
+    
+    if len(remove_coords_num)>0:
+        h5_file = remove_coords(h5_file, remove_coords_num, results_folder=outdir)  
+        
+    return h5_file
