@@ -47,7 +47,7 @@
             "t_mesh": -1,
             "MeshSizeMin": 0.2,
             "MeshSizeMax": 0.5,
-            "SurfaceMeshSizeEndo": 1,
+            "SurfaceMeshSizeEndo": 1.2,
             "SurfaceMeshSizeEpi": 1
         },
         "very_fine": {
