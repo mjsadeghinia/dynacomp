@@ -123,5 +123,5 @@ updated_field_values_fine = {
 
 
 # Call the function to process all JSON files in the directory
-process_all_json_files('/home/shared/dynacomp/settings/100_1.json', 'mesh', 'fine', updated_field_values_fine)
+# process_all_json_files('/home/shared/dynacomp/settings/100_1.json', 'mesh', 'fine', updated_field_values_fine)
 # add_or_update_field('/home/shared/dynacomp/settings/100_1.json', 'mesh', 'very_fine', updated_field_values)
