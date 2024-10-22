@@ -46,9 +46,10 @@ def main(args=None) -> int:
     
     parser.add_argument(
         "-n",
-        "--number",
+        "--numbers",
+        nargs='+',
         type=int,
-        help="Process only the nth file in the sorted list (1-based index).",
+        help="Process only the nth file(s) in the sorted list (1-based index). Multiple values allowed.",
     )
     
     # Parse the command-line arguments
@@ -63,13 +64,17 @@ def main(args=None) -> int:
     # Get the list of .json files in the directory and sort them by name
     sorted_files = sorted([file for file in settings_dir.iterdir() if file.is_file() and file.suffix == '.json'])
 
-    # If --number is specified, process only the nth file
-    if args.number is not None:
-        if 1 <= args.number <= len(sorted_files):
-            sorted_files = [sorted_files[args.number - 1]]  # Get only the nth file (convert 1-based to 0-based index)
-        else:
-            logger.error(f"Invalid value for --number. Must be between 1 and {len(sorted_files)}.")
-            return 1
+    # If --numbers are specified, process only the specified files
+    if args.numbers:
+        selected_files = []
+        for number in args.numbers:
+            if 1 <= number <= len(sorted_files):
+                selected_files.append(sorted_files[number - 1])  # Convert 1-based to 0-based index
+            else:
+                logger.error(f"Invalid value for --numbers. Must be between 1 and {len(sorted_files)}.")
+                return 1
+        sorted_files = selected_files
+
     # Loop through the selected .json files in the sorted list
     for idx, file_path in enumerate(sorted_files):
         
@@ -93,7 +98,9 @@ def main(args=None) -> int:
             subprocess.run(command, shell=True, check=True)
             # Log the successful completion of the file
             logger.info(f"=========== Finished processing file {name} ===========")
-            logger.info(f"=======================================================")
+            if failed_files: 
+                logger.error(f"The following files failed to process: {failed_files}")
+                logger.info(f"=======================================================")
         except subprocess.CalledProcessError as e:
             # Log the error with structlog and highlight the sample name
             logger.error(f"Error processing file {name}, due to {e}")
