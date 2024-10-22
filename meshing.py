@@ -79,17 +79,15 @@ def create_mesh(
     if plot_flag:
         outdir = results_folder / "03_LaxBSpline"
         outdir.mkdir(exist_ok=True)
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection="3d")
-        mu.plot_3d_LAX(
-            ax,
+        fig = go.Figure()
+        mu.plotly_3d_LAX(
+            fig,
             range(int(mesh_settings["num_lax_points"] / 2)),
             tck_lax_epi,
             tck_endo=tck_lax_endo,
         )
-        fnmae = outdir.as_posix() + "/" + fname_prefix + ".png"
-        plt.savefig(fnmae)
-        plt.close()
+        fnmae = outdir.as_posix() + "/" + fname_prefix + ".html"
+        fig.write_html(fnmae)
     tck_shax_epi = mu.get_shax_from_lax(
         tck_lax_epi,
         apex_epi,
@@ -143,8 +141,10 @@ def create_mesh(
         points_cloud_epi,
         points_cloud_endo,
         mesh_settings["num_mid_layers_base"],
-        mesh_size_epi=1,
-        mesh_size_endo=1,
+        SurfaceMeshSizeEpi=mesh_settings["SurfaceMeshSizeEpi"],
+        SurfaceMeshSizeEndo=mesh_settings["SurfaceMeshSizeEndo"],
+        MeshSizeMax=mesh_settings["MeshSizeMax"], 
+        MeshSizeMin=mesh_settings["MeshSizeMin"],
         save_flag=True,
         result_folder=outdir.as_posix() + "/",
     )
