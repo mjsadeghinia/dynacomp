@@ -1,5 +1,6 @@
 # %%
 import numpy as np
+import plotly.graph_objects as go
 
 from pathlib import Path
 from structlog import get_logger
@@ -137,9 +138,10 @@ def create_geometry(
                 ffun[fc] = 5
 
     if plot_flag:
-        fname = mesh_fname[:-4] + "_plotly"
+        fname = mesh_fname[:-4] + "_plotly.html"
         # plotting the face function
-        plot(ffun, wireframe=True, filename=fname + ".html")
+        fig = plot(ffun, wireframe=True)
+        fig.save(fname)
 
     # Saving ffun
     fname = mesh_fname[:-4] + "_ffun.xdmf"
