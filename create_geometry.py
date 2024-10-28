@@ -61,9 +61,9 @@ def get_default_fiber_angles():
 
 
 def create_geometry(
-    meshdir, fiber_angles: dict = None, mesh_fname=None, plot_flag=False
+    mesh_fname, fiber_angles: dict = None, plot_flag=False
 ):
-    mesh_fname = get_mesh_fname(meshdir, mesh_fname=mesh_fname)
+    # mesh_fname = get_mesh_fname(meshdir, mesh_fname=mesh_fname)
     # Reading the gmsh file and create a xdmf to be read by dolfin
     msh = meshio.read(mesh_fname)
     # Find the indices for 'tetra' and 'triangle' cells

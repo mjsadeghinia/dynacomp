@@ -46,7 +46,7 @@ def main(args=None) -> int:
     if settings["scan_type"] == "CINE":
         h5_file = mesh_utils.prepare_coords(h5_file, outdir, settings)
 
-    LVMesh, meshdir = meshing.create_mesh(
+    mesh_fname = meshing.create_mesh(
         data_dir,
         settings["scan_type"],
         mesh_settings,
@@ -55,7 +55,7 @@ def main(args=None) -> int:
         results_folder=outdir,
     )
     geometry = create_geometry.create_geometry(
-        meshdir, fiber_angles=settings["fiber_angles"], plot_flag=True
+        mesh_fname, fiber_angles=settings["fiber_angles"], plot_flag=True
     )
 
     geo_outdir = outdir / "Geometry"

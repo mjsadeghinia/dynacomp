@@ -304,14 +304,17 @@ def close_apex_coords(coords_epi, coords_endo):
     
 
 
-def transform_to_img_cs_for_all_slices(coords, resolution, I):
+def transform_to_img_cs_for_all_slices(coords, resolution, slice_thickness, I):
     transformed_coords = []
-    k = len(coords)
-    for coord in coords:
+    for k, coord in enumerate(coords):
         transformed_coord = transform_to_img_cs(coord, resolution, I)
         # Remove duplicates
         transformed_coord_unique = remove_duplicates(transformed_coord)
-        transformed_coords.append(transformed_coord_unique)
+        # Create z slice coordinates
+        third_column = np.full((transformed_coord_unique.shape[0], 1), -slice_thickness * k)
+        # Concatenate along the second axis
+        coords_3d = np.hstack((transformed_coord_unique, third_column))
+        transformed_coords.append(coords_3d)
     return transformed_coords
     
 def transform_to_img_cs(coord, resolution, I):
