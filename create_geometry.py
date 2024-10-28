@@ -140,7 +140,7 @@ def create_geometry(
     if plot_flag:
         fname = mesh_fname[:-4] + "_plotly.html"
         # plotting the face function
-        fig = plot(ffun, wireframe=True)
+        fig = plot(ffun, wireframe=True, show=False)
         fig.save(fname)
 
     # Saving ffun
