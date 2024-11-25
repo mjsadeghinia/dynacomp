@@ -295,11 +295,11 @@ def close_apex_coords(coords_epi, coords_endo):
     # Creating 2D splines for endo and epi (using only x and y coordinates)
     num_points = coords_endo[-1].shape[0]
 
-    tck_epi, _ = splprep([coords_epi[-1][:, 0], coords_epi[-1][:, 1], np.zeros(num_points)], s=0, per=True, k=3)
-    tck_endo, _ = splprep([coords_endo[-1][:, 0], coords_endo[-1][:, 1], np.zeros(num_points)], s=0, per=True, k=3)
+    tck_epi, _ = splprep([coords_epi[-1][:, 0], coords_epi[-1][:, 1], coords_epi[-1][:, 2]], s=0, per=True, k=3)
+    tck_endo, _ = splprep([coords_endo[-1][:, 0], coords_endo[-1][:, 1], coords_endo[-1][:, 2]], s=0, per=True, k=3)
     tck_base = interpolate_splines(tck_endo, tck_epi, 1)
     points = equally_spaced_points_on_spline(tck_base[1], num_points)
-    coords_epi.append(points[:,:2])
+    coords_epi.append(points)
     return coords_epi, coords_endo
     
 
