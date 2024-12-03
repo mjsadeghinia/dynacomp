@@ -209,10 +209,9 @@ def main(args=None) -> int:
     for i in range(len(vols_divided)):
         ax.plot(vols_divided[i], pres_divided[i], "k", linewidth=0.02)
     ax.scatter(vols_average, pres_average)
-    ax.plot(vols_average_spline, pres_average_spline, "k")
     fname = output_dir / f"raw_data_rec_{recording_num}_average.png"
-    plt.xlabel("Volume (RVU)")
-    plt.ylabel("LV Pressure (mmHg)")
+    plt.xlabel('Volume (RVU)')
+    plt.ylabel('LV Pressure (mmHg)') 
     plt.savefig(fname, dpi=300)
     plt.close()
 
