@@ -35,7 +35,7 @@
             "num_z_sections_endo": 50,
             "num_mid_layers_base": 7,
             "smooth_level_epi": 0.01,
-            "smooth_level_endo": 0.01,
+            "smooth_level_endo": 0.03,
             "num_lax_points": 64,
             "lax_smooth_level_epi": 0.2,
             "lax_smooth_level_endo": 0.6,
