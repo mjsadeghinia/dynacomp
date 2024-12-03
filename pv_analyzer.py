@@ -3,6 +3,7 @@ import json
 import matplotlib.pyplot as plt
 import pymatreader
 from pathlib import Path
+from scipy.signal import find_peaks
 from structlog import get_logger
 
 logger = get_logger()
@@ -50,6 +51,19 @@ def get_volume_channel(channel_meta):
     logger.error("Volume channel has not found!")
     return -1
 
+
+def divide_pv_data(pres, vols):
+    # Dividing the data into different curves
+    pres_divided = []
+    vols_divided = []
+    peaks, _ = find_peaks(pres, distance=150)
+
+    num_cycles = int(len(peaks))
+    for i in range(num_cycles - 1):
+        pres_divided.append(pres[peaks[i] : peaks[i + 1]])
+        vols_divided.append(vols[peaks[i] : peaks[i + 1]])
+
+    return pres_divided, vols_divided
 
 # %%
 def parse_arguments(args=None):
@@ -132,11 +146,13 @@ def main(args=None) -> int:
     output_dir.mkdir(exist_ok=True)
 
     data = load_pv_data(pv_data_dir, recording_num=recording_num)
-
-    plt.plot(data["volumes"], data["pressures"])
+    vols, pres = data["volumes"], data["pressures"]
+    plt.plot(vols, pres)
     fname = output_dir / f"raw_data_rec_{recording_num}.png"
     plt.savefig(fname)
     plt.close()
+    
+    pres_divided, vols_divided = divide_pv_data(pres, vols)
 
 
 if __name__ == "__main__":
