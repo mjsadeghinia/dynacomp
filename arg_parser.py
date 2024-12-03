@@ -48,12 +48,10 @@ def parse_arguments_pre(args=None):
         help="The settings directory where json files are stored.",
     )
     
-    valid_mesh_qualities = ['coarse', 'fine']
     parser.add_argument(
         "-m",
         "--mesh_quality",
         default='coarse',
-        choices=valid_mesh_qualities,
         type=str,
         help="The mesh quality. Settings will be loaded accordingly from json file",
     )
@@ -194,8 +192,15 @@ def prepare_oudir_processing(data_dir, output_folder, comm=None):
 
 def prepare_outdir(data_dir, output_folder):
     """
-    Prepare the output directory, ensuring it exists.
+    Prepare the output directory by removing all files and folders if it exists,
+    and ensuring it is created again.
     """
     outdir = data_dir / output_folder
+    
+    # If the directory exists, remove it and all its contents
+    if outdir.exists():
+        shutil.rmtree(outdir)
+    
+    # Create the directory again
     outdir.mkdir(exist_ok=True, parents=True)
     return outdir

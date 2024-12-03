@@ -1,15 +1,12 @@
 # %%
 from pathlib import Path
+import numpy as np
 import plotly.graph_objects as go
-
 
 import mesh_utils
 from ventric_mesh.create_mesh import read_data_h5
 import ventric_mesh.mesh_utils as mu
-from ventric_mesh.mesh_utils import (
-    check_mesh_quality,
-    generate_3d_mesh_from_stl,
-)
+import ventric_mesh.utils as ventric_utils
 import matplotlib.pyplot as plt
 from structlog import get_logger
 
@@ -22,22 +19,21 @@ def create_mesh(
     if scan_type == "TPM":
         mask, T_array, slice_thickness, resolution, I = mesh_utils.read_data_h5_TPM(h5_file)
         mask_epi, mask_endo = mu.get_endo_epi(mask[:, :, :, 0])
-        coords_epi = mu.get_coords_from_mask(mask_epi, resolution)
-        coords_endo = mu.get_coords_from_mask(mask_endo, resolution)
+        coords_epi = mu.get_coords_from_mask(mask_epi, resolution, slice_thickness)
+        coords_endo = mu.get_coords_from_mask(mask_endo, resolution, slice_thickness)
     elif scan_type == "CINE":
         coords_endo,coords_epi,slice_thickness,resolution, I = mesh_utils.read_data_h5_CINE(h5_file)
-        coords_epi = mesh_utils.transform_to_img_cs_for_all_slices(coords_epi, resolution, I)
-        coords_endo = mesh_utils.transform_to_img_cs_for_all_slices(coords_endo, resolution, I)
+        coords_epi = mesh_utils.transform_to_img_cs_for_all_slices(coords_epi, resolution, slice_thickness, I)
+        coords_endo = mesh_utils.transform_to_img_cs_for_all_slices(coords_endo, resolution, slice_thickness,  I)
         if len(coords_endo) == len(coords_epi):
             coords_epi, coords_endo = mesh_utils.close_apex_coords(coords_epi, coords_endo)
     else:
         logger.error(f"The scan type should be either TPM or CINE now it is {scan_type}")
-    
     tck_epi = mu.get_shax_from_coords(
-            coords_epi, resolution, slice_thickness, mesh_settings["smooth_level_epi"]
+            coords_epi, mesh_settings["smooth_level_epi"]
         )
     tck_endo = mu.get_shax_from_coords(
-        coords_endo, resolution, slice_thickness, mesh_settings["smooth_level_endo"]
+        coords_endo, mesh_settings["smooth_level_endo"]
     )
     K = len(tck_epi)
     if plot_flag:
@@ -79,17 +75,15 @@ def create_mesh(
     if plot_flag:
         outdir = results_folder / "03_LaxBSpline"
         outdir.mkdir(exist_ok=True)
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection="3d")
-        mu.plot_3d_LAX(
-            ax,
+        fig = go.Figure()
+        mu.plotly_3d_LAX(
+            fig,
             range(int(mesh_settings["num_lax_points"] / 2)),
             tck_lax_epi,
             tck_endo=tck_lax_endo,
         )
-        fnmae = outdir.as_posix() + "/" + fname_prefix + ".png"
-        plt.savefig(fnmae)
-        plt.close()
+        fnmae = outdir.as_posix() + "/" + fname_prefix + ".html"
+        fig.write_html(fnmae)
     tck_shax_epi = mu.get_shax_from_lax(
         tck_lax_epi,
         apex_epi,
@@ -136,22 +130,72 @@ def create_mesh(
             mu.plot_3d_points_on_figure(points, fig=fig)
         fnmae = outdir.as_posix() + "/" + fname_prefix + "_endo.html"
         fig.write_html(fnmae)
-    outdir = results_folder / "06_Mesh/"
+    
+    
+    # Calculate normals
+    normals_list_endo = mu.calculate_normals(points_cloud_endo, k_apex_endo)
+    normals_list_epi = mu.calculate_normals(points_cloud_epi, k_apex_epi)
+    
+    outdir = results_folder / "06_Mesh"
     outdir.mkdir(exist_ok=True)
-    LVmesh = mu.VentricMesh(
+    mesh_epi_filename, mesh_endo_filename, mesh_base_filename = mu.VentricMesh_poisson(
         points_cloud_epi,
         points_cloud_endo,
         mesh_settings["num_mid_layers_base"],
-        k_apex_epi, 
-        k_apex_endo,
-        scale_for_delauny = mesh_settings["scale_for_delauny"],
+        SurfaceMeshSizeEpi=mesh_settings["SurfaceMeshSizeEpi"],
+        SurfaceMeshSizeEndo=mesh_settings["SurfaceMeshSizeEndo"],
+        normals_list_epi = normals_list_epi,
+        normals_list_endo = normals_list_endo,
         save_flag=True,
+        filename_suffix="",
         result_folder=outdir.as_posix() + "/",
     )
+    output_mesh_filename = outdir / 'Mesh_3D.msh'
+    mu.generate_3d_mesh_from_seperate_stl(mesh_epi_filename, mesh_endo_filename, mesh_base_filename, output_mesh_filename.as_posix(),  MeshSizeMin=mesh_settings["MeshSizeMin"], MeshSizeMax=mesh_settings["MeshSizeMax"])
+    if plot_flag:
+        fig = ventric_utils.plot_coords_and_mesh(coords_epi, coords_endo, mesh_epi_filename, mesh_endo_filename)
+        fname = outdir.as_posix() + "/Mesh_vs_Coords.html"
+        fig.write_html(fname)
+        
+        
+    # making error report 
+    errors_epi = ventric_utils.calculate_error_between_coords_and_mesh(coords_epi, mesh_epi_filename)
+    errors_endo = ventric_utils.calculate_error_between_coords_and_mesh(coords_endo, mesh_endo_filename)
+    
+    all_errors = np.concatenate([errors_epi, errors_endo])
+    xlim = (np.min(all_errors), np.max(all_errors))
+    hist_epi, _ = np.histogram(errors_epi, bins=30)
+    hist_endo, _ = np.histogram(errors_endo, bins=30)
+    max_y = max(np.max(hist_epi), np.max(hist_endo))
+    ylim = (0, max_y + max_y * 0.1)  # Add 10% padding for aesthetics
 
-    stl_path = outdir.as_posix() + "/Mesh.stl"
-    mesh_3d_path = outdir.as_posix() + "/Mesh_3D.msh"
-    check_mesh_quality(LVmesh,file_path=stl_path[:-4]+'_report.txt')
-    generate_3d_mesh_from_stl(stl_path, mesh_3d_path, MeshSizeMin=mesh_settings["MeshSizeMin"], MeshSizeMax=mesh_settings["MeshSizeMax"])
+    fname_epi = outdir / "Epi_mesh_errors.png"
+    fname_endo = outdir / "Endo_mesh_errors.png"
 
-    return LVmesh, outdir
+    ventric_utils.plot_error_histogram(
+        errors=errors_epi,
+        fname=fname_epi,
+        color='red',
+        xlim=xlim,
+        ylim=ylim,
+        title_prefix='Epi', 
+        resolution=resolution
+    )
+
+    ventric_utils.plot_error_histogram(
+        errors=errors_endo,
+        fname=fname_endo,
+        color='blue',
+        xlim=xlim,
+        ylim=ylim,
+        title_prefix='Endo', 
+        resolution=resolution
+    )
+    fname_epi = fname_epi.as_posix()[:-4] + ".txt"
+    ventric_utils.save_error_distribution_report(errors_epi,fname_epi, n_bins=10, surface_name="Epicardium", resolution=resolution)
+    fname_endo = fname_endo.as_posix()[:-4] + ".txt"
+    ventric_utils.save_error_distribution_report(errors_endo, fname_endo, n_bins=10,  surface_name="Endocardium", resolution=resolution)
+
+    return output_mesh_filename.as_posix()
+
+# %%

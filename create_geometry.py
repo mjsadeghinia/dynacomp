@@ -1,7 +1,10 @@
 # %%
 import numpy as np
+import plotly.graph_objects as go
+
 from pathlib import Path
 from structlog import get_logger
+import logging
 
 import meshio
 import dolfin
@@ -27,13 +30,6 @@ def get_mesh_fname(meshdir, mesh_fname=None):
     return mesh_fname
 
 
-def dfs(graph, node, visited):
-    visited.add(node)
-    for neighbour in graph[node]:
-        if neighbour not in visited:
-            dfs(graph, neighbour, visited)
-
-
 def get_fiber_angles(fiber_angles):
     # Use provided fiber_angles or default ones if not provided
     default_fiber_angles = get_default_fiber_angles()
@@ -45,6 +41,9 @@ def get_fiber_angles(fiber_angles):
         if fiber_angles
         else default_fiber_angles
     )
+    # Check if the default values are used
+    if not fiber_angles:
+        logger.warning("Default fiber angles are being used.")
     return fiber_angles
 
 
@@ -62,29 +61,19 @@ def get_default_fiber_angles():
 
 
 def create_geometry(
-    meshdir, fiber_angles: dict = None, mesh_fname=None, plot_flag=False
+    mesh_fname, fiber_angles: dict = None, plot_flag=False
 ):
-    mesh_fname = get_mesh_fname(meshdir, mesh_fname=mesh_fname)
+    # mesh_fname = get_mesh_fname(meshdir, mesh_fname=mesh_fname)
     # Reading the gmsh file and create a xdmf to be read by dolfin
     msh = meshio.read(mesh_fname)
-
     # Find the indices for 'tetra' and 'triangle' cells
-
     tetra_index = next(i for i, item in enumerate(msh.cells) if item.type == "tetra")
-    # triangle_index = next(
-    #     i for i, item in enumerate(msh.cells) if item.type == "triangle"
-    # )
-
     # Extract the corresponding cells
     tetra_cells = msh.cells[tetra_index].data
-    # triangle_cells = msh.cells[triangle_index].data
-
-    # Extract the corresponding cell data
-    # triangle_cell_data = msh.cell_data["gmsh:geometrical"][triangle_index]
-
     # Write the mesh and mesh function
     fname = mesh_fname[:-4] + ".xdmf"
     meshio.write(fname, meshio.Mesh(points=msh.points, cells={"tetra": tetra_cells}))
+
     # reading xdmf file and create pvd and initializing the mesh
     mesh = dolfin.Mesh()
     with dolfin.XDMFFile(fname) as infile:
@@ -99,95 +88,67 @@ def create_geometry(
 
     # Creating the pulse geometry and setting ffun
     geometry = pulse.HeartGeometry(mesh=mesh)
+
+    # Defining face function (ffun)
     ffun = dolfin.MeshFunction("size_t", mesh, 2)
     ffun.set_all(0)
 
-    # Annotating the base mesh function
-    # we set the markers as base=5, endo=6, epi=7
-    # First we find all the exterior surface with z coords equal to 0 which corresponds to the base facets
-    # facet_exterior_all is the index of facets on the exterior surfaces and coord_exterior_all is the coordinates
-    facet_exterior_all = []
-    # coord_exterior_all=[]
-    for fc in dolfin.facets(geometry.mesh):
+    # Extract face indices from 'msh'
+    epi_face_indices = msh.cells[0].data
+    endo_face_indices = msh.cells[1].data
+    base_face_indices = msh.cells[2].data
+
+    # Get vertex coordinates
+    vertex_coordinates = msh.points
+
+    def triangle_key(coords, tol=1e-6):
+        """
+        Generates a hashable key for a triangle's coordinates.
+        """
+        rounded_coords = np.round(coords / tol).astype(int)
+        sorted_coords = np.sort(rounded_coords, axis=0)
+        key = tuple(sorted_coords.flatten())
+        return key
+
+    def build_face_keys(face_indices, vertex_coordinates, tol=1e-6):
+        """
+        Builds a set of unique keys for a group of faces.
+        """
+        keys = set()
+        for indices in face_indices:
+            coords = vertex_coordinates[indices]
+            key = triangle_key(coords, tol=tol)
+            keys.add(key)
+        return keys
+
+    # Build sets of keys for each face group
+    epi_keys = build_face_keys(epi_face_indices, vertex_coordinates)
+    endo_keys = build_face_keys(endo_face_indices, vertex_coordinates)
+    base_keys = build_face_keys(base_face_indices, vertex_coordinates)
+    # Annotate the mesh function using the keys
+    for fc in dolfin.facets(mesh):
         if fc.exterior():
-            facet_exterior_all.append(fc.index())
-            # coord_exterior_all.append(geometry.mesh.coordinates()[fc.entities(0), 2])
-            z_coords = np.mean(geometry.mesh.coordinates()[fc.entities(0), 2])
-            if dolfin.near(z_coords, 0):
+            coord = mesh.coordinates()[fc.entities(0)]
+            key = triangle_key(coord)
+            if key in epi_keys:
+                ffun[fc] = 7
+            elif key in endo_keys:
+                ffun[fc] = 6
+            elif key in base_keys:
                 ffun[fc] = 5
 
-    # Finding the exterior facets without the base for annotating the epi and endo
-    # facet_exterior is the index of facets on the exterior surfaces excluding the base and coord_exterior is the coordinates and nodes are a n*3 matrix of node numbers of each corresponding facet
-    facet_exterior = []
-    node_exterior = []
-    for fc in dolfin.facets(geometry.mesh):
-        if fc.exterior() and not (dolfin.near(ffun[fc], 5)):
-            facet_exterior.append(fc.index())
-            node_exterior.extend(fc.entities(0))
-
-    # Creating a dictionary (a graph in fact) to find all the connected facets with each other
-    node_exterior = [node_exterior[i : i + 3] for i in range(0, len(node_exterior), 3)]
-    graph = {fc: set() for fc in facet_exterior}
-    for i, nodes_i in enumerate(node_exterior):
-        for j, nodes_j in enumerate(node_exterior):
-            if i != j and set(nodes_i).intersection(set(nodes_j)):
-                graph[facet_exterior[i]].add(facet_exterior[j])
-
-    #
-
-    # we find a first set as facet_1, however we do not know if it is epi or endo
-    facet_1 = set()
-    facet_i = list(graph.keys())[0]
-    dfs(graph, facet_i, facet_1)
-    facet_exterior_set = set(facet_exterior)
-    facet_2 = facet_exterior_set - facet_1
-
-    # Determining the endo and epi based on area comparison
-
-    facet_1_id = np.array(list(dolfin.facets(geometry.mesh)))[list(facet_1)]
-    facet_2_id = np.array(list(dolfin.facets(geometry.mesh)))[list(facet_2)]
-    all_cells = np.array(list(dolfin.cells(geometry.mesh)))
-
-    f_to_c = mesh.topology()(fdim, tdim)
-    c_to_f = mesh.topology()(tdim, fdim)
-
-    facet_1_area = []
-    for facet in facet_1_id:
-        cell = all_cells[f_to_c(facet.index())[0]]
-        local_facets = c_to_f(cell.index())
-        local_index = np.flatnonzero(local_facets == facet.index())
-        area = cell.facet_area(local_index)
-        facet_1_area.append(area)
-
-    facet_2_area = []
-    for facet in facet_2_id:
-        cell = all_cells[f_to_c(facet.index())[0]]
-        local_facets = c_to_f(cell.index())
-        local_index = np.flatnonzero(local_facets == facet.index())
-        area = cell.facet_area(local_index)
-        facet_2_area.append(area)
-
-    if np.sum(facet_1_area) > np.sum(facet_2_area):
-        facet_endo = facet_2
-        facet_epi = facet_1
-    else:
-        facet_endo = facet_1
-        facet_epi = facet_2
-
-    facet_endo_id = np.array(list(dolfin.facets(geometry.mesh)))[list(facet_endo)]
-    facet_epi_id = np.array(list(dolfin.facets(geometry.mesh)))[list(facet_epi)]
-    for facet in facet_endo_id:
-        ffun[facet] = 6
-    for facet in facet_epi_id:
-        ffun[facet] = 7
     if plot_flag:
+        fname = mesh_fname[:-4] + "_plotly.html"
         # plotting the face function
-        plot(ffun, wireframe=True)
+        fig = plot(ffun, wireframe=True, show=False)
+        fig.save(fname)
 
     # Saving ffun
     fname = mesh_fname[:-4] + "_ffun.xdmf"
     with dolfin.XDMFFile(fname) as infile:
         infile.write(ffun)
+
+    logger.info("Creating a pulse geometry...")
 
     marker_functions = pulse.MarkerFunctions(ffun=ffun)
     markers = {"BASE": [5, 2], "ENDO": [6, 2], "EPI": [7, 2]}
@@ -209,17 +170,21 @@ def create_geometry(
     fiber_space = "Quadrature_4"
 
     # Compute the microstructure
+    logger.info("Computing fiber angles...")
     fiber, sheet, sheet_normal = ldrb.dolfin_ldrb(
         mesh=geometry.mesh,
         fiber_space=fiber_space,
         ffun=geometry.ffun,
         markers=markers,
+        log_level=30,
         **angles,
     )
     fname = mesh_fname[:-4] + "_fiber"
 
     ldrb.fiber_to_xdmf(fiber, fname)
 
+    pulse_logger = logging.getLogger("pulse")
+    pulse_logger.setLevel(logging.WARNING)
     geometry.microstructure = pulse.Microstructure(f0=fiber, s0=sheet, n0=sheet_normal)
     fname = mesh_fname[:-4]
     geometry.save(fname, overwrite_file=True)
