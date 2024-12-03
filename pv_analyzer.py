@@ -1,9 +1,11 @@
 import argparse
 import json
 import matplotlib.pyplot as plt
+import numpy as np
 import pymatreader
 from pathlib import Path
 from scipy.signal import find_peaks
+from scipy.interpolate import interp1d
 from structlog import get_logger
 
 logger = get_logger()
@@ -64,6 +66,30 @@ def divide_pv_data(pres, vols):
         vols_divided.append(vols[peaks[i] : peaks[i + 1]])
 
     return pres_divided, vols_divided
+
+
+def average_array(arrays):
+    # Determine the length of the longest array
+    max_length = max(len(array) for array in arrays)
+
+    # Define common x values
+    average_x = np.linspace(0, max_length - 1, num=100)
+
+    # Interpolate each array to the common x-axis
+    interpolated_arrays = []
+    for array in arrays:
+        x = np.linspace(0, len(array) - 1, num=len(array))
+        f = interp1d(x, array, kind="linear", fill_value="extrapolate")
+        interpolated_y = f(average_x)
+        interpolated_arrays.append(interpolated_y)
+
+    # Convert list of arrays to a 2D NumPy array for averaging
+    interpolated_arrays = np.array(interpolated_arrays)
+
+    # Calculate the average along the common x-axis
+    average_y = np.mean(interpolated_arrays, axis=0)
+    return average_y
+
 
 # %%
 def parse_arguments(args=None):
@@ -149,10 +175,24 @@ def main(args=None) -> int:
     vols, pres = data["volumes"], data["pressures"]
     plt.plot(vols, pres)
     fname = output_dir / f"raw_data_rec_{recording_num}.png"
-    plt.savefig(fname)
+    plt.xlabel('Volume (RVU)')
+    plt.ylabel('LV Pressure (mmHg)') 
+    plt.savefig(fname, dpi=300)
     plt.close()
-    
+
     pres_divided, vols_divided = divide_pv_data(pres, vols)
+    pres_average = average_array(pres_divided)
+    vols_average = average_array(vols_divided)
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    for i in range(len(vols_divided)):
+        ax.plot(vols_divided[i], pres_divided[i], "k", linewidth=0.02)
+    ax.scatter(vols_average, pres_average)
+    fname = output_dir / f"raw_data_rec_{recording_num}_average.png"
+    plt.xlabel('Volume (RVU)')
+    plt.ylabel('LV Pressure (mmHg)') 
+    plt.savefig(fname, dpi=300)
+    plt.close()
 
 
 if __name__ == "__main__":
