@@ -18,7 +18,7 @@ def main(args=None) -> int:
     parser.add_argument(
         "-o",
         "--outdir",
-        default="/home/shared/dynacomp/00_data/CineData/",
+        default="fine_mesh",
         type=str,
         help="The full address to the output directory",
     )
@@ -26,6 +26,7 @@ def main(args=None) -> int:
     parser.add_argument(
         "-m",
         "--mesh_quality",
+        default='fine',
         type=str,
         help="The mesh quality to be used in the processing",
     )
@@ -60,7 +61,7 @@ def main(args=None) -> int:
 
     # List to keep track of files that failed to process
     failed_files = []
-
+    failed_ids = []
     # Get the list of .json files in the directory and sort them by name
     sorted_files = sorted([file for file in settings_dir.iterdir() if file.is_file() and file.suffix == '.json'])
 
@@ -100,15 +101,18 @@ def main(args=None) -> int:
             logger.info(f"=========== Finished processing file {name} ===========")
             if failed_files: 
                 logger.error(f"The following files failed to process: {failed_files}")
+                logger.error(f"The following files id failed to process: {failed_ids}")
                 logger.info(f"=======================================================")
         except subprocess.CalledProcessError as e:
             # Log the error with structlog and highlight the sample name
             logger.error(f"Error processing file {name}, due to {e}")
             failed_files.append(name)
+            failed_ids.append(args.numbers[idx])
 
     # At the end, list all the files that did not process correctly
     if failed_files:
         logger.error(f"The following files failed to process: {failed_files}")
+        logger.error(f"The following ids failed to process: {failed_ids}")
         logger.error("Some files failed to process. Check the logs for details.")
     else:
         logger.info("All files processed successfully.")
