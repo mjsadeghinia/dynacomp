@@ -124,6 +124,31 @@ def clean_pv_data(time, pressures, volumes, threshold=0.1):
     return filtered_data[0], filtered_data[1], filtered_data[2]
 
 
+def reorder_pv_data(time, pressures, volumes):
+    # reordering the data, starting from end diastole
+    # Calculate the thresholds for pressure and volume
+    pressure_min = np.min(pressures)
+    volume_max = np.max(volumes)
+
+    # Define the range for end-diastole
+    pressure_threshold = pressure_min + 0.1 * (np.max(pressures) - pressure_min)
+    volume_threshold = volume_max - 0.05 * (volume_max - np.min(volumes))
+
+    # Find indices where conditions are met
+    valid_indices = np.where(
+        (pressures <= pressure_threshold) & (volumes >= volume_threshold)
+    )[0]
+    # Find the index of the maximum volume in the valid region
+    start_index = valid_indices[np.argmax(volumes[valid_indices])]
+
+    # Reorder the data to start from the identified index
+    reordered_time = np.roll(time, -start_index)
+    reordered_pressures = np.roll(pressures, -start_index)
+    reordered_volumes = np.roll(volumes, -start_index)
+
+    return reordered_time, reordered_pressures, reordered_volumes
+
+
 # %%
 def parse_arguments(args=None):
     """
@@ -206,12 +231,6 @@ def main(args=None) -> int:
 
     data = load_pv_data(pv_data_dir, recording_num=recording_num)
     vols, pres = data["volumes"], data["pressures"]
-    plt.plot(vols, pres)
-    fname = output_dir / f"raw_data_rec_{recording_num}.png"
-    plt.xlabel("Volume (RVU)")
-    plt.ylabel("LV Pressure (mmHg)")
-    plt.savefig(fname, dpi=300)
-    plt.close()
 
     pres_divided, vols_divided = divide_pv_data(pres, vols)
     pres_average, vols_average, time_average = average_pv_data(
@@ -231,6 +250,19 @@ def main(args=None) -> int:
     # Cleaning data by removing too close data points
     # time, pressures, volumes = clean_pv_data(time, pressures, volumes, threshold=0.2)
     # time, pressures, volumes = clean_pv_data(time, pressures, volumes, threshold=0.3)
+
+    # reodering the data based on end diastole
+    time, pressures, volumes = reorder_pv_data(time, pressures, volumes)
+
+    # Plotting
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    plt.plot(vols, pres)
+    fname = output_dir / f"raw_data_rec_{recording_num}.png"
+    plt.xlabel("Volume (RVU)")
+    plt.ylabel("LV Pressure (mmHg)")
+    plt.savefig(fname, dpi=300)
+    plt.close()
 
     fig, ax = plt.subplots(figsize=(8, 6))
     ax.scatter(time_average * 1000, vols_average, s=20)
@@ -256,6 +288,7 @@ def main(args=None) -> int:
     for i in range(len(vols_divided)):
         ax.plot(vols_divided[i], pres_divided[i], "k", linewidth=0.02)
     ax.scatter(volumes, pressures, s=20)
+    ax.scatter(volumes[0], pressures[0], c="r", s=20)
     ax.plot(volumes, pressures, "k")
     fname = output_dir / f"raw_data_rec_{recording_num}_average.png"
     plt.xlabel('Volume (RVU)')
