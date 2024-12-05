@@ -31,7 +31,7 @@ def load_pv_data(pv_data_dir, recording_num=2):
 
     pressures = data[f"data__chan_{p_channel+1}_rec_{recording_num}"]
     volumes = data[f"data__chan_{v_channel+1}_rec_{recording_num}"]
-    dt = data["channel_meta"]["dt"][p_channel + 1][recording_num]
+    dt = data["channel_meta"]["dt"][p_channel][recording_num]
 
     return {"pressures": pressures, "volumes": volumes, "dt": dt}
 
@@ -68,12 +68,26 @@ def divide_pv_data(pres, vols):
     return pres_divided, vols_divided
 
 
-def average_array(arrays):
+def average_pv_data(pres_divided, vols_divided, dt, n_points=100):
+    # average time
+    pres_len = [len(array) for array in pres_divided]
+    vols_len = [len(array) for array in vols_divided]
+    average_len = np.average([pres_len, vols_len])
+    time_average = np.linspace(0, average_len * dt, n_points)
+
+    # average pressure and volume
+    pres_average = average_array(pres_divided, n_points)
+    vols_average = average_array(vols_divided, n_points)
+
+    return pres_average, vols_average, time_average
+
+
+def average_array(arrays, n_points):
     # Determine the length of the longest array
     max_length = max(len(array) for array in arrays)
 
     # Define common x values
-    average_x = np.linspace(0, max_length - 1, num=100)
+    average_x = np.linspace(0, max_length - 1, num=n_points)
 
     # Interpolate each array to the common x-axis
     interpolated_arrays = []
@@ -197,9 +211,9 @@ def main(args=None) -> int:
     plt.close()
 
     pres_divided, vols_divided = divide_pv_data(pres, vols)
-    pres_average = average_array(pres_divided)
-    vols_average = average_array(vols_divided)
-
+    pres_average, vols_average, time_average = average_pv_data(
+        pres_divided, vols_divided, data["dt"]
+    )
     tck = fit_bspline(vols_average, pres_average, smooth_level=1)
     # Evaluate the B-spline
     new_points = splev(np.linspace(0, 1, 100), tck)
