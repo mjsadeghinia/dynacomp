@@ -6,6 +6,9 @@ import pymatreader
 from pathlib import Path
 from scipy.signal import find_peaks
 from scipy.interpolate import interp1d, splprep, splev
+from scipy.ndimage import gaussian_filter1d
+from scipy.signal import savgol_filter
+
 from structlog import get_logger
 
 logger = get_logger()
@@ -214,15 +217,42 @@ def main(args=None) -> int:
     pres_average, vols_average, time_average = average_pv_data(
         pres_divided, vols_divided, data["dt"]
     )
-    tck = fit_bspline(vols_average, pres_average, smooth_level=1)
-    # Evaluate the B-spline
-    new_points = splev(np.linspace(0, 1, 100), tck)
-    vols_average_spline, pres_average_spline = new_points
+    # Smoothing data
+    smoothed_vols_average = savgol_filter(vols_average, window_length=15, polyorder=3)
+    smoothed_pres_average = savgol_filter(pres_average, window_length=15, polyorder=3)
+    # Removing redundant volume and pressure data
+    v_0 = smoothed_vols_average[0]
+    ind = 10 - np.where(smoothed_vols_average[-10:] < v_0)[0][0]
+
+    volumes = smoothed_vols_average[:-ind]
+    pressures = smoothed_pres_average[:-ind]
+    time = time_average[:-ind]
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.scatter(time_average * 1000, vols_average, s=20)
+    ax.plot(time_average * 1000, vols_average, "b")
+    ax.plot(time * 1000, volumes, "k")
+    plt.xlabel("time [s]")
+    plt.ylabel("Volume [RVU]")
+    fname = output_dir / f"volume_data_rec_{recording_num}_average.png"
+    plt.savefig(fname, dpi=300)
+    plt.close()
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.scatter(time_average * 1000, pres_average, s=20)
+    ax.plot(time_average * 1000, pres_average, "b")
+    ax.plot(time * 1000, pressures, "k")
+    plt.xlabel("time [s]")
+    plt.ylabel("LV Pressure [mmHg]")
+    fname = output_dir / f"pressure_data_rec_{recording_num}_average.png"
+    plt.savefig(fname, dpi=300)
+    plt.close()
 
     fig, ax = plt.subplots(figsize=(8, 6))
     for i in range(len(vols_divided)):
         ax.plot(vols_divided[i], pres_divided[i], "k", linewidth=0.02)
-    ax.scatter(vols_average, pres_average)
+    ax.scatter(volumes, pressures, s=20)
+    ax.plot(volumes, pressures, "k")
     fname = output_dir / f"raw_data_rec_{recording_num}_average.png"
     plt.xlabel('Volume (RVU)')
     plt.ylabel('LV Pressure (mmHg)') 
