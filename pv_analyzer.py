@@ -108,20 +108,20 @@ def average_array(arrays, n_points):
     return average_y
 
 
-def fit_bspline(x, y, smooth_level=1, bspline_degree=3):
-    x = np.array(x)
-    y = np.array(y)
+def clean_pv_data(time, pressures, volumes, threshold=0.1):
+    # removing the presssure and volume tdata that are too close to each other
 
-    # Ensure the curve is closed
-    if x[0] != x[-1] or y[0] != y[-1]:
-        x = np.append(x, x[0])
-        y = np.append(y, y[0])
+    data = np.vstack((time, pressures, volumes))
 
-    # Fit a B-spline
-    points = np.array([x, y])
-    tck, u = splprep(points, s=smooth_level, per=True, k=bspline_degree)
+    pressure_volume = data[1:3, :]
+    pressure_volume_diff = np.diff(pressure_volume, axis=1)
+    distances = np.linalg.norm(pressure_volume_diff, axis=0)
+    # Identify the points to keep
+    keep_mask = np.insert(distances >= threshold, 0, True)
+    # Apply the mask to filter the array
+    filtered_data = data[:, keep_mask]
 
-    return tck
+    return filtered_data[0], filtered_data[1], filtered_data[2]
 
 
 # %%
@@ -220,13 +220,17 @@ def main(args=None) -> int:
     # Smoothing data
     smoothed_vols_average = savgol_filter(vols_average, window_length=15, polyorder=3)
     smoothed_pres_average = savgol_filter(pres_average, window_length=15, polyorder=3)
+
     # Removing redundant volume and pressure data
     v_0 = smoothed_vols_average[0]
     ind = 10 - np.where(smoothed_vols_average[-10:] < v_0)[0][0]
-
     volumes = smoothed_vols_average[:-ind]
     pressures = smoothed_pres_average[:-ind]
     time = time_average[:-ind]
+
+    # Cleaning data by removing too close data points
+    # time, pressures, volumes = clean_pv_data(time, pressures, volumes, threshold=0.2)
+    # time, pressures, volumes = clean_pv_data(time, pressures, volumes, threshold=0.3)
 
     fig, ax = plt.subplots(figsize=(8, 6))
     ax.scatter(time_average * 1000, vols_average, s=20)
