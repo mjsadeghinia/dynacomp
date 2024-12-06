@@ -108,22 +108,6 @@ def average_array(arrays, n_points):
     return average_y
 
 
-def clean_pv_data(time, pressures, volumes, threshold=0.1):
-    # removing the presssure and volume tdata that are too close to each other
-
-    data = np.vstack((time, pressures, volumes))
-
-    pressure_volume = data[1:3, :]
-    pressure_volume_diff = np.diff(pressure_volume, axis=1)
-    distances = np.linalg.norm(pressure_volume_diff, axis=0)
-    # Identify the points to keep
-    keep_mask = np.insert(distances >= threshold, 0, True)
-    # Apply the mask to filter the array
-    filtered_data = data[:, keep_mask]
-
-    return filtered_data[0], filtered_data[1], filtered_data[2]
-
-
 def reorder_pv_data(time, pressures, volumes):
     # reordering the data, starting from end diastole
     # Calculate the thresholds for pressure and volume
@@ -227,6 +211,7 @@ def main(args=None) -> int:
     data_dir = Path(settings["path"])
     pv_data_dir = data_dir / "PV Data"
     output_dir = pv_data_dir / output_folder
+    output_dir = Path(output_folder)
     output_dir.mkdir(exist_ok=True)
 
     data = load_pv_data(pv_data_dir, recording_num=recording_num)
@@ -246,10 +231,6 @@ def main(args=None) -> int:
     volumes = smoothed_vols_average[:-ind]
     pressures = smoothed_pres_average[:-ind]
     time = time_average[:-ind]
-
-    # Cleaning data by removing too close data points
-    # time, pressures, volumes = clean_pv_data(time, pressures, volumes, threshold=0.2)
-    # time, pressures, volumes = clean_pv_data(time, pressures, volumes, threshold=0.3)
 
     # reodering the data based on end diastole
     time, pressures, volumes = reorder_pv_data(time, pressures, volumes)
