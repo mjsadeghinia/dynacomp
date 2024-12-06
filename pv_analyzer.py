@@ -108,29 +108,27 @@ def average_array(arrays, n_points):
     return average_y
 
 
-def reorder_pv_data(time, pressures, volumes):
-    # reordering the data, starting from end diastole
+def get_end_diastole_ind(
+    pressures, volumes, pressure_threshold=0.1, volume_threshold=0.05
+):
     # Calculate the thresholds for pressure and volume
     pressure_min = np.min(pressures)
     volume_max = np.max(volumes)
 
     # Define the range for end-diastole
-    pressure_threshold = pressure_min + 0.1 * (np.max(pressures) - pressure_min)
-    volume_threshold = volume_max - 0.05 * (volume_max - np.min(volumes))
+    pressure_threshold = pressure_min + pressure_threshold * (
+        np.max(pressures) - pressure_min
+    )
+    volume_threshold = volume_max - volume_threshold * (volume_max - np.min(volumes))
 
     # Find indices where conditions are met
     valid_indices = np.where(
         (pressures <= pressure_threshold) & (volumes >= volume_threshold)
     )[0]
     # Find the index of the maximum volume in the valid region
-    start_index = valid_indices[np.argmax(volumes[valid_indices])]
+    index = valid_indices[np.argmax(volumes[valid_indices])]
 
-    # Reorder the data to start from the identified index
-    reordered_time = np.roll(time, -start_index)
-    reordered_pressures = np.roll(pressures, -start_index)
-    reordered_volumes = np.roll(volumes, -start_index)
-
-    return reordered_time, reordered_pressures, reordered_volumes
+    return index
 
 
 # %%
@@ -221,19 +219,26 @@ def main(args=None) -> int:
     pres_average, vols_average, time_average = average_pv_data(
         pres_divided, vols_divided, data["dt"]
     )
+    # Removing redundant volume and pressure data
+    v_0 = vols_average[0]
+    ED_data_num = int(0.1 * len(vols_average))
+    ind = ED_data_num - np.where(vols_average[-ED_data_num:] < v_0)[0][0]
+    vols_average = vols_average[:-ind]
+    pres_average = pres_average[:-ind]
+    time = time_average[:-ind]
+
     # Smoothing data
     smoothed_vols_average = savgol_filter(vols_average, window_length=15, polyorder=3)
     smoothed_pres_average = savgol_filter(pres_average, window_length=15, polyorder=3)
 
-    # Removing redundant volume and pressure data
-    v_0 = smoothed_vols_average[0]
-    ind = 10 - np.where(smoothed_vols_average[-10:] < v_0)[0][0]
-    volumes = smoothed_vols_average[:-ind]
-    pressures = smoothed_pres_average[:-ind]
-    time = time_average[:-ind]
-
     # reodering the data based on end diastole
-    time, pressures, volumes = reorder_pv_data(time, pressures, volumes)
+    ind = get_end_diastole_ind(smoothed_pres_average, smoothed_vols_average)
+    # Reorder the data to start from the identified index
+    pressures = np.roll(smoothed_pres_average, -ind)
+    volumes = np.roll(smoothed_vols_average, -ind)
+    breakpoint
+    vols_average = np.roll(vols_average, -ind)
+    pres_average = np.roll(pres_average, -ind)
 
     # Plotting
 
@@ -246,20 +251,21 @@ def main(args=None) -> int:
     plt.close()
 
     fig, ax = plt.subplots(figsize=(8, 6))
-    ax.scatter(time_average * 1000, vols_average, s=20)
-    ax.plot(time_average * 1000, vols_average, "b")
-    ax.plot(time * 1000, volumes, "k")
-    plt.xlabel("time [s]")
+    ax.scatter(time * 1000, vols_average, s=20, label="Average Data Points")
+    ax.plot(time * 1000, vols_average, color="b", label="Average Data Points")
+    ax.plot(time * 1000, volumes, color="k", label="Smoothed Data")
+    plt.xlabel("time [ms]")
     plt.ylabel("Volume [RVU]")
+    plt.legend()
     fname = output_dir / f"volume_data_rec_{recording_num}_average.png"
     plt.savefig(fname, dpi=300)
     plt.close()
 
     fig, ax = plt.subplots(figsize=(8, 6))
-    ax.scatter(time_average * 1000, pres_average, s=20)
-    ax.plot(time_average * 1000, pres_average, "b")
+    ax.scatter(time * 1000, pres_average, s=20)
+    ax.plot(time * 1000, pres_average, "b")
     ax.plot(time * 1000, pressures, "k")
-    plt.xlabel("time [s]")
+    plt.xlabel("time [ms]")
     plt.ylabel("LV Pressure [mmHg]")
     fname = output_dir / f"pressure_data_rec_{recording_num}_average.png"
     plt.savefig(fname, dpi=300)
