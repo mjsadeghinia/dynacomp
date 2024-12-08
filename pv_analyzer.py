@@ -170,14 +170,6 @@ def parse_arguments(args=None):
     )
 
     parser.add_argument(
-        "-r",
-        "--recording_num",
-        default=10,
-        type=int,
-        help="The number of recording to be read from PV data",
-    )
-
-    parser.add_argument(
         "-o",
         "--output_folder",
         default="refined_data",
@@ -212,7 +204,6 @@ def main(args=None) -> int:
     setting_dir = args.settings_dir
     mesh_quality = args.mesh_quality
     output_folder = args.output_folder
-    recording_num = args.recording_num
 
     if sample_name is None:
         # Get the list of .json files in the directory and sort them by name
@@ -228,6 +219,7 @@ def main(args=None) -> int:
     logger.info(f"Sample {sample_name} is being processed...")
 
     settings = load_settings(setting_dir, sample_name)
+    recording_num = settings["PV"]["recording_num"]
     data_dir = Path(settings["path"])
     pv_data_dir = data_dir / "PV Data"
     output_dir = pv_data_dir / output_folder
