@@ -139,11 +139,19 @@ def parse_arguments(args=None):
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "-n",
-        "--name",
-        default="100_1",
+        "-s",
+        "--sample",
+        default=None,
         type=str,
         help="The sample file name to be p",
+    )
+
+    parser.add_argument(
+        "-n",
+        "--number",
+        default=1,
+        type=int,
+        help="The sample number, will be used if sample is not passing",
     )
 
     parser.add_argument(
@@ -199,11 +207,25 @@ def main(args=None) -> int:
                 default_args[key] = value
         args = argparse.Namespace(**default_args)
 
-    sample_name = args.name
+    sample_name = args.sample
+    sample_num = args.number
     setting_dir = args.settings_dir
     mesh_quality = args.mesh_quality
     output_folder = args.output_folder
     recording_num = args.recording_num
+
+    if sample_name is None:
+        # Get the list of .json files in the directory and sort them by name
+        sorted_files = sorted(
+            [
+                file
+                for file in setting_dir.iterdir()
+                if file.is_file() and file.suffix == ".json"
+            ]
+        )
+        sample_name = sorted_files[sample_num - 1].with_suffix("").name
+
+    logger.info(f"Sample {sample_name} is being processed...")
 
     settings = load_settings(setting_dir, sample_name)
     data_dir = Path(settings["path"])
