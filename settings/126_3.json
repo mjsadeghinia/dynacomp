@@ -88,5 +88,8 @@
         "alpha_epi_lv": -60,
         "beta_endo_lv": -15,
         "beta_epi_lv": 15
+    },
+    "PV": {
+        "recording_num": 2
     }
 }
