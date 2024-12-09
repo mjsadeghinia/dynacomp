@@ -250,8 +250,8 @@ def main(args=None) -> int:
     time = time_average[:-ind]
 
     # Smoothing data
-    smoothed_vols_average = savgol_filter(vols_average, window_length=15, polyorder=3)
-    smoothed_pres_average = savgol_filter(pres_average, window_length=15, polyorder=3)
+    smoothed_vols_average = savgol_filter(vols_average, window_length=settings["PV"]["volume_smooth_window_length"], polyorder=3)
+    smoothed_pres_average = savgol_filter(pres_average, window_length=settings["PV"]["pressure_smooth_window_length"], polyorder=3)
 
     # reodering the data based on end diastole
     ind = get_end_diastole_ind(smoothed_pres_average, smoothed_vols_average)
