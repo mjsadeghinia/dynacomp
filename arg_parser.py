@@ -81,14 +81,12 @@ def parse_arguments_unloading(args=None):
     """
     parser = argparse.ArgumentParser()
     
-    valid_sample_names = ["156_1", "OP130_2", "138_1", "129_1"]
     parser.add_argument(
         "-n",
-        "--name",
-        default="156_1",
-        choices=valid_sample_names,
-        type=str,
-        help="The sample file name to be p",
+        "--number",
+        nargs="+",
+        type=int,
+        help="The sample number(s), will process all the sample if not indicated",
     )
     
     parser.add_argument(
@@ -102,7 +100,7 @@ def parse_arguments_unloading(args=None):
     parser.add_argument(
         "-o",
         "--output_folder",
-        default= "output",
+        default= "fine_mesh",
         type=str,
         help="The result folder name tha would be created in the directory of the sample.",
     )

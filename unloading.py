@@ -126,11 +126,11 @@ def load_settings(setting_dir, sample_name):
     return settings
 
 
-def load_atrium_pressure(data_dir):
-    PV_data_fname = data_dir / "PV data/PV_data.csv"
+def load_atrium_pressure(data_dir, sample_name):
+    PV_data_fname = data_dir / f"PV data/PV data/{sample_name}_PV_data.csv"
     PV_data = np.loadtxt(PV_data_fname.as_posix(), delimiter=",")
     mmHg_to_kPa = 0.133322
-    atrium_pressure = PV_data[0, 0] * mmHg_to_kPa
+    atrium_pressure = PV_data[0, 1] * mmHg_to_kPa
     return atrium_pressure
 
 
@@ -151,29 +151,42 @@ def main(args=None) -> int:
     else:
         args = arg_parser.update_arguments(args, step="unloading")
 
-    sample_name = args.name
+    sample_nums = args.number
     setting_dir = args.settings_dir
     output_folder = args.output_folder
-
-    settings = load_settings(setting_dir, sample_name)
-    data_dir = Path(settings["path"])
-
-    atrium_pressure = load_atrium_pressure(data_dir)
-
-    geo_dir = data_dir / f"{output_folder}/Geometry"
-
-    unloaded_geometry = unloader(
-        geo_dir,
-        atrium_pressure,
-        matparams=settings["matparams"],
-        plot_flag=True,
-        comm=comm,
+    
+    # Get the list of .json files in the directory and sort them by name
+    sorted_files = sorted(
+        [
+            file
+            for file in setting_dir.iterdir()
+            if file.is_file() and file.suffix == ".json"
+        ]
     )
+    
+    if sample_nums is None:
+        sample_nums = range(1,57)
+        
+    for sample_num in sample_nums:
+        sample_name = sorted_files[sample_num - 1].with_suffix("").name
+        settings = load_settings(setting_dir, sample_name)
+        data_dir = Path(settings["path"])
 
-    unloaded_geometry_with_corrected_fibers = recreate_geometry_with_fibers(
-        unloaded_geometry, settings["fiber_angles"]
-    )
-    export_unloaded_geometry(geo_dir, unloaded_geometry_with_corrected_fibers)
+        atrium_pressure = load_atrium_pressure(data_dir, sample_name)
+
+        geo_dir = data_dir / f"{output_folder}/Geometry"
+        unloaded_geometry = unloader(
+            geo_dir,
+            atrium_pressure,
+            matparams=settings["matparams"],
+            plot_flag=True,
+            comm=comm,
+        )
+
+        unloaded_geometry_with_corrected_fibers = recreate_geometry_with_fibers(
+            unloaded_geometry, settings["fiber_angles"]
+        )
+        export_unloaded_geometry(geo_dir, unloaded_geometry_with_corrected_fibers)
 
 
 if __name__ == "__main__":
