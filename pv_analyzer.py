@@ -242,36 +242,50 @@ def main(args=None) -> int:
         pres_divided, vols_divided, data["dt"]
     )
     # Removing redundant volume and pressure data
-    v_0 = vols_average[0]
-    ED_data_num = int(0.1 * len(vols_average))
-    ind = ED_data_num - np.where(vols_average[-ED_data_num:] <= v_0)[0][0]
-    vols_average = vols_average[:-ind]
-    pres_average = pres_average[:-ind]
-    time_average = time_average[:-ind]
-
-    # Smoothing data
-    smoothed_vols_average = savgol_filter(
-        vols_average,
-        window_length=settings["PV"]["volume_smooth_window_length"],
-        polyorder=3,
-    )
-    smoothed_pres_average = savgol_filter(
-        pres_average,
-        window_length=settings["PV"]["pressure_smooth_window_length"],
-        polyorder=3,
-    )
-
-    # Removing redundant volume and pressure data if any arised from smoothing
-    v_0 = smoothed_vols_average[0]
-    ED_data_num = int(0.1 * len(smoothed_vols_average))
-    ind_repeated = np.where(smoothed_vols_average[-ED_data_num:] <= v_0)[0]
-    if ind_repeated.shape[0] > 0:
-        ind = ED_data_num - ind_repeated[0]
-        smoothed_vols_average = smoothed_vols_average[:-ind]
-        smoothed_pres_average = smoothed_pres_average[:-ind]
-        time = time_average[:-ind]
-    else:
+    if settings["PV"]["skip_redundant_data_flag"]:
+        # Smoothing data
+        smoothed_vols_average = savgol_filter(
+            vols_average,
+            window_length=settings["PV"]["volume_smooth_window_length"],
+            polyorder=3,
+        )
+        smoothed_pres_average = savgol_filter(
+            pres_average,
+            window_length=settings["PV"]["pressure_smooth_window_length"],
+            polyorder=3,
+        )
         time = time_average
+    else:
+        v_0 = vols_average[0]
+        ED_data_num = int(0.15 * len(vols_average))
+        ind = ED_data_num - np.where(vols_average[-ED_data_num:] < v_0)[0][0]
+        vols_average = vols_average[:-ind]
+        pres_average = pres_average[:-ind]
+        time_average = time_average[:-ind]
+
+        # Smoothing data
+        smoothed_vols_average = savgol_filter(
+            vols_average,
+            window_length=settings["PV"]["volume_smooth_window_length"],
+            polyorder=3,
+        )
+        smoothed_pres_average = savgol_filter(
+            pres_average,
+            window_length=settings["PV"]["pressure_smooth_window_length"],
+            polyorder=3,
+        )
+
+        # Removing redundant volume and pressure data if any arised from smoothing
+        v_0 = smoothed_vols_average[0]
+        ED_data_num = int(0.1 * len(smoothed_vols_average))
+        ind_repeated = np.where(smoothed_vols_average[-ED_data_num:] <= v_0)[0]
+        if ind_repeated.shape[0] > 0:
+            ind = ED_data_num - ind_repeated[0]
+            smoothed_vols_average = smoothed_vols_average[:-ind]
+            smoothed_pres_average = smoothed_pres_average[:-ind]
+            time = time_average[:-ind]
+        else:
+            time = time_average
 
     # reodering the data based on end diastole
     ind = get_end_diastole_ind(smoothed_pres_average, smoothed_vols_average)
