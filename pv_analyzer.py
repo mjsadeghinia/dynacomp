@@ -112,17 +112,22 @@ def average_array(arrays, n_points):
 
 
 def get_end_diastole_ind(
-    pressures, volumes, pressure_threshold=0.1, volume_threshold=0.05
+    pressures, volumes, pressure_threshold_percent=0.1, volume_threshold_percent=0.05
 ):
     # Calculate the thresholds for pressure and volume
     pressure_min = np.min(pressures)
-    volume_max = np.max(volumes)
-
     # Define the range for end-diastole
-    pressure_threshold = pressure_min + pressure_threshold * (
+    pressure_threshold = pressure_min + pressure_threshold_percent * (
         np.max(pressures) - pressure_min
     )
-    volume_threshold = volume_max - volume_threshold * (volume_max - np.min(volumes))
+    # Find indices where pressure is below the threshol
+    valid_pressure_indices = np.where(
+        (pressures <= pressure_threshold)
+    )[0]
+    new_volumes = volumes[valid_pressure_indices]
+    new_volume_max = np.max(new_volumes)
+    new_volume_min = np.min(new_volumes)
+    volume_threshold = new_volume_max - volume_threshold_percent * (new_volume_max - new_volume_min)
 
     # Find indices where conditions are met
     valid_indices = np.where(
@@ -253,7 +258,6 @@ def main(args=None) -> int:
     # Reorder the data to start from the identified index
     pressures = np.roll(smoothed_pres_average, -ind)
     volumes = np.roll(smoothed_vols_average, -ind)
-    breakpoint
     vols_average = np.roll(vols_average, -ind)
     pres_average = np.roll(pres_average, -ind)
 
