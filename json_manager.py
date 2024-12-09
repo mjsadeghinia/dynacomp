@@ -9,10 +9,10 @@ def add_or_update_field(json_file_path, section, field_name, field_values, overw
     Add or update a field with values in a specific section of the JSON file.
 
     :param json_file_path: Path to the JSON file
-    :param section: Section of the JSON where the field should be added or updated (e.g., "mesh")
-    :param field_name: The name of the field to add or update (e.g., "very_fine")
-    :param field_values: A dictionary of values to add or update for the field
-    :param overwrite: If True, overwrite the entire field. If False, update keys that exist in field_values
+    :param section: Section of the JSON where the field or values should be added or updated (e.g., "mesh")
+    :param field_name: The name of the field to add or update (e.g., "very_fine"). If empty, updates the section itself.
+    :param field_values: A dictionary of values to add or update for the field or section
+    :param overwrite: If True, overwrite the entire field or section. If False, update keys that exist in field_values
     """
     json_file_path = Path(json_file_path)
 
@@ -29,19 +29,27 @@ def add_or_update_field(json_file_path, section, field_name, field_values, overw
         logger.warning(f'Section "{section}" not found in JSON. Creating new section.', section=section)
         data[section] = {}
 
-    # Handle overwrite or update keys
-    if overwrite or field_name not in data[section]:
-        # Overwrite the entire field or add the field if it doesn't exist
-        data[section][field_name] = field_values
+    if field_name == "":
+        # If field_name is empty, update the entire section
+        if overwrite:
+            data[section] = field_values  # Overwrite the entire section
+        else:
+            # Update only the keys that exist in field_values
+            data[section].update(field_values)
     else:
-        # Update only the keys that exist in field_values
-        data[section][field_name].update(field_values)
+        # Handle field update or overwrite
+        if overwrite or field_name not in data[section]:
+            # Overwrite the entire field or add the field if it doesn't exist
+            data[section][field_name] = field_values
+        else:
+            # Update only the keys that exist in field_values
+            data[section][field_name].update(field_values)
     
     # Save the updated JSON data back to the file
     try:
         with json_file_path.open('w') as f:
             json.dump(data, f, indent=4)
-        logger.info("Successfully updated JSON file", path=str(json_file_path), field_name=field_name)
+        logger.info("Successfully updated JSON file", path=str(json_file_path), field_name=field_name or "entire section")
     except Exception as e:
         logger.error("Failed to write to JSON file", path=str(json_file_path), error=str(e))
 
@@ -121,7 +129,9 @@ updated_field_values_fine = {
     "SurfaceMeshSizeEpi": 1,
 }
 
-
+updated_field_values = {"volume_smooth_window_length": 15, "pressure_smooth_window_length": 15}
+updated_field_values = {"skip_redundant_data_flag": False}
 # Call the function to process all JSON files in the directory
 # process_all_json_files('/home/shared/dynacomp/settings/100_1.json', 'mesh', 'fine', updated_field_values_fine)
-# add_or_update_field('/home/shared/dynacomp/settings/100_1.json', 'mesh', 'very_fine', updated_field_values)
+# add_or_update_field('/home/shared/dynacomp/settings/128_1.json', 'PV', '', updated_field_values)
+process_all_json_files('/home/shared/dynacomp/settings/', 'PV', '', updated_field_values)
