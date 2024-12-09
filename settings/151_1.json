@@ -2,7 +2,9 @@
     "path": "/home/shared/dynacomp/00_data/CineData/AS/12weeks/130/OP151_1",
     "scan_type": "CINE",
     "is_inverted": false,
-    "remove_coords": [1],
+    "remove_coords": [
+        1
+    ],
     "remove_slice": false,
     "shift_slice_mask": false,
     "close_apex": false,
@@ -88,5 +90,11 @@
         "alpha_epi_lv": -60,
         "beta_endo_lv": -15,
         "beta_epi_lv": 15
+    },
+    "PV": {
+        "recording_num": 1,
+        "volume_smooth_window_length": 15,
+        "pressure_smooth_window_length": 15,
+        "skip_redundant_data_flag": false
     }
 }

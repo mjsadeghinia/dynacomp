@@ -90,6 +90,9 @@
         "beta_epi_lv": 15
     },
     "PV": {
-        "recording_num": 3
+        "recording_num": 3,
+        "volume_smooth_window_length": 30,
+        "pressure_smooth_window_length": 5,
+        "skip_redundant_data_flag": false
     }
 }
