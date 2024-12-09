@@ -121,13 +121,13 @@ def get_end_diastole_ind(
         np.max(pressures) - pressure_min
     )
     # Find indices where pressure is below the threshol
-    valid_pressure_indices = np.where(
-        (pressures <= pressure_threshold)
-    )[0]
+    valid_pressure_indices = np.where((pressures <= pressure_threshold))[0]
     new_volumes = volumes[valid_pressure_indices]
     new_volume_max = np.max(new_volumes)
     new_volume_min = np.min(new_volumes)
-    volume_threshold = new_volume_max - volume_threshold_percent * (new_volume_max - new_volume_min)
+    volume_threshold = new_volume_max - volume_threshold_percent * (
+        new_volume_max - new_volume_min
+    )
 
     # Find indices where conditions are met
     valid_indices = np.where(
@@ -244,14 +244,34 @@ def main(args=None) -> int:
     # Removing redundant volume and pressure data
     v_0 = vols_average[0]
     ED_data_num = int(0.1 * len(vols_average))
-    ind = ED_data_num - np.where(vols_average[-ED_data_num:] < v_0)[0][0]
+    ind = ED_data_num - np.where(vols_average[-ED_data_num:] <= v_0)[0][0]
     vols_average = vols_average[:-ind]
     pres_average = pres_average[:-ind]
-    time = time_average[:-ind]
+    time_average = time_average[:-ind]
 
     # Smoothing data
-    smoothed_vols_average = savgol_filter(vols_average, window_length=settings["PV"]["volume_smooth_window_length"], polyorder=3)
-    smoothed_pres_average = savgol_filter(pres_average, window_length=settings["PV"]["pressure_smooth_window_length"], polyorder=3)
+    smoothed_vols_average = savgol_filter(
+        vols_average,
+        window_length=settings["PV"]["volume_smooth_window_length"],
+        polyorder=3,
+    )
+    smoothed_pres_average = savgol_filter(
+        pres_average,
+        window_length=settings["PV"]["pressure_smooth_window_length"],
+        polyorder=3,
+    )
+
+    # Removing redundant volume and pressure data if any arised from smoothing
+    v_0 = smoothed_vols_average[0]
+    ED_data_num = int(0.1 * len(smoothed_vols_average))
+    ind_repeated = np.where(smoothed_vols_average[-ED_data_num:] <= v_0)[0]
+    if ind_repeated.shape[0] > 0:
+        ind = ED_data_num - ind_repeated[0]
+        smoothed_vols_average = smoothed_vols_average[:-ind]
+        smoothed_pres_average = smoothed_pres_average[:-ind]
+        time = time_average[:-ind]
+    else:
+        time = time_average
 
     # reodering the data based on end diastole
     ind = get_end_diastole_ind(smoothed_pres_average, smoothed_vols_average)
@@ -264,8 +284,8 @@ def main(args=None) -> int:
     # Plotting
 
     fig, ax = plt.subplots(figsize=(8, 6))
-    ax.scatter(time * 1000, vols_average, s=20, label="Average Data Points")
-    ax.plot(time * 1000, vols_average, color="b", label="Average Data Points")
+    ax.scatter(time_average * 1000, vols_average, s=20, label="Average Data Points")
+    ax.plot(time_average * 1000, vols_average, color="b", label="Average Data Points")
     ax.plot(time * 1000, volumes, color="k", label="Smoothed Data")
     plt.xlabel("time [ms]")
     plt.ylabel("Volume [RVU]")
@@ -275,8 +295,8 @@ def main(args=None) -> int:
     plt.close()
 
     fig, ax = plt.subplots(figsize=(8, 6))
-    ax.scatter(time * 1000, pres_average, s=20, label="Average Data Points")
-    ax.plot(time * 1000, pres_average, "b", label="Average Data Points")
+    ax.scatter(time_average * 1000, pres_average, s=20, label="Average Data Points")
+    ax.plot(time_average * 1000, pres_average, "b", label="Average Data Points")
     ax.plot(time * 1000, pressures, "k", label="Smoothed Data")
     plt.xlabel("time [ms]")
     plt.ylabel("LV Pressure [mmHg]")
