@@ -53,6 +53,9 @@ def get_volume_channel(channel_meta):
     for i in range(num_chan):
         if all(element == "RVU" for element in channel_meta["units"][i]):
             return i
+        if all(element == "L" for element in channel_meta["units"][i]):
+            logger.warning("Volume channel unit was not RVU but L!")
+            return i
     logger.error("Volume channel has not found!")
     return -1
 
