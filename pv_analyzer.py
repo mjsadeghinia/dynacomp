@@ -172,7 +172,7 @@ def parse_arguments(args=None):
     parser.add_argument(
         "-o",
         "--output_folder",
-        default="refined_data",
+        default="PV Data",
         type=str,
         help="The result folder name tha would be created in the directory of the sample.",
     )
@@ -257,43 +257,36 @@ def main(args=None) -> int:
     # Plotting
 
     fig, ax = plt.subplots(figsize=(8, 6))
-    plt.plot(vols, pres)
-    fname = output_dir / f"raw_data_rec_{recording_num}.png"
-    plt.xlabel("Volume (RVU)")
-    plt.ylabel("LV Pressure (mmHg)")
-    plt.savefig(fname, dpi=300)
-    plt.close()
-
-    fig, ax = plt.subplots(figsize=(8, 6))
     ax.scatter(time * 1000, vols_average, s=20, label="Average Data Points")
     ax.plot(time * 1000, vols_average, color="b", label="Average Data Points")
     ax.plot(time * 1000, volumes, color="k", label="Smoothed Data")
     plt.xlabel("time [ms]")
     plt.ylabel("Volume [RVU]")
     plt.legend()
-    fname = output_dir / f"volume_data_rec_{recording_num}_average.png"
+    fname = output_dir / f"{sample_name}_volume_data_rec_{recording_num}_average.png"
     plt.savefig(fname, dpi=300)
     plt.close()
 
     fig, ax = plt.subplots(figsize=(8, 6))
-    ax.scatter(time * 1000, pres_average, s=20)
-    ax.plot(time * 1000, pres_average, "b")
-    ax.plot(time * 1000, pressures, "k")
+    ax.scatter(time * 1000, pres_average, s=20, label="Average Data Points")
+    ax.plot(time * 1000, pres_average, "b", label="Average Data Points")
+    ax.plot(time * 1000, pressures, "k", label="Smoothed Data")
     plt.xlabel("time [ms]")
     plt.ylabel("LV Pressure [mmHg]")
-    fname = output_dir / f"pressure_data_rec_{recording_num}_average.png"
+    plt.legend()
+    fname = output_dir / f"{sample_name}_pressure_data_rec_{recording_num}_average.png"
     plt.savefig(fname, dpi=300)
     plt.close()
 
     fig, ax = plt.subplots(figsize=(8, 6))
     for i in range(len(vols_divided)):
         ax.plot(vols_divided[i], pres_divided[i], "k", linewidth=0.02)
-    ax.scatter(volumes, pressures, s=20)
+    ax.scatter(volumes, pressures, s=15, c="k")
     ax.scatter(volumes[0], pressures[0], c="r", s=20)
     ax.plot(volumes, pressures, "k")
-    fname = output_dir / f"raw_data_rec_{recording_num}_average.png"
-    plt.xlabel('Volume (RVU)')
-    plt.ylabel('LV Pressure (mmHg)') 
+    fname = output_dir / f"{sample_name}_data_rec_{recording_num}_average.png"
+    plt.xlabel("Volume [RVU]")
+    plt.ylabel("LV Pressure [mmHg]")
     plt.savefig(fname, dpi=300)
     plt.close()
 
