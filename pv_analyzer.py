@@ -145,21 +145,13 @@ def parse_arguments(args=None):
     Parse the command-line arguments.
     """
     parser = argparse.ArgumentParser()
-
-    parser.add_argument(
-        "-s",
-        "--sample",
-        default=None,
-        type=str,
-        help="The sample file name to be p",
-    )
-
+    
     parser.add_argument(
         "-n",
         "--number",
-        default=1,
+        nargs="+",
         type=int,
-        help="The sample number, will be used if sample is not passing",
+        help="The sample number(s), will process all the sample if not indicated",
     )
 
     parser.add_argument(
@@ -167,14 +159,6 @@ def parse_arguments(args=None):
         default="/home/shared/dynacomp/settings",
         type=Path,
         help="The settings directory where json files are stored.",
-    )
-
-    parser.add_argument(
-        "-m",
-        "--mesh_quality",
-        default="fine_mesh",
-        type=str,
-        help="The mesh quality. Settings will be loaded accordingly from json file",
     )
 
     parser.add_argument(
@@ -207,130 +191,133 @@ def main(args=None) -> int:
                 default_args[key] = value
         args = argparse.Namespace(**default_args)
 
-    sample_name = args.sample
-    sample_num = args.number
+    sample_nums = args.number
     setting_dir = args.settings_dir
-    mesh_quality = args.mesh_quality
     output_folder = args.output_folder
 
-    if sample_name is None:
-        # Get the list of .json files in the directory and sort them by name
-        sorted_files = sorted(
-            [
-                file
-                for file in setting_dir.iterdir()
-                if file.is_file() and file.suffix == ".json"
-            ]
-        )
+    # Get the list of .json files in the directory and sort them by name
+    sorted_files = sorted(
+        [
+            file
+            for file in setting_dir.iterdir()
+            if file.is_file() and file.suffix == ".json"
+        ]
+    )
+    
+    if sample_nums is None:
+        sample_nums = range(1,57)
+        
+    for sample_num in sample_nums:
         sample_name = sorted_files[sample_num - 1].with_suffix("").name
 
-    logger.info(f"Sample {sample_name} is being processed...")
+        logger.info(f"Sample {sample_name} is being processed...")
 
-    settings = load_settings(setting_dir, sample_name)
-    recording_num = settings["PV"]["recording_num"]
-    data_dir = Path(settings["path"])
-    pv_data_dir = data_dir / "PV Data"
-    output_dir = pv_data_dir / output_folder
-    output_dir = Path(output_folder)
-    output_dir.mkdir(exist_ok=True)
+        settings = load_settings(setting_dir, sample_name)
+        recording_num = settings["PV"]["recording_num"]
+        data_dir = Path(settings["path"])
+        pv_data_dir = data_dir / "PV Data"
+        output_dir = pv_data_dir / output_folder
+        output_dir.mkdir(exist_ok=True)
 
-    data = load_pv_data(pv_data_dir, recording_num=recording_num)
-    vols, pres = data["volumes"], data["pressures"]
+        data = load_pv_data(pv_data_dir, recording_num=recording_num)
+        vols, pres = data["volumes"], data["pressures"]
 
-    pres_divided, vols_divided = divide_pv_data(pres, vols)
-    pres_average, vols_average, time_average = average_pv_data(
-        pres_divided, vols_divided, data["dt"]
-    )
-    # Removing redundant volume and pressure data
-    if settings["PV"]["skip_redundant_data_flag"]:
-        # Smoothing data
-        smoothed_vols_average = savgol_filter(
-            vols_average,
-            window_length=settings["PV"]["volume_smooth_window_length"],
-            polyorder=3,
+        pres_divided, vols_divided = divide_pv_data(pres, vols)
+        pres_average, vols_average, time_average = average_pv_data(
+            pres_divided, vols_divided, data["dt"]
         )
-        smoothed_pres_average = savgol_filter(
-            pres_average,
-            window_length=settings["PV"]["pressure_smooth_window_length"],
-            polyorder=3,
-        )
-        time = time_average
-    else:
-        v_0 = vols_average[0]
-        ED_data_num = int(0.15 * len(vols_average))
-        ind = ED_data_num - np.where(vols_average[-ED_data_num:] < v_0)[0][0]
-        vols_average = vols_average[:-ind]
-        pres_average = pres_average[:-ind]
-        time_average = time_average[:-ind]
-
-        # Smoothing data
-        smoothed_vols_average = savgol_filter(
-            vols_average,
-            window_length=settings["PV"]["volume_smooth_window_length"],
-            polyorder=3,
-        )
-        smoothed_pres_average = savgol_filter(
-            pres_average,
-            window_length=settings["PV"]["pressure_smooth_window_length"],
-            polyorder=3,
-        )
-
-        # Removing redundant volume and pressure data if any arised from smoothing
-        v_0 = smoothed_vols_average[0]
-        ED_data_num = int(0.1 * len(smoothed_vols_average))
-        ind_repeated = np.where(smoothed_vols_average[-ED_data_num:] <= v_0)[0]
-        if ind_repeated.shape[0] > 0:
-            ind = ED_data_num - ind_repeated[0]
-            smoothed_vols_average = smoothed_vols_average[:-ind]
-            smoothed_pres_average = smoothed_pres_average[:-ind]
-            time = time_average[:-ind]
-        else:
+        # Removing redundant volume and pressure data
+        if settings["PV"]["skip_redundant_data_flag"]:
+            # Smoothing data
+            smoothed_vols_average = savgol_filter(
+                vols_average,
+                window_length=settings["PV"]["volume_smooth_window_length"],
+                polyorder=3,
+            )
+            smoothed_pres_average = savgol_filter(
+                pres_average,
+                window_length=settings["PV"]["pressure_smooth_window_length"],
+                polyorder=3,
+            )
             time = time_average
+        else:
+            v_0 = vols_average[0]
+            ED_data_num = int(0.15 * len(vols_average))
+            ind = ED_data_num - np.where(vols_average[-ED_data_num:] < v_0)[0][0]
+            vols_average = vols_average[:-ind]
+            pres_average = pres_average[:-ind]
+            time_average = time_average[:-ind]
 
-    # reodering the data based on end diastole
-    ind = get_end_diastole_ind(smoothed_pres_average, smoothed_vols_average)
-    # Reorder the data to start from the identified index
-    pressures = np.roll(smoothed_pres_average, -ind)
-    volumes = np.roll(smoothed_vols_average, -ind)
-    vols_average = np.roll(vols_average, -ind)
-    pres_average = np.roll(pres_average, -ind)
+            # Smoothing data
+            smoothed_vols_average = savgol_filter(
+                vols_average,
+                window_length=settings["PV"]["volume_smooth_window_length"],
+                polyorder=3,
+            )
+            smoothed_pres_average = savgol_filter(
+                pres_average,
+                window_length=settings["PV"]["pressure_smooth_window_length"],
+                polyorder=3,
+            )
 
-    # Plotting
+            # Removing redundant volume and pressure data if any arised from smoothing
+            v_0 = smoothed_vols_average[0]
+            ED_data_num = int(0.1 * len(smoothed_vols_average))
+            ind_repeated = np.where(smoothed_vols_average[-ED_data_num:] <= v_0)[0]
+            if ind_repeated.shape[0] > 0:
+                ind = ED_data_num - ind_repeated[0]
+                smoothed_vols_average = smoothed_vols_average[:-ind]
+                smoothed_pres_average = smoothed_pres_average[:-ind]
+                time = time_average[:-ind]
+            else:
+                time = time_average
 
-    fig, ax = plt.subplots(figsize=(8, 6))
-    ax.scatter(time_average * 1000, vols_average, s=20, label="Average Data Points")
-    ax.plot(time_average * 1000, vols_average, color="b", label="Average Data Points")
-    ax.plot(time * 1000, volumes, color="k", label="Smoothed Data")
-    plt.xlabel("time [ms]")
-    plt.ylabel("Volume [RVU]")
-    plt.legend()
-    fname = output_dir / f"{sample_name}_volume_data_rec_{recording_num}_average.png"
-    plt.savefig(fname, dpi=300)
-    plt.close()
+        # reodering the data based on end diastole
+        ind = get_end_diastole_ind(smoothed_pres_average, smoothed_vols_average)
+        # Reorder the data to start from the identified index
+        pressures = np.roll(smoothed_pres_average, -ind)
+        volumes = np.roll(smoothed_vols_average, -ind)
+        vols_average = np.roll(vols_average, -ind)
+        pres_average = np.roll(pres_average, -ind)
 
-    fig, ax = plt.subplots(figsize=(8, 6))
-    ax.scatter(time_average * 1000, pres_average, s=20, label="Average Data Points")
-    ax.plot(time_average * 1000, pres_average, "b", label="Average Data Points")
-    ax.plot(time * 1000, pressures, "k", label="Smoothed Data")
-    plt.xlabel("time [ms]")
-    plt.ylabel("LV Pressure [mmHg]")
-    plt.legend()
-    fname = output_dir / f"{sample_name}_pressure_data_rec_{recording_num}_average.png"
-    plt.savefig(fname, dpi=300)
-    plt.close()
+        # Plotting
 
-    fig, ax = plt.subplots(figsize=(8, 6))
-    for i in range(len(vols_divided)):
-        ax.plot(vols_divided[i], pres_divided[i], "k", linewidth=0.02)
-    ax.scatter(volumes, pressures, s=15, c="k")
-    ax.scatter(volumes[0], pressures[0], c="r", s=20)
-    ax.plot(volumes, pressures, "k")
-    fname = output_dir / f"{sample_name}_data_rec_{recording_num}_average.png"
-    plt.xlabel("Volume [RVU]")
-    plt.ylabel("LV Pressure [mmHg]")
-    plt.savefig(fname, dpi=300)
-    plt.close()
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.scatter(time_average * 1000, vols_average, s=20, label="Average Data Points")
+        ax.plot(time_average * 1000, vols_average, color="b", label="Average Data Points")
+        ax.plot(time * 1000, volumes, color="k", label="Smoothed Data")
+        plt.xlabel("time [ms]")
+        plt.ylabel("Volume [RVU]")
+        plt.legend()
+        fname = output_dir / f"{sample_name}_volume_data_rec_{recording_num}_average.png"
+        plt.savefig(fname, dpi=300)
+        plt.close()
 
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.scatter(time_average * 1000, pres_average, s=20, label="Average Data Points")
+        ax.plot(time_average * 1000, pres_average, "b", label="Average Data Points")
+        ax.plot(time * 1000, pressures, "k", label="Smoothed Data")
+        plt.xlabel("time [ms]")
+        plt.ylabel("LV Pressure [mmHg]")
+        plt.legend()
+        fname = output_dir / f"{sample_name}_pressure_data_rec_{recording_num}_average.png"
+        plt.savefig(fname, dpi=300)
+        plt.close()
+
+        fig, ax = plt.subplots(figsize=(8, 6))
+        for i in range(len(vols_divided)):
+            ax.plot(vols_divided[i], pres_divided[i], "k", linewidth=0.02)
+        ax.scatter(volumes, pressures, s=15, c="k")
+        ax.scatter(volumes[0], pressures[0], c="r", s=20)
+        ax.plot(volumes, pressures, "k")
+        fname = output_dir / f"{sample_name}_data_rec_{recording_num}_average.png"
+        plt.xlabel("Volume [RVU]")
+        plt.ylabel("LV Pressure [mmHg]")
+        plt.savefig(fname, dpi=300)
+        plt.close()
+        
+        fname = output_dir / f"{sample_name}_PV_data.csv"
+        np.savetxt(fname, np.vstack((time, pressures, volumes)).T, delimiter=",")
 
 if __name__ == "__main__":
     main()
