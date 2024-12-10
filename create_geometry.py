@@ -167,7 +167,7 @@ def create_geometry(
     }
     # Choose space for the fiber fields
     # This is a string on the form {family}_{degree}
-    fiber_space = "Quadrature_4"
+    fiber_space = "DG_0"
 
     # Compute the microstructure
     logger.info("Computing fiber angles...")
