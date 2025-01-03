@@ -14,6 +14,17 @@ def load_settings(setting_dir, sample_name):
         settings = json.load(file)
     return settings
 
+def get_sample_name(sample_num, setting_dir):
+    # Get the list of .json files in the directory and sort them by name
+    sorted_files = sorted(
+        [
+            file
+            for file in setting_dir.iterdir()
+            if file.is_file() and file.suffix == ".json"
+        ]
+    )
+    sample_name = sorted_files[sample_num - 1].with_suffix("").name
+    return sample_name
 
 # %%
 def main(args=None) -> int:
@@ -23,8 +34,10 @@ def main(args=None) -> int:
     else:
         args = arg_parser.update_arguments(args)
 
-    sample_name = args.name
+    sample_num = args.number
     setting_dir = args.settings_dir
+    sample_name = get_sample_name(sample_num, setting_dir)
+
     mesh_quality = args.mesh_quality
     h5_overwrite = args.h5_overwrite
     output_folder = args.output_folder
