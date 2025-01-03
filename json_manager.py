@@ -81,6 +81,91 @@ def process_all_json_files(directory, section, field_name, field_values):
     for json_file_path in directory_path.glob("*.json"):
         logger.info("Processing file", filename=json_file_path.name)
         add_or_update_field(json_file_path, section, field_name, field_values)
+        
+import json
+from pathlib import Path
+from structlog import get_logger
+
+logger = get_logger()
+
+def copy_coarse_from_fine(directory):
+    """
+    Process all JSON files in a directory. For each file, copy the fields from mesh['fine']
+    into mesh['coarse'], then update mesh['coarse']['MeshSizeMin'] = 0.5 and
+    mesh['coarse']['MeshSizeMax'] = 1. Save the result back to the JSON file.
+    
+    :param directory: The directory containing the JSON files or a single JSON file path.
+    """
+    directory_path = Path(directory)
+
+    # If the path is a single file, process just that file
+    if directory_path.is_file():
+        _process_single_file_coarse_from_fine(directory_path)
+        return
+
+    if not directory_path.is_dir():
+        logger.error("Directory not found", directory=str(directory_path))
+        return
+
+    logger.info("Processing JSON files in directory", directory=str(directory_path))
+
+    # Iterate over all JSON files in the directory
+    for json_file_path in directory_path.glob("*.json"):
+        logger.info("Processing file", filename=json_file_path.name)
+        _process_single_file_coarse_from_fine(json_file_path)
+
+
+def _process_single_file_coarse_from_fine(json_file_path: Path):
+    """
+    Helper function to load a single file, copy mesh['fine'] into mesh['coarse'],
+    then update mesh['coarse']['MeshSizeMin'] and mesh['coarse']['MeshSizeMax'].
+    """
+    try:
+        with json_file_path.open('r') as f:
+            data = json.load(f)
+        logger.info("Loaded JSON file", path=str(json_file_path))
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        logger.error("Failed to load JSON file", path=str(json_file_path), error=str(e))
+        return
+
+    # Safely navigate to data["mesh"]["fine"]
+    mesh_section = data.get("mesh", {})
+    if "fine" not in mesh_section:
+        logger.warning(
+            'No "fine" section found in mesh. Skipping file.',
+            filename=json_file_path.name
+        )
+        return
+
+    # If "coarse" does not exist, create it
+    if "coarse" not in mesh_section:
+        mesh_section["coarse"] = {}
+
+    # Copy all fields from mesh["fine"] to mesh["coarse"]
+    # Note that `.update()` modifies in-place. 
+    # If you want an exact copy (replacing entire 'coarse'), use:
+    # mesh_section["coarse"] = copy.deepcopy(mesh_section["fine"])
+    # For now, let's assume we just want to overwrite with the "fine" values.
+    mesh_section["coarse"].update(mesh_section["fine"])
+
+    # Finally, update the specific fields in mesh["coarse"]
+    mesh_section["coarse"]["MeshSizeMin"] = 0.5
+    mesh_section["coarse"]["MeshSizeMax"] = 1
+
+    # Assign back to data in case mesh didn't exist initially
+    data["mesh"] = mesh_section
+
+    # Save the updated data back to the file
+    try:
+        with json_file_path.open('w') as f:
+            json.dump(data, f, indent=4)
+        logger.info(
+            "Successfully updated mesh['coarse'] from mesh['fine']",
+            path=str(json_file_path)
+        )
+    except Exception as e:
+        logger.error("Failed to write to JSON file", path=str(json_file_path), error=str(e))
+
 
 updated_field_values_very_fine = {
     "seed_num_base_epi": 100,
@@ -134,4 +219,5 @@ updated_field_values = {"skip_redundant_data_flag": False}
 # Call the function to process all JSON files in the directory
 # process_all_json_files('/home/shared/dynacomp/settings/100_1.json', 'mesh', 'fine', updated_field_values_fine)
 # add_or_update_field('/home/shared/dynacomp/settings/128_1.json', 'PV', '', updated_field_values)
-process_all_json_files('/home/shared/dynacomp/settings/', 'PV', '', updated_field_values)
+#process_all_json_files('/home/shared/dynacomp/settings/', 'PV', '', updated_field_values)
+copy_coarse_from_fine('/home/shared/dynacomp/settings/')
