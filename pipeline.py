@@ -1,18 +1,35 @@
 import argparse
 import subprocess
+from structlog import get_logger
+
+logger = get_logger()
+
 
 def meshing_unloading_analysis(n, m, o, c):
     # Preprocessing
-    preprocess_cmd = f'python3 dynacomp/preprocessing.py -n "{n}" -m "{m}" -o "{o}"'
-    subprocess.run(preprocess_cmd, shell=True)
+    try:
+        preprocess_cmd = f'python3 dynacomp/preprocessing.py -n "{n}" -m "{m}" -o "{o}"'
+        subprocess.run(preprocess_cmd, shell=True, check=True)
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Error in preprocessing for sample {n}: {e}")
+        raise
 
-    # Unloading 
-    unload_cmd = f'python3 dynacomp/unloading.py -n "{n}" -o "{o}"'
-    subprocess.run(unload_cmd, shell=True)
+    # Unloading
+    try:
+        unload_cmd = f'python3 dynacomp/unloading.py -n "{n}" -o "{o}"'
+        subprocess.run(unload_cmd, shell=True, check=True)
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Error in unloading for sample {n}: {e}")
+        raise
 
     # Processing
-    process_cmd = f'mpirun -n {c} python3 dynacomp/processing.py -n "{n}" -o "{o}"'
-    subprocess.run(process_cmd, shell=True)
+    try:
+        process_cmd = f'mpirun -n {c} python3 dynacomp/processing.py -n "{n}" -o "{o}"'
+        subprocess.run(process_cmd, shell=True, check=True)
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Error in processing for sample {n}: {e}")
+        raise
+
 
 
 def main() -> int:
