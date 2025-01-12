@@ -19,7 +19,7 @@ comm = dolfin.MPI.comm_world
 
 
 # %%
-def unloader(outdir, atrium_pressure, matparams, plot_flag=False, comm=None):
+def unloader(outdir, atrium_pressure, matparams, bcs_parameters,  plot_flag=False, comm=None):
     if comm is None:
         comm = dolfin.MPI.comm_world
 
@@ -48,9 +48,7 @@ def unloader(outdir, atrium_pressure, matparams, plot_flag=False, comm=None):
     )
 
     # Parameter for the cardiac boundary conditions
-    bcs_parameters = pulse.MechanicsProblem.default_bcs_parameters()
-    bcs_parameters["base_spring"] = 1.0
-    bcs_parameters["base_bc"] = "fix_x"
+    bcs_parameters = bcs_parameters
     # Create the problem
     problem = pulse.MechanicsProblem(geometry, material, bcs_parameters=bcs_parameters)
 
@@ -152,6 +150,7 @@ def main(args=None) -> int:
         args = arg_parser.update_arguments(args, step="unloading")
 
     sample_nums = args.number
+    bcs_parameters = arg_parser.create_bc_params(args)
     setting_dir = args.settings_dir
     output_folder = args.output_folder
     
@@ -174,15 +173,12 @@ def main(args=None) -> int:
 
         atrium_pressure = load_atrium_pressure(data_dir, sample_name)
 
-        # increase material stiffness during unloading 
-        settings["matparams"]["a"] *= 1.2
-        settings["matparams"]["b"] *= 1.2
-        
         geo_dir = data_dir / f"{output_folder}/Geometry"
         unloaded_geometry = unloader(
             geo_dir,
             atrium_pressure,
             matparams=settings["matparams"],
+            bcs_parameters=bcs_parameters,
             plot_flag=True,
             comm=comm,
         )
