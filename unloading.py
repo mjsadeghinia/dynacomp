@@ -174,6 +174,10 @@ def main(args=None) -> int:
 
         atrium_pressure = load_atrium_pressure(data_dir, sample_name)
 
+        # increase material stiffness during unloading 
+        settings["matparams"]["a"] *= 1.2
+        settings["matparams"]["b"] *= 1.2
+        
         geo_dir = data_dir / f"{output_folder}/Geometry"
         unloaded_geometry = unloader(
             geo_dir,
