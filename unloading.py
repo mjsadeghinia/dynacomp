@@ -172,6 +172,9 @@ def main(args=None) -> int:
         data_dir = Path(settings["path"])
 
         atrium_pressure = load_atrium_pressure(data_dir, sample_name)
+        
+        settings["matparams"]["a"] *= 1.2
+        settings["matparams"]["b"] *= 1.2
 
         geo_dir = data_dir / f"{output_folder}/Geometry"
         unloaded_geometry = unloader(
