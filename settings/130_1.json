@@ -96,5 +96,9 @@
         "volume_smooth_window_length": 30,
         "pressure_smooth_window_length": 5,
         "skip_redundant_data_flag": false
-    }
+    },
+    "group": "SHAM",
+    "id": "OP130_1",
+    "time": 6,
+    "ring_diameter": null
 }

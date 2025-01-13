@@ -96,5 +96,9 @@
         "volume_smooth_window_length": 15,
         "pressure_smooth_window_length": 15,
         "skip_redundant_data_flag": false
-    }
+    },
+    "group": "AS",
+    "id": "OP144_2",
+    "time": 12,
+    "ring_diameter": 130.0
 }

@@ -96,5 +96,9 @@
         "volume_smooth_window_length": 15,
         "pressure_smooth_window_length": 15,
         "skip_redundant_data_flag": false
-    }
+    },
+    "group": "AS",
+    "id": "OP139_2",
+    "time": 12,
+    "ring_diameter": 150.0
 }
