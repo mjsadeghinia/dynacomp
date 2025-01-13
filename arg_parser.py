@@ -95,6 +95,19 @@ def parse_arguments_unloading(args=None):
         help="The settings directory where json files are stored.",
     )
     
+    # Arguments for HeartModel boundary conditions
+    parser.add_argument(
+        "--pericardium_spring",
+        default=0.0001,
+        type=float,
+        help="HeartModel BC: The stiffness of the spring on the pericardium.",
+    )
+    parser.add_argument(
+        "--base_spring",
+        default=1,
+        type=float,
+        help="HeartModel BC: The stiffness of the spring at the base.",
+    )
     
     parser.add_argument(
         "-o",

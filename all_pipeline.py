@@ -18,9 +18,9 @@ def get_sample_name(sample_num, setting_dir):
     return sample_name
 
 number_i = 1
-number_f = 1
+number_f = 56
 mesh_quality = "coarse"
-output_folder = "coarse_mesh"
+output_folder = "t3"
 cpus_num = 8
 setting_dir = Path("/home/shared/dynacomp/settings")
 sample_with_error = []
@@ -32,6 +32,4 @@ for sample_num in range(number_i, number_f + 1):
         sample_name = get_sample_name(sample_num, setting_dir)
         logger.error(f"Sample {sample_name} has not been analyzed: {e}")
         sample_with_error.append(sample_name)
-
-
-logger.warning(f"Samples with error: {sample_with_error} ")
+    logger.warning(f"Samples with error: {sample_with_error} ")
