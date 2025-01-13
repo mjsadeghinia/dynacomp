@@ -27,12 +27,22 @@ def initialize_results_dict(group_list, time_list, diameter_list):
     return results_dict
 
 
+def get_time_data(sample_dir, pv_folder = 'PV Data'):
+    data_path  = sample_dir / pv_folder / pv_folder
+    csv_files = list(data_path.glob("*.csv"))
+    if len(csv_files) != 1:
+        logger.error("Data folder must contain exactly 1 .mat file.")
+        return
+    pv_data = np.loadtxt(csv_files[0], delimiter=",", skiprows=1)
+    return pv_data[:,0]
+
 def parse_sample_data(settings_fname, output_folder):
     with open(settings_fname, "r") as file:
         settings = json.load(file)
 
     sample_name = settings_fname.stem
-    data_dir = Path(settings["path"]) / output_folder / "00_Modeling"
+    sample_dir = Path(settings["path"])
+    data_dir = sample_dir / output_folder / "00_Modeling"
     result_path = data_dir / "results_data.csv"
 
     if not result_path.exists():
@@ -40,6 +50,11 @@ def parse_sample_data(settings_fname, output_folder):
         return None, None, None
 
     sample_data = np.loadtxt(result_path, delimiter=",", skiprows=1)
+    time_data = get_time_data(sample_dir)
+    # append two additional timing for unloading and loading to ED
+    time_data = np.append([0,0],time_data)
+    sample_data[:,0] = time_data
+    
     return sample_name, settings, sample_data
 
 
@@ -101,7 +116,7 @@ def main(args=None) -> int:
             pressures[group][time][diameter].append(sample_data[:, 1])
             volumes[group][time][diameter].append(sample_data[:, 2])
 
-
+    breakpoint()
 if __name__ == "__main__":
     main()
 # %%
