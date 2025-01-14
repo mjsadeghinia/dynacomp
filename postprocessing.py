@@ -4,6 +4,8 @@ from pathlib import Path
 from structlog import get_logger
 from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
+import dolfin
+import pulse
 
 import json
 import argparse
@@ -86,35 +88,23 @@ def normalize_and_interpolate(times_dict, data_dict, N=200):
                 for diameter, times in times_list.items():
                     interpolated_dict[group][time_key][diameter] = []
                     normalized_times_dict[group][time_key][diameter] = []
-                    for time_series, data_series in zip(
-                        times, data_dict[group][time_key][diameter]
-                    ):
+                    for time_series, data_series in zip(times, data_dict[group][time_key][diameter]):
                         # Normalize time to [0, 1]
-                        normalized_time = (time_series - time_series.min()) / (
-                            time_series.max() - time_series.min()
-                        )
+                        normalized_time = (time_series - time_series.min()) / (time_series.max() - time_series.min())
 
                         # Interpolate data
-                        interpolator = interp1d(
-                            normalized_time, data_series, kind="linear"
-                        )
+                        interpolator = interp1d(normalized_time, data_series, kind="linear")
                         new_time = np.linspace(0, 1, N)
                         new_values = interpolator(new_time)
 
                         interpolated_dict[group][time_key][diameter].append(new_values)
-                        normalized_times_dict[group][time_key][diameter].append(
-                            new_time
-                        )
+                        normalized_times_dict[group][time_key][diameter].append(new_time)
             else:  # Handle case without diameters
                 interpolated_dict[group][time_key] = []
                 normalized_times_dict[group][time_key] = []
-                for time_series, data_series in zip(
-                    times_list, data_dict[group][time_key]
-                ):
+                for time_series, data_series in zip(times_list, data_dict[group][time_key]):
                     # Normalize time to [0, 1]
-                    normalized_time = (time_series - time_series.min()) / (
-                        time_series.max() - time_series.min()
-                    )
+                    normalized_time = (time_series - time_series.min()) / (time_series.max() - time_series.min())
 
                     # Interpolate data
                     interpolator = interp1d(normalized_time, data_series, kind="linear")
@@ -163,7 +153,10 @@ def calculate_data_average_and_std(data_dict):
 
     return averaged_dict, std_dict
 
-def plot_data_with_std(averaged_values, normalized_time, std_values=None,  figure=None, color="gray", style='-', label=None):
+
+def plot_data_with_std(
+    averaged_values, normalized_time, std_values=None, figure=None, color="gray", style="-", label=None
+):
     """
     Plot data with average and shaded area for ±1 standard deviation.
 
@@ -183,7 +176,7 @@ def plot_data_with_std(averaged_values, normalized_time, std_values=None,  figur
         plt.figure(figure.number)
 
     ax = figure.gca()  # Get the current axes
-    
+
     # Plot average line and fill standard deviation area
     ax.plot(normalized_time, averaged_values, label=label, color=color, linestyle=style)
     if std_values is not None:
@@ -193,43 +186,129 @@ def plot_data_with_std(averaged_values, normalized_time, std_values=None,  figur
             averaged_values + std_values,
             color=color,
             alpha=0.3,
-            label='STD between samples',
+            label="STD between samples",
         )
 
     # Return the figure for further modification
     return figure
 
 
+def plot_and_save(
+    key,
+    averaged_values,
+    normalized_time,
+    std_values,
+    colors_dict,
+    styles_dict,
+    output_folder,
+    ylim=None,
+    ylabel="Y axis",
+    fname_prefix=None,
+):
+    fig = plot_data_with_std(
+        averaged_values,
+        normalized_time,
+        std_values=std_values,
+        color=colors_dict[key],
+        style=styles_dict[key],
+        label="Averaged between Samples",
+    )
+    ax = fig.gca()
+    ax.set_title(key)
+    ax.set_xlim(0, 1)
+    if ylim is not None:
+        ax.set_ylim(ylim)
+    ax.set_xlabel("Normalized Time [-]")
+    ax.set_ylabel(ylabel)
+    if fname_prefix is None:
+        fname = output_folder / key
+    else:
+        fname = output_folder / f"{fname_prefix}_{key}"
+    fig.savefig(fname.as_posix(), dpi=300)
+
+
 def get_colors_styles(dict_keys):
     styles_dict = {}
     colors_dict = {}
     for key in dict_keys:
-        if 'SHAM' in key:
-            color = '#1f77b4'
+        if "SHAM" in key:
+            color = "#1f77b4"
         else:
-            if '150' in key:
-                color = '#ff7f0e'
-            elif '130' in key:
-                color = '#d62728'
-            elif '107' in key:
-                color = '#800000'
+            if "150" in key:
+                color = "#ff7f0e"
+            elif "130" in key:
+                color = "#d62728"
+            elif "107" in key:
+                color = "#800000"
             else:
-                color = 'black'
-                logger.warning(f'You need to specify colors for {key}')
-        
-        if '6' in key:
-            style = '-'
-        elif '12' in key:
-            style = '--'
-        elif '20' in key:
-            style = '-.'
-        else:
-            logger.warning(f'You need to specify style for {key}')
+                color = "black"
+                logger.warning(f"You need to specify colors for {key}")
 
-        styles_dict.update({key:style})
-        colors_dict.update({key:color})
+        if "6" in key:
+            style = "-"
+        elif "12" in key:
+            style = "--"
+        elif "20" in key:
+            style = "-."
+        else:
+            logger.warning(f"You need to specify style for {key}")
+
+        styles_dict.update({key: style})
+        colors_dict.update({key: color})
     return colors_dict, styles_dict
-        
+
+
+# %%
+def load_mesh_from_file(mesh_fname: Path):
+    # Read the mesh
+    mesh_fname = Path(mesh_fname)
+    with dolfin.XDMFFile(mesh_fname.as_posix()) as xdmf:
+        mesh = dolfin.Mesh()
+        xdmf.read(mesh)
+    return mesh
+
+
+def load_F_function_from_file(F_fname: Path, t: float, mesh: dolfin.mesh):
+    F_fname = Path(F_fname)
+    tensor_element = dolfin.TensorElement("DG", mesh.ufl_cell(), 0)
+    function_space = dolfin.FunctionSpace(mesh, tensor_element)
+    F = dolfin.Function(function_space)
+    with dolfin.XDMFFile(F_fname.as_posix()) as xdmf:
+        xdmf.read_checkpoint(F, "Deformation Gradiant", t)
+    return F
+
+
+def compute_fiber_strain(E: dolfin.Function, fib0: dolfin.Function, mesh: dolfin.mesh):
+    V = dolfin.FunctionSpace(mesh, "DG", 0)
+    Eff = dolfin.project(dolfin.inner(E * fib0, fib0), V)
+    return Eff
+
+
+def compute_fiber_strain_values_from_file(F_fname: Path, mesh: dolfin.mesh, fib0, num_time_step: int = 1000):
+    F_fname = Path(F_fname)
+    Eff_value = []
+    F0 = load_F_function_from_file(F_fname, 1, mesh)
+    for t in range(num_time_step):
+        try:
+            F_function = load_F_function_from_file(F_fname, t, mesh)
+            # Here we exclude the initial inflation part for calculation of strain values
+            F_new = F_function * dolfin.inv(F0)
+            E_function = pulse.kinematics.GreenLagrangeStrain(F_new)
+            Eff_t = compute_fiber_strain(E_function, fib0, mesh)
+            Eff_value.append(Eff_t.vector()[:])
+        except:
+            break
+    return Eff_value
+
+
+def compute_average_fiber_strain(Eff_value):
+    Eff_ave = []
+    for Eff_t in Eff_value:
+        Eff_ave.append(np.average(Eff_t))
+
+    return np.array(Eff_ave)
+
+
 # %%
 def main(args=None) -> int:
     parser = argparse.ArgumentParser()
@@ -272,16 +351,13 @@ def main(args=None) -> int:
     ids = initialize_results_dict(group_list, time_list, diameter_list)
     times = initialize_results_dict(group_list, time_list, diameter_list)
     activations = initialize_results_dict(group_list, time_list, diameter_list)
-    volumes = initialize_results_dict(group_list, time_list, diameter_list)
-    pressures = initialize_results_dict(group_list, time_list, diameter_list)
+    fiber_strains = initialize_results_dict(group_list, time_list, diameter_list)
 
     for settings_fname in sorted(setting_dir.iterdir()):
         if not settings_fname.suffix == ".json":
             continue
 
-        sample_name, settings, sample_data = parse_sample_data(
-            settings_fname, results_folder
-        )
+        sample_name, settings, sample_data = parse_sample_data(settings_fname, results_folder)
         if sample_data is None:
             continue
 
@@ -289,60 +365,105 @@ def main(args=None) -> int:
         time = settings["time"]
         diameter = settings.get("ring_diameter", None)
 
+        sample_dir = Path(settings["path"])
+        geo_dir = sample_dir / results_folder / "Geometry"
+        unloaded_geometry_fname = geo_dir / "unloaded_geometry_with_fibers.h5"
+        geo = pulse.HeartGeometry.from_file(unloaded_geometry_fname.as_posix())
+        F_fname = sample_dir / results_folder / "00_Modeling/Deformation_Gradient.xdmf"
+
+        Eff_value = compute_fiber_strain_values_from_file(F_fname, geo.mesh, geo.f0)
+        Eff_ave = compute_average_fiber_strain(Eff_value)
+        # The strain is calculated based on ED not the unloaded geometry
+        Eff_ave[0] = 0
+
         if diameter is None:
             ids[group][time].append(sample_name)
             times[group][time].append(sample_data[:, 0])
             activations[group][time].append(sample_data[:, 1])
-            volumes[group][time].append(sample_data[:, 2])
-            pressures[group][time].append(sample_data[:, 4])
+            fiber_strains[group][time].append(Eff_ave)
         else:
             ids[group][time][diameter].append(sample_name)
             times[group][time][diameter].append(sample_data[:, 0])
             activations[group][time][diameter].append(sample_data[:, 1])
-            volumes[group][time][diameter].append(sample_data[:, 2])
-            pressures[group][time][diameter].append(sample_data[:, 4])
+            fiber_strains[group][time][diameter].append(Eff_ave)
 
-    interpolated_volumes, normalized_times = normalize_and_interpolate(times, volumes)
-    interpolated_pressures, _ = normalize_and_interpolate(times, pressures)
-    interpolated_actvations, _ = normalize_and_interpolate(times, activations)
+    interpolated_actvations, normalized_times = normalize_and_interpolate(times, activations)
+    interpolated_fiber_strains, _ = normalize_and_interpolate(times, fiber_strains)
 
     averaged_actvations, std_actvations = calculate_data_average_and_std(interpolated_actvations)
-    averaged_volumes, std_volumes = calculate_data_average_and_std(interpolated_volumes)
-    averaged_pressures, std_pressures = calculate_data_average_and_std(interpolated_pressures)
+    averaged_fiber_strains, std_fiber_strains = calculate_data_average_and_std(interpolated_fiber_strains)
     normalized_times, _ = calculate_data_average_and_std(normalized_times)
-    
-    fig_all = plt.figure()
+
+    fig_activations = plt.figure()
+    fig_fiber_strains = plt.figure()
     colors_dict, styles_dict = get_colors_styles(averaged_actvations.keys())
-    
-    for key in averaged_actvations.keys():
-        
-        averaged_values = averaged_actvations[key]
-        std_values = std_actvations[key]
-        normalized_time = normalized_times[key]
-        
-        if averaged_values is None:
+
+    for key, normalized_time in normalized_times.items():
+        if averaged_actvations[key] is None:
             continue
-        fig_all = plot_data_with_std(averaged_values, normalized_time, std_values=None, figure=fig_all, color=colors_dict[key], style=styles_dict[key], label=key)
-        
-        fig = plot_data_with_std(averaged_values, normalized_time, std_values=std_values, color=colors_dict[key], style=styles_dict[key], label='Averaged between Samples')
-        ax = fig.gca()
-        ax.set_title(key)
-        ax.set_xlim(0, 1)
-        ax.set_ylim(-10,120)
-        ax.set_xlabel("Normalized Time [-]")
-        ax.set_ylabel("Cardiac Muscle Tension Generation (Activation) [kPa]")
-        fname = output_folder / key
-        fig.savefig(fname.as_posix(), dpi = 300)
-        
-    
-    ax = fig_all.gca()
+
+        plot_and_save(
+            key,
+            averaged_actvations[key],
+            normalized_time,
+            std_actvations[key],
+            colors_dict,
+            styles_dict,
+            output_folder,
+            ylim=(-10, 110),
+            ylabel="Cardiac Muscle Tension Generation (Activation) [kPa]",
+            fname_prefix="activation",
+        )
+        fig_activations = plot_data_with_std(
+            averaged_actvations[key],
+            normalized_time,
+            std_values=None,
+            figure=fig_activations,
+            color=colors_dict[key],
+            style=styles_dict[key],
+            label=key,
+        )
+
+        plot_and_save(
+            key,
+            averaged_fiber_strains[key],
+            normalized_time,
+            std_fiber_strains[key],
+            colors_dict,
+            styles_dict,
+            output_folder,
+            ylim=(-0.1, 0),
+            ylabel="Averaged Fiber Strains [-]",
+            fname_prefix="strain",
+        )
+        fig_fiber_strains = plot_data_with_std(
+            averaged_fiber_strains[key],
+            normalized_time,
+            std_values=None,
+            figure=fig_fiber_strains,
+            color=colors_dict[key],
+            style=styles_dict[key],
+            label=key,
+        )
+
+    ax = fig_activations.gca()
     ax.set_xlim(0, 1)
-    ax.set_ylim(-10,120)
+    ax.set_ylim(-10, 120)
     ax.set_xlabel("Normalized Time [-]")
     ax.set_ylabel("Cardiac Muscle Tension Generation (Activation) [kPa]")
     plt.legend()
-    fname = output_folder / "all"
-    fig_all.savefig(fname.as_posix(), dpi = 300)
+    fname = output_folder / "Activation"
+    fig_activations.savefig(fname.as_posix(), dpi=300)
+
+    ax = fig_fiber_strains.gca()
+    ax.set_xlim(0, 1)
+    ax.set_ylim(-0.1, 0)
+    ax.set_xlabel("Normalized Time [-]")
+    ax.set_ylabel("Averaged Fiber Strains [-]")
+    plt.legend()
+    fname = output_folder / "Fiber_Strain"
+    fig_fiber_strains.savefig(fname.as_posix(), dpi=300)
+
 
 if __name__ == "__main__":
     main()
