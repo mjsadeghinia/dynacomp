@@ -163,7 +163,73 @@ def calculate_data_average_and_std(data_dict):
 
     return averaged_dict, std_dict
 
+def plot_data_with_std(averaged_values, normalized_time, std_values=None,  figure=None, color="gray", style='-', label=None):
+    """
+    Plot data with average and shaded area for ±1 standard deviation.
 
+    Parameters:
+    - averaged_values (list): list with averaged data.
+    - normalized_times_dict (list): list with normalized time values.
+    - std_values (list): list with standard deviations or None if not needed.
+    - figure (matplotlib.figure.Figure or None): Existing figure to plot on. If None, a new figure is created.
+
+    Returns:
+    - matplotlib.figure.Figure: The figure object for further modification.
+    """
+    # Create or use the existing figure
+    if figure is None:
+        figure = plt.figure()
+    else:
+        plt.figure(figure.number)
+
+    ax = figure.gca()  # Get the current axes
+    
+    # Plot average line and fill standard deviation area
+    ax.plot(normalized_time, averaged_values, label=label, color=color, linestyle=style)
+    if std_values is not None:
+        ax.fill_between(
+            normalized_time,
+            averaged_values - std_values,
+            averaged_values + std_values,
+            color=color,
+            alpha=0.3,
+            label='STD between samples',
+        )
+
+    # Return the figure for further modification
+    return figure
+
+
+def get_colors_styles(dict_keys):
+    styles_dict = {}
+    colors_dict = {}
+    for key in dict_keys:
+        if 'SHAM' in key:
+            color = '#1f77b4'
+        else:
+            if '150' in key:
+                color = '#ff7f0e'
+            elif '130' in key:
+                color = '#d62728'
+            elif '107' in key:
+                color = '#800000'
+            else:
+                color = 'black'
+                logger.warning(f'You need to specify colors for {key}')
+        
+        if '6' in key:
+            style = '-'
+        elif '12' in key:
+            style = '--'
+        elif '20' in key:
+            style = '-.'
+        else:
+            logger.warning(f'You need to specify style for {key}')
+
+        styles_dict.update({key:style})
+        colors_dict.update({key:color})
+    return colors_dict, styles_dict
+        
 # %%
 def main(args=None) -> int:
     parser = argparse.ArgumentParser()
@@ -195,7 +261,8 @@ def main(args=None) -> int:
 
     setting_dir = Path(args.settings_dir)
     results_folder = args.results_folder
-    output_folder = args.output_folder
+    output_folder = Path(args.output_folder)
+    output_folder.mkdir(parents=True, exist_ok=True)
 
     # Initialize the results dicts
     group_list = ["SHAM", "AS"]
@@ -237,12 +304,45 @@ def main(args=None) -> int:
 
     interpolated_volumes, normalized_times = normalize_and_interpolate(times, volumes)
     interpolated_pressures, _ = normalize_and_interpolate(times, pressures)
-    interpolated_actvations, _ = normalize_and_interpolate(times, pressures)
+    interpolated_actvations, _ = normalize_and_interpolate(times, activations)
 
     averaged_actvations, std_actvations = calculate_data_average_and_std(interpolated_actvations)
     averaged_volumes, std_volumes = calculate_data_average_and_std(interpolated_volumes)
     averaged_pressures, std_pressures = calculate_data_average_and_std(interpolated_pressures)
     normalized_times, _ = calculate_data_average_and_std(normalized_times)
+    
+    fig_all = plt.figure()
+    colors_dict, styles_dict = get_colors_styles(averaged_actvations.keys())
+    
+    for key in averaged_actvations.keys():
+        
+        averaged_values = averaged_actvations[key]
+        std_values = std_actvations[key]
+        normalized_time = normalized_times[key]
+        
+        if averaged_values is None:
+            continue
+        fig_all = plot_data_with_std(averaged_values, normalized_time, std_values=None, figure=fig_all, color=colors_dict[key], style=styles_dict[key], label=key)
+        
+        fig = plot_data_with_std(averaged_values, normalized_time, std_values=std_values, color=colors_dict[key], style=styles_dict[key], label='Averaged between Samples')
+        ax = fig.gca()
+        ax.set_title(key)
+        ax.set_xlim(0, 1)
+        ax.set_ylim(-10,120)
+        ax.set_xlabel("Normalized Time [-]")
+        ax.set_ylabel("Cardiac Muscle Tension Generation (Activation) [kPa]")
+        fname = output_folder / key
+        fig.savefig(fname.as_posix(), dpi = 300)
+        
+    
+    ax = fig_all.gca()
+    ax.set_xlim(0, 1)
+    ax.set_ylim(-10,120)
+    ax.set_xlabel("Normalized Time [-]")
+    ax.set_ylabel("Cardiac Muscle Tension Generation (Activation) [kPa]")
+    plt.legend()
+    fname = output_folder / "all"
+    fig_all.savefig(fname.as_posix(), dpi = 300)
 
 if __name__ == "__main__":
     main()
