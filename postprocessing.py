@@ -372,6 +372,7 @@ def main(args=None) -> int:
     ids = initialize_results_dict(group_list, time_list, diameter_list)
     times = initialize_results_dict(group_list, time_list, diameter_list)
     activations = initialize_results_dict(group_list, time_list, diameter_list)
+    pressures = initialize_results_dict(group_list, time_list, diameter_list)
     fiber_strains = initialize_results_dict(group_list, time_list, diameter_list)
     MW = initialize_results_dict(group_list, time_list, diameter_list)
 
@@ -408,26 +409,31 @@ def main(args=None) -> int:
             ids[group][time].append(sample_name)
             times[group][time].append(sample_data[:, 0])
             activations[group][time].append(sample_data[:, 1])
+            pressures[group][time].append(sample_data[:, 4])
             fiber_strains[group][time].append(Eff_ave)
             MW[group][time].append(MW_ave)
         else:
             ids[group][time][diameter].append(sample_name)
             times[group][time][diameter].append(sample_data[:, 0])
             activations[group][time][diameter].append(sample_data[:, 1])
+            pressures[group][time][diameter].append(sample_data[:, 4])
             fiber_strains[group][time][diameter].append(Eff_ave)
             MW[group][time][diameter].append(MW_ave)
         
 
     interpolated_actvations, normalized_times = normalize_and_interpolate(times, activations)
+    interpolated_pressures, _ = normalize_and_interpolate(times, pressures)
     interpolated_fiber_strains, _ = normalize_and_interpolate(times, fiber_strains)
     interpolated_MW, _ = normalize_and_interpolate(times, MW)
 
     averaged_actvations, std_actvations = calculate_data_average_and_std(interpolated_actvations)
+    averaged_pressures, std_pressures = calculate_data_average_and_std(interpolated_pressures)
     averaged_fiber_strains, std_fiber_strains = calculate_data_average_and_std(interpolated_fiber_strains)
     averaged_MW, std_MW = calculate_data_average_and_std(interpolated_MW)
     normalized_times, _ = calculate_data_average_and_std(normalized_times)
 
     fig_activations = plt.figure()
+    fig_pressures= plt.figure()
     fig_fiber_strains = plt.figure()
     fig_MW = plt.figure()
     colors_dict, styles_dict = get_colors_styles(averaged_actvations.keys())
@@ -453,6 +459,28 @@ def main(args=None) -> int:
             normalized_time,
             std_values=None,
             figure=fig_activations,
+            color=colors_dict[key],
+            style=styles_dict[key],
+            label=key,
+        )
+
+        plot_and_save(
+            key,
+            averaged_pressures[key],
+            normalized_time,
+            std_pressures[key],
+            colors_dict,
+            styles_dict,
+            output_folder,
+            ylim=(-2, 30),
+            ylabel="LV Pressure [kPa]",
+            fname_prefix="pressure",
+        )
+        fig_pressures = plot_data_with_std(
+            averaged_actvations[key],
+            normalized_time,
+            std_values=None,
+            figure=fig_pressures,
             color=colors_dict[key],
             style=styles_dict[key],
             label=key,
@@ -531,10 +559,24 @@ def main(args=None) -> int:
     fig_MW.savefig(fname.as_posix(), dpi=300)
     
     
+    ax = fig_pressures.gca()
+    ax.set_xlim(0, 1)
+    ax.set_ylim(-2, 30)
+    ax.set_xlabel("Normalized Time [-]")
+    ax.set_ylabel("LV Pressure [kPa]")
+    # plt.legend()
+    fname = output_folder / "LV_pressure"
+    fig_MW.savefig(fname.as_posix(), dpi=300)
+    
     fig_activations_group_sham = plt.figure()
     fig_activations_group_107 = plt.figure()
     fig_activations_group_130 = plt.figure()
     fig_activations_group_150 = plt.figure()
+    
+    fig_pressure_group_sham = plt.figure()
+    fig_pressure_group_107 = plt.figure()
+    fig_pressure_group_130 = plt.figure()
+    fig_pressure_group_150 = plt.figure()
     
     fig_strains_group_sham = plt.figure()
     fig_strains_group_107 = plt.figure()
@@ -555,6 +597,16 @@ def main(args=None) -> int:
                 normalized_time,
                 std_values=std_actvations[key],
                 figure=fig_activations_group_sham,
+                color=colors_dict[key],
+                style=styles_dict[key],
+                label=key,
+            )
+            
+            fig_pressure_group_sham = plot_data_with_std(
+                averaged_pressures[key],
+                normalized_time,
+                std_values=std_pressures[key],
+                figure=fig_pressure_group_sham,
                 color=colors_dict[key],
                 style=styles_dict[key],
                 label=key,
@@ -592,6 +644,16 @@ def main(args=None) -> int:
                 label=key,
             )
             
+            fig_pressure_group_107 = plot_data_with_std(
+                averaged_pressures[key],
+                normalized_time,
+                std_values=std_pressures[key],
+                figure=fig_pressure_group_107,
+                color=colors_dict[key],
+                style=styles_dict[key],
+                label=key,
+            )
+            
             fig_strains_group_107 = plot_data_with_std(
                 averaged_fiber_strains[key],
                 normalized_time,
@@ -618,6 +680,16 @@ def main(args=None) -> int:
                 normalized_time,
                 std_values=std_actvations[key],
                 figure=fig_activations_group_130,
+                color=colors_dict[key],
+                style=styles_dict[key],
+                label=key,
+            )
+            
+            fig_pressure_group_130 = plot_data_with_std(
+                averaged_pressures[key],
+                normalized_time,
+                std_values=std_pressures[key],
+                figure=fig_pressure_group_130,
                 color=colors_dict[key],
                 style=styles_dict[key],
                 label=key,
@@ -653,6 +725,16 @@ def main(args=None) -> int:
                 label=key,
             )
             
+            fig_pressure_group_150 = plot_data_with_std(
+                averaged_pressures[key],
+                normalized_time,
+                std_values=std_pressures[key],
+                figure=fig_pressure_group_150,
+                color=colors_dict[key],
+                style=styles_dict[key],
+                label=key,
+            )
+            
             fig_strains_group_150 = plot_data_with_std(
                 averaged_fiber_strains[key],
                 normalized_time,
@@ -678,6 +760,10 @@ def main(args=None) -> int:
     'fig_activations_group_107': fig_activations_group_107,
     'fig_activations_group_130': fig_activations_group_130,
     'fig_activations_group_150': fig_activations_group_150,
+    'fig_pressure_group_sham':fig_pressure_group_sham,
+    'fig_pressure_group_107': fig_pressure_group_107,
+    'fig_pressure_group_130': fig_pressure_group_130,
+    'fig_pressure_group_150': fig_pressure_group_150,
     'fig_strains_group_sham':fig_strains_group_sham,
     'fig_strains_group_107': fig_strains_group_107,
     'fig_strains_group_130': fig_strains_group_130,
@@ -702,6 +788,9 @@ def main(args=None) -> int:
         elif 'mw' in fig_name:
             ax.set_ylim(-4, 4)
             ax.set_ylabel("Averaged Myocaridal Work [mJ]")
+        elif 'pressure' in fig_name:
+            ax.set_ylim(-2, 30)
+            ax.set_ylabel("LV Pressure [kPa]")
             
         # Save the figure
         fname = output_folder / f"{fig_name}.png"  # Save as PNG or desired format
