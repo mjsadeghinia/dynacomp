@@ -301,13 +301,34 @@ def compute_fiber_strain_values_from_file(F_fname: Path, mesh: dolfin.mesh, fib0
     return Eff_value
 
 
-def compute_average_fiber_strain(Eff_value):
-    Eff_ave = []
-    for Eff_t in Eff_value:
-        Eff_ave.append(np.average(Eff_t))
+def compute_spatial_average(value):
+    value_ave = []
+    for value_t in value:
+        value_ave.append(np.average(value_t))
+    return np.array(value_ave)
 
-    return np.array(Eff_ave)
 
+def load_MW_function_from_file(MW_fname: Path, t: float, mesh: dolfin.mesh):
+    MW_fname = Path(MW_fname)
+    element = dolfin.FiniteElement("DG", mesh.ufl_cell(), 0)
+    function_space = dolfin.FunctionSpace(mesh, element)
+    MW = dolfin.Function(function_space)
+    with dolfin.XDMFFile(MW_fname.as_posix()) as xdmf:
+        xdmf.read_checkpoint(MW, "Myocardium Work", t)
+    return MW
+
+
+def compute_MW_values_from_file(MW_fname: Path, mesh: dolfin.mesh, num_time_step: int = 1000):
+    MW_fname = Path(MW_fname)
+    MW_value = []
+    for t in range(num_time_step):
+        try:
+            MW_function = load_MW_function_from_file(MW_fname, t, mesh)
+            # Here we exclude the initial inflation part for calculation of strain values
+            MW_value.append(MW_function.vector()[:])
+        except:
+            break
+    return MW_value
 
 # %%
 def main(args=None) -> int:
@@ -352,6 +373,7 @@ def main(args=None) -> int:
     times = initialize_results_dict(group_list, time_list, diameter_list)
     activations = initialize_results_dict(group_list, time_list, diameter_list)
     fiber_strains = initialize_results_dict(group_list, time_list, diameter_list)
+    MW = initialize_results_dict(group_list, time_list, diameter_list)
 
     for settings_fname in sorted(setting_dir.iterdir()):
         if not settings_fname.suffix == ".json":
@@ -372,30 +394,42 @@ def main(args=None) -> int:
         F_fname = sample_dir / results_folder / "00_Modeling/Deformation_Gradient.xdmf"
 
         Eff_value = compute_fiber_strain_values_from_file(F_fname, geo.mesh, geo.f0)
-        Eff_ave = compute_average_fiber_strain(Eff_value)
+        Eff_ave = compute_spatial_average(Eff_value)
+        MW_fname = sample_dir / results_folder / "00_Modeling/Myocardial_Work.xdmf"
+        MW_value = compute_MW_values_from_file(MW_fname, geo.mesh)
+        MW_ave = compute_spatial_average(MW_value)
+        
         # The strain is calculated based on ED not the unloaded geometry
         Eff_ave[0] = 0
+        MW_ave[0] = 0
+        MW_ave[1] = 0
 
         if diameter is None:
             ids[group][time].append(sample_name)
             times[group][time].append(sample_data[:, 0])
             activations[group][time].append(sample_data[:, 1])
             fiber_strains[group][time].append(Eff_ave)
+            MW[group][time].append(MW_ave)
         else:
             ids[group][time][diameter].append(sample_name)
             times[group][time][diameter].append(sample_data[:, 0])
             activations[group][time][diameter].append(sample_data[:, 1])
             fiber_strains[group][time][diameter].append(Eff_ave)
+            MW[group][time][diameter].append(MW_ave)
+        
 
     interpolated_actvations, normalized_times = normalize_and_interpolate(times, activations)
     interpolated_fiber_strains, _ = normalize_and_interpolate(times, fiber_strains)
+    interpolated_MW, _ = normalize_and_interpolate(times, MW)
 
     averaged_actvations, std_actvations = calculate_data_average_and_std(interpolated_actvations)
     averaged_fiber_strains, std_fiber_strains = calculate_data_average_and_std(interpolated_fiber_strains)
+    averaged_MW, std_MW = calculate_data_average_and_std(interpolated_MW)
     normalized_times, _ = calculate_data_average_and_std(normalized_times)
 
     fig_activations = plt.figure()
     fig_fiber_strains = plt.figure()
+    fig_MW = plt.figure()
     colors_dict, styles_dict = get_colors_styles(averaged_actvations.keys())
 
     for key, normalized_time in normalized_times.items():
@@ -445,6 +479,28 @@ def main(args=None) -> int:
             style=styles_dict[key],
             label=key,
         )
+        
+        plot_and_save(
+            key,
+            averaged_MW[key],
+            normalized_time,
+            std_MW[key],
+            colors_dict,
+            styles_dict,
+            output_folder,
+            ylim=(-4, 4),
+            ylabel="Averaged Myocaridal Work [mJ]",
+            fname_prefix="work",
+        )
+        fig_MW = plot_data_with_std(
+            averaged_MW[key],
+            normalized_time,
+            std_values=None,
+            figure=fig_MW,
+            color=colors_dict[key],
+            style=styles_dict[key],
+            label=key,
+        )
 
     ax = fig_activations.gca()
     ax.set_xlim(0, 1)
@@ -463,6 +519,16 @@ def main(args=None) -> int:
     plt.legend()
     fname = output_folder / "Fiber_Strain"
     fig_fiber_strains.savefig(fname.as_posix(), dpi=300)
+
+
+    ax = fig_MW.gca()
+    ax.set_xlim(0, 1)
+    ax.set_ylim(-4, 4)
+    ax.set_xlabel("Normalized Time [-]")
+    ax.set_ylabel("Averaged Myocaridal Work [mJ]")
+    plt.legend()
+    fname = output_folder / "Myocardial_Work"
+    fig_MW.savefig(fname.as_posix(), dpi=300)
 
 
 if __name__ == "__main__":
