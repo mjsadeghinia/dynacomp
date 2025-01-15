@@ -348,6 +348,14 @@ def main(args=None) -> int:
         type=str,
         help="The result folder name tha would be created in the directory of the sample.",
     )
+    
+    parser.add_argument(
+        "--skip_samples",
+        default="170_1",
+        nargs="+",
+        type=str,
+        help="The list of samples to be skipped",
+    )
 
     parser.add_argument(
         "-o",
@@ -361,6 +369,7 @@ def main(args=None) -> int:
 
     setting_dir = Path(args.settings_dir)
     results_folder = args.results_folder
+    skip_samples = args.skip_samples
     output_folder = Path(args.output_folder)
     output_folder.mkdir(parents=True, exist_ok=True)
 
@@ -382,6 +391,10 @@ def main(args=None) -> int:
 
         sample_name, settings, sample_data = parse_sample_data(settings_fname, results_folder)
         if sample_data is None:
+            continue
+        
+        print(sample_name)
+        if sample_name in skip_samples:
             continue
 
         group = settings["group"]
