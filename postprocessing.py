@@ -529,7 +529,183 @@ def main(args=None) -> int:
     # plt.legend()
     fname = output_folder / "Myocardial_Work"
     fig_MW.savefig(fname.as_posix(), dpi=300)
+    
+    
+    fig_activations_group_sham = plt.figure()
+    fig_activations_group_107 = plt.figure()
+    fig_activations_group_130 = plt.figure()
+    fig_activations_group_150 = plt.figure()
+    
+    fig_strains_group_sham = plt.figure()
+    fig_strains_group_107 = plt.figure()
+    fig_strains_group_130 = plt.figure()
+    fig_strains_group_150 = plt.figure()
+    
+    fig_mw_group_sham = plt.figure()
+    fig_mw_group_107 = plt.figure()
+    fig_mw_group_130 = plt.figure()
+    fig_mw_group_150 = plt.figure()
 
+    for key, normalized_time in normalized_times.items():
+        if averaged_actvations[key] is None:
+            continue
+        if 'SHAM' in key:
+            fig_activations_group_sham = plot_data_with_std(
+                averaged_actvations[key],
+                normalized_time,
+                std_values=std_actvations[key],
+                figure=fig_activations_group_sham,
+                color=colors_dict[key],
+                style=styles_dict[key],
+                label=key,
+            )
+            
+            fig_strains_group_sham = plot_data_with_std(
+                averaged_fiber_strains[key],
+                normalized_time,
+                std_values=std_fiber_strains[key],
+                figure=fig_strains_group_sham,
+                color=colors_dict[key],
+                style=styles_dict[key],
+                label=key,
+            )
+            
+            
+            fig_mw_group_sham = plot_data_with_std(
+                averaged_MW[key],
+                normalized_time,
+                std_values=std_MW[key],
+                figure=fig_mw_group_sham,
+                color=colors_dict[key],
+                style=styles_dict[key],
+                label=key,
+            )
+            
+        if '107' in key:
+            fig_activations_group_107 = plot_data_with_std(
+                averaged_actvations[key],
+                normalized_time,
+                std_values=std_actvations[key],
+                figure=fig_activations_group_107,
+                color=colors_dict[key],
+                style=styles_dict[key],
+                label=key,
+            )
+            
+            fig_strains_group_107 = plot_data_with_std(
+                averaged_fiber_strains[key],
+                normalized_time,
+                std_values=std_fiber_strains[key],
+                figure=fig_strains_group_107,
+                color=colors_dict[key],
+                style=styles_dict[key],
+                label=key,
+            )
+            
+            fig_mw_group_107 = plot_data_with_std(
+                averaged_MW[key],
+                normalized_time,
+                std_values=std_MW[key],
+                figure=fig_mw_group_107,
+                color=colors_dict[key],
+                style=styles_dict[key],
+                label=key,
+            )
+            
+        if '130' in key:
+            fig_activations_group_130 = plot_data_with_std(
+                averaged_actvations[key],
+                normalized_time,
+                std_values=std_actvations[key],
+                figure=fig_activations_group_130,
+                color=colors_dict[key],
+                style=styles_dict[key],
+                label=key,
+            )
+            
+            fig_mw_group_130 = plot_data_with_std(
+                averaged_MW[key],
+                normalized_time,
+                std_values=std_MW[key],
+                figure=fig_mw_group_130,
+                color=colors_dict[key],
+                style=styles_dict[key],
+                label=key,
+            )
+            
+            fig_strains_group_130 = plot_data_with_std(
+                averaged_fiber_strains[key],
+                normalized_time,
+                std_values=std_fiber_strains[key],
+                figure=fig_strains_group_130,
+                color=colors_dict[key],
+                style=styles_dict[key],
+                label=key,
+            )
+        if '150' in key:
+            fig_activations_group_150 = plot_data_with_std(
+                averaged_actvations[key],
+                normalized_time,
+                std_values=std_actvations[key],
+                figure=fig_activations_group_150,
+                color=colors_dict[key],
+                style=styles_dict[key],
+                label=key,
+            )
+            
+            fig_strains_group_150 = plot_data_with_std(
+                averaged_fiber_strains[key],
+                normalized_time,
+                std_values=std_fiber_strains[key],
+                figure=fig_strains_group_150,
+                color=colors_dict[key],
+                style=styles_dict[key],
+                label=key,
+            )
+            
+            fig_mw_group_150 = plot_data_with_std(
+                averaged_MW[key],
+                normalized_time,
+                std_values=std_MW[key],
+                figure=fig_mw_group_150,
+                color=colors_dict[key],
+                style=styles_dict[key],
+                label=key,
+            )
+    
+    figures = {
+    'fig_activations_group_sham':fig_activations_group_sham,
+    'fig_activations_group_107': fig_activations_group_107,
+    'fig_activations_group_130': fig_activations_group_130,
+    'fig_activations_group_150': fig_activations_group_150,
+    'fig_strains_group_sham':fig_strains_group_sham,
+    'fig_strains_group_107': fig_strains_group_107,
+    'fig_strains_group_130': fig_strains_group_130,
+    'fig_strains_group_150': fig_strains_group_150,
+    'fig_mw_group_sham':fig_mw_group_sham,
+    'fig_mw_group_107': fig_mw_group_107,
+    'fig_mw_group_130': fig_mw_group_130,
+    'fig_mw_group_150': fig_mw_group_150,
+    }
+
+    # Iterate over the figure dictionary
+    for fig_name, fig in figures.items():
+        ax = fig.gca()
+        ax.set_xlim(0, 1)
+        ax.set_xlabel("Normalized Time [-]")
+        if 'activations' in fig_name:
+            ax.set_ylim(-10, 120)
+            ax.set_ylabel("Cardiac Muscle Tension Generation (Activation) [kPa]")
+        elif 'strain' in fig_name:
+            ax.set_ylim(-0.1, 0)
+            ax.set_ylabel("Averaged Fiber Strains [-]")
+        elif 'mw' in fig_name:
+            ax.set_ylim(-4, 4)
+            ax.set_ylabel("Averaged Myocaridal Work [mJ]")
+            
+        # Save the figure
+        fname = output_folder / f"{fig_name}.png"  # Save as PNG or desired format
+        fig.savefig(fname.as_posix(), dpi=300)
 
 if __name__ == "__main__":
     main()
