@@ -214,7 +214,7 @@ def plot_and_save(
         label="Averaged between Samples",
     )
     ax = fig.gca()
-    ax.set_title(key)
+    # ax.set_title(key)
     ax.set_xlim(0, 1)
     if ylim is not None:
         ax.set_ylim(ylim)
@@ -507,7 +507,7 @@ def main(args=None) -> int:
     ax.set_ylim(-10, 120)
     ax.set_xlabel("Normalized Time [-]")
     ax.set_ylabel("Cardiac Muscle Tension Generation (Activation) [kPa]")
-    plt.legend()
+    # plt.legend()
     fname = output_folder / "Activation"
     fig_activations.savefig(fname.as_posix(), dpi=300)
 
@@ -516,7 +516,7 @@ def main(args=None) -> int:
     ax.set_ylim(-0.1, 0)
     ax.set_xlabel("Normalized Time [-]")
     ax.set_ylabel("Averaged Fiber Strains [-]")
-    plt.legend()
+    # plt.legend()
     fname = output_folder / "Fiber_Strain"
     fig_fiber_strains.savefig(fname.as_posix(), dpi=300)
 
@@ -526,7 +526,7 @@ def main(args=None) -> int:
     ax.set_ylim(-4, 4)
     ax.set_xlabel("Normalized Time [-]")
     ax.set_ylabel("Averaged Myocaridal Work [mJ]")
-    plt.legend()
+    # plt.legend()
     fname = output_folder / "Myocardial_Work"
     fig_MW.savefig(fname.as_posix(), dpi=300)
 
