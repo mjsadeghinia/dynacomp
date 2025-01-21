@@ -226,6 +226,7 @@ def plot_and_save(
     else:
         fname = output_folder / f"{fname_prefix}_{key}"
     fig.savefig(fname.as_posix(), dpi=300)
+    plt.close(fig)
 
 
 def get_colors_styles(dict_keys):
@@ -258,6 +259,61 @@ def get_colors_styles(dict_keys):
         colors_dict.update({key: color})
     return colors_dict, styles_dict
 
+def plot_bar_with_error(
+    avg_dict,
+    std_dict,
+    output_path,
+    ylim=None,
+    ylabel="Tissue Volume [mm³]",
+    ordered_keys=None
+):
+    
+    if ordered_keys is not None:
+        relevant_keys = [k for k in ordered_keys if k in avg_dict]
+    else:
+        # Default: use the keys from avg_dict
+        relevant_keys = list(avg_dict.keys())
+    
+    data_keys = []
+    data_means = []
+    data_stds = []
+    for key in relevant_keys:
+        avg_val = avg_dict[key]
+        std_val = std_dict[key]
+        if avg_val is None:
+            continue  # Skip entries with no data
+        data_keys.append(key)
+        data_means.append(avg_val)
+        data_stds.append(std_val if std_val is not None else 0.0)
+
+    colors_dict, styles_dict = get_colors_styles(data_keys)
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    x_positions = range(len(data_keys))
+
+    for i, key in enumerate(data_keys):
+        color = colors_dict.get(key, "gray")  # Fallback color
+        style = styles_dict.get(key, "-")     # Fallback style (if used for hatching, etc.)
+        ax.bar(
+            x=i,
+            height=data_means[i],
+            yerr=data_stds[i],
+            color=color,
+            edgecolor=color,
+            capsize=5,     # Error bar cap size
+            alpha=0.9,
+            label=key,     # Each bar labeled by its key
+        )
+
+    ax.set_xticks(list(x_positions))
+    ax.set_xticklabels(data_keys, rotation=45, ha="right")
+    ax.set_ylabel(ylabel)
+    if ylim is not None:
+        ax.set_ylim(ylim)
+
+    plt.tight_layout()
+
+    fig.savefig(str(output_path), dpi=300)    
 
 # %%
 def load_mesh_from_file(mesh_fname: Path):
@@ -422,5 +478,6 @@ def export_group_results(output_folder, plot_vars, group_names, time):
             outname = f"{var_name}_group_{group}.png"
             fname = output_folder / outname
             fig.savefig(fname.as_posix(), dpi=300)
+            plt.close(fig)
 
 

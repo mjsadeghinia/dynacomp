@@ -66,6 +66,8 @@ def main(args=None) -> int:
     diameter_list = [107, 130, 150]
 
     ids = utils_post.initialize_results_dict(group_list, time_list, diameter_list)
+    tissue_volume = utils_post.initialize_results_dict(group_list, time_list, diameter_list)
+    cavity_volume = utils_post.initialize_results_dict(group_list, time_list, diameter_list)
     times = utils_post.initialize_results_dict(group_list, time_list, diameter_list)
     activations = utils_post.initialize_results_dict(group_list, time_list, diameter_list)
     pressures = utils_post.initialize_results_dict(group_list, time_list, diameter_list)
@@ -91,6 +93,10 @@ def main(args=None) -> int:
         geo_dir = sample_dir / results_folder / "Geometry"
         unloaded_geometry_fname = geo_dir / "unloaded_geometry_with_fibers.h5"
         geo = pulse.HeartGeometry.from_file(unloaded_geometry_fname.as_posix())
+        
+        tissue_volume_sample = dolfin.assemble(dolfin.Constant(1)*dolfin.dx(domain=geo.mesh))
+        cavity_volume_sample = geo.cavity_volume()
+        
         F_fname = sample_dir / results_folder / "00_Modeling/Deformation_Gradient.xdmf"
 
         Eff_value = utils_post.compute_fiber_strain_values_from_file(F_fname, geo.mesh, geo.f0)
@@ -106,6 +112,8 @@ def main(args=None) -> int:
 
         if diameter is None:
             ids[group][time].append(sample_name)
+            tissue_volume[group][time].append(tissue_volume_sample)
+            cavity_volume[group][time].append(cavity_volume_sample)
             times[group][time].append(sample_data[:, 0])
             activations[group][time].append(sample_data[:, 1])
             pressures[group][time].append(sample_data[:, 4])
@@ -113,11 +121,21 @@ def main(args=None) -> int:
             MW[group][time].append(MW_ave)
         else:
             ids[group][time][diameter].append(sample_name)
+            tissue_volume[group][time][diameter].append(tissue_volume_sample)
+            cavity_volume[group][time][diameter].append(cavity_volume_sample)
             times[group][time][diameter].append(sample_data[:, 0])
             activations[group][time][diameter].append(sample_data[:, 1])
             pressures[group][time][diameter].append(sample_data[:, 4])
             fiber_strains[group][time][diameter].append(Eff_ave)
             MW[group][time][diameter].append(MW_ave)
+
+    avg_tissue_volume, std_tissue_volume = utils_post.calculate_data_average_and_std(tissue_volume)
+    avg_cavity_volume, std_cavity_volume = utils_post.calculate_data_average_and_std(cavity_volume)
+    ordered_keys = ["SHAM_6", "SHAM_12", "SHAM_20", "AS_6_150", "AS_12_150", "AS_6_130", "AS_12_130", "AS_12_107"]
+    fname = output_folder / "Tissue Volume"
+    utils_post.plot_bar_with_error(avg_tissue_volume, std_tissue_volume, fname, ylabel="Tissue Volume [mm³]", ordered_keys=ordered_keys)
+    fname = output_folder / "Cavity Volume"
+    utils_post.plot_bar_with_error(avg_cavity_volume, std_cavity_volume, fname, ylabel="Cavity Volume [mm³]", ordered_keys=ordered_keys)
 
     raw_data_dict = {
         "activation": activations,
