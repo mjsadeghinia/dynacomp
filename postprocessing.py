@@ -17,6 +17,7 @@ logger = get_logger()
 # %%# UNITS:
 # [kg]   [mm]    [s]    [mN]     [kPa]       [mN-mm]	    g = 9.806e+03
 
+
 def main(args=None) -> int:
     parser = argparse.ArgumentParser()
 
@@ -34,7 +35,7 @@ def main(args=None) -> int:
         type=str,
         help="The result folder name tha would be created in the directory of the sample.",
     )
-    
+
     parser.add_argument(
         "--skip_samples",
         default="170_1",
@@ -78,7 +79,7 @@ def main(args=None) -> int:
         sample_name, settings, sample_data = utils_post.parse_sample_data(settings_fname, results_folder)
         if sample_data is None:
             continue
-        
+
         if sample_name in skip_samples:
             continue
 
@@ -97,7 +98,7 @@ def main(args=None) -> int:
         MW_fname = sample_dir / results_folder / "00_Modeling/Myocardial_Work.xdmf"
         MW_value = utils_post.compute_MW_values_from_file(MW_fname, geo.mesh)
         MW_ave = utils_post.compute_spatial_average(MW_value)
-        
+
         # The strain is calculated based on ED not the unloaded geometry
         Eff_ave[0] = 0
         MW_ave[0] = 0
@@ -117,55 +118,58 @@ def main(args=None) -> int:
             pressures[group][time][diameter].append(sample_data[:, 4])
             fiber_strains[group][time][diameter].append(Eff_ave)
             MW[group][time][diameter].append(MW_ave)
-        
 
-    interpolated_actvations, normalized_times = utils_post.normalize_and_interpolate(times, activations)
-    interpolated_pressures, _ = utils_post.normalize_and_interpolate(times, pressures)
-    interpolated_fiber_strains, _ = utils_post.normalize_and_interpolate(times, fiber_strains)
-    interpolated_MW, _ = utils_post.normalize_and_interpolate(times, MW)
+    raw_data_dict = {
+        "activation": activations,
+        "pressure": pressures,
+        "strain": fiber_strains,
+        "work": MW,
+    }
 
-    averaged_actvations, std_actvations = utils_post.calculate_data_average_and_std(interpolated_actvations)
-    averaged_pressures, std_pressures = utils_post.calculate_data_average_and_std(interpolated_pressures)
-    averaged_fiber_strains, std_fiber_strains = utils_post.calculate_data_average_and_std(interpolated_fiber_strains)
-    averaged_MW, std_MW = utils_post.calculate_data_average_and_std(interpolated_MW)
-    normalized_times, _ = utils_post.calculate_data_average_and_std(normalized_times)
-
-    
-    # Define a dictionary for each variable you want to plot
-    plot_vars = {
+    # 2) Plot config for each variable
+    plot_config = {
         "activation": {
-            "avg": averaged_actvations,
-            "std": std_actvations,
             "ylim": (-10, 110),
             "ylabel": "Cardiac Muscle Tension Generation (Activation) [kPa]",
             "fname_prefix": "activation",
         },
         "pressure": {
-            "avg": averaged_pressures,
-            "std": std_pressures,
             "ylim": (-2, 30),
             "ylabel": "LV Pressure [kPa]",
             "fname_prefix": "pressure",
         },
         "strain": {
-            "avg": averaged_fiber_strains,
-            "std": std_fiber_strains,
             "ylim": (-0.1, 0),
             "ylabel": "Averaged Fiber Strains [-]",
             "fname_prefix": "strain",
         },
         "work": {
-            "avg": averaged_MW,
-            "std": std_MW,
             "ylim": (-4, 4),
             "ylabel": "Averaged Myocardial Work [mJ]",
             "fname_prefix": "work",
         },
     }
-    
+
+    plot_vars = {}
+
+    for i, (var_name, raw_data) in enumerate(raw_data_dict.items()):
+        interpolated_data, normalized_times_raw = utils_post.normalize_and_interpolate(times, raw_data)
+        avg_data, std_data = utils_post.calculate_data_average_and_std(interpolated_data)
+        config = plot_config[var_name]
+        plot_vars[var_name] = {
+            "avg": avg_data,
+            "std": std_data,
+            "ylim": config["ylim"],
+            "ylabel": config["ylabel"],
+            "fname_prefix": config["fname_prefix"],
+        }
+
+    normalized_times, _ = utils_post.calculate_data_average_and_std(normalized_times_raw)
     utils_post.export_results(output_folder, plot_vars, normalized_times)
-    group_names = ["SHAM", "107", "130", "150"]  
+    group_names = ["SHAM", "107", "130", "150"]
     utils_post.export_group_results(output_folder, plot_vars, group_names, normalized_times)
+
+
 if __name__ == "__main__":
     main()
 # %%
