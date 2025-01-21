@@ -130,375 +130,42 @@ def main(args=None) -> int:
     averaged_MW, std_MW = utils_post.calculate_data_average_and_std(interpolated_MW)
     normalized_times, _ = utils_post.calculate_data_average_and_std(normalized_times)
 
-    fig_activations = plt.figure()
-    fig_pressures= plt.figure()
-    fig_fiber_strains = plt.figure()
-    fig_MW = plt.figure()
-    colors_dict, styles_dict = utils_post.get_colors_styles(averaged_actvations.keys())
-
-    for key, normalized_time in normalized_times.items():
-        if averaged_actvations[key] is None:
-            continue
-
-        utils_post.plot_and_save(
-            key,
-            averaged_actvations[key],
-            normalized_time,
-            std_actvations[key],
-            colors_dict,
-            styles_dict,
-            output_folder,
-            ylim=(-10, 110),
-            ylabel="Cardiac Muscle Tension Generation (Activation) [kPa]",
-            fname_prefix="activation",
-        )
-        fig_activations = utils_post.plot_data_with_std(
-            averaged_actvations[key],
-            normalized_time,
-            std_values=None,
-            figure=fig_activations,
-            color=colors_dict[key],
-            style=styles_dict[key],
-            label=key,
-        )
-
-        utils_post.plot_and_save(
-            key,
-            averaged_pressures[key],
-            normalized_time,
-            std_pressures[key],
-            colors_dict,
-            styles_dict,
-            output_folder,
-            ylim=(-2, 30),
-            ylabel="LV Pressure [kPa]",
-            fname_prefix="pressure",
-        )
-        fig_pressures = utils_post.plot_data_with_std(
-            averaged_pressures[key],
-            normalized_time,
-            std_values=None,
-            figure=fig_pressures,
-            color=colors_dict[key],
-            style=styles_dict[key],
-            label=key,
-        )
-
-        utils_post.plot_and_save(
-            key,
-            averaged_fiber_strains[key],
-            normalized_time,
-            std_fiber_strains[key],
-            colors_dict,
-            styles_dict,
-            output_folder,
-            ylim=(-0.1, 0),
-            ylabel="Averaged Fiber Strains [-]",
-            fname_prefix="strain",
-        )
-        fig_fiber_strains = utils_post.plot_data_with_std(
-            averaged_fiber_strains[key],
-            normalized_time,
-            std_values=None,
-            figure=fig_fiber_strains,
-            color=colors_dict[key],
-            style=styles_dict[key],
-            label=key,
-        )
-        
-        utils_post.plot_and_save(
-            key,
-            averaged_MW[key],
-            normalized_time,
-            std_MW[key],
-            colors_dict,
-            styles_dict,
-            output_folder,
-            ylim=(-4, 4),
-            ylabel="Averaged Myocaridal Work [mJ]",
-            fname_prefix="work",
-        )
-        fig_MW = utils_post.plot_data_with_std(
-            averaged_MW[key],
-            normalized_time,
-            std_values=None,
-            figure=fig_MW,
-            color=colors_dict[key],
-            style=styles_dict[key],
-            label=key,
-        )
-
-    ax = fig_activations.gca()
-    ax.set_xlim(0, 1)
-    ax.set_ylim(-10, 120)
-    ax.set_xlabel("Normalized Time [-]")
-    ax.set_ylabel("Cardiac Muscle Tension Generation (Activation) [kPa]")
-    ax.grid()
-    # plt.legend()
-    fname = output_folder / "Activation"
-    fig_activations.savefig(fname.as_posix(), dpi=300)
-
-    ax = fig_fiber_strains.gca()
-    ax.set_xlim(0, 1)
-    ax.set_ylim(-0.1, 0)
-    ax.set_xlabel("Normalized Time [-]")
-    ax.set_ylabel("Averaged Fiber Strains [-]")
-    ax.grid()
-    # plt.legend()
-    fname = output_folder / "Fiber_Strain"
-    fig_fiber_strains.savefig(fname.as_posix(), dpi=300)
-
-
-    ax = fig_MW.gca()
-    ax.set_xlim(0, 1)
-    ax.set_ylim(-4, 4)
-    ax.set_xlabel("Normalized Time [-]")
-    ax.set_ylabel("Averaged Myocaridal Work [mJ]")
-    ax.grid()
-    # plt.legend()
-    fname = output_folder / "Myocardial_Work"
-    fig_MW.savefig(fname.as_posix(), dpi=300)
     
-    
-    ax = fig_pressures.gca()
-    ax.set_xlim(0, 1)
-    ax.set_ylim(-2, 30)
-    ax.set_xlabel("Normalized Time [-]")
-    ax.set_ylabel("LV Pressure [kPa]")
-    ax.grid()
-    # plt.legend()
-    fname = output_folder / "LV_pressure"
-    fig_pressures.savefig(fname.as_posix(), dpi=300)
-    
-    fig_activations_group_sham = plt.figure()
-    fig_activations_group_107 = plt.figure()
-    fig_activations_group_130 = plt.figure()
-    fig_activations_group_150 = plt.figure()
-    
-    fig_pressure_group_sham = plt.figure()
-    fig_pressure_group_107 = plt.figure()
-    fig_pressure_group_130 = plt.figure()
-    fig_pressure_group_150 = plt.figure()
-    
-    fig_strains_group_sham = plt.figure()
-    fig_strains_group_107 = plt.figure()
-    fig_strains_group_130 = plt.figure()
-    fig_strains_group_150 = plt.figure()
-    
-    fig_mw_group_sham = plt.figure()
-    fig_mw_group_107 = plt.figure()
-    fig_mw_group_130 = plt.figure()
-    fig_mw_group_150 = plt.figure()
-
-    for key, normalized_time in normalized_times.items():
-        if averaged_actvations[key] is None:
-            continue
-        if 'SHAM' in key:
-            fig_activations_group_sham = utils_post.plot_data_with_std(
-                averaged_actvations[key],
-                normalized_time,
-                std_values=std_actvations[key],
-                figure=fig_activations_group_sham,
-                color=colors_dict[key],
-                style=styles_dict[key],
-                label=key,
-            )
-            
-            fig_pressure_group_sham = utils_post.plot_data_with_std(
-                averaged_pressures[key],
-                normalized_time,
-                std_values=std_pressures[key],
-                figure=fig_pressure_group_sham,
-                color=colors_dict[key],
-                style=styles_dict[key],
-                label=key,
-            )
-            
-            fig_strains_group_sham = utils_post.plot_data_with_std(
-                averaged_fiber_strains[key],
-                normalized_time,
-                std_values=std_fiber_strains[key],
-                figure=fig_strains_group_sham,
-                color=colors_dict[key],
-                style=styles_dict[key],
-                label=key,
-            )
-            
-            
-            fig_mw_group_sham = utils_post.plot_data_with_std(
-                averaged_MW[key],
-                normalized_time,
-                std_values=std_MW[key],
-                figure=fig_mw_group_sham,
-                color=colors_dict[key],
-                style=styles_dict[key],
-                label=key,
-            )
-            
-        if '107' in key:
-            fig_activations_group_107 = utils_post.plot_data_with_std(
-                averaged_actvations[key],
-                normalized_time,
-                std_values=std_actvations[key],
-                figure=fig_activations_group_107,
-                color=colors_dict[key],
-                style=styles_dict[key],
-                label=key,
-            )
-            
-            fig_pressure_group_107 = utils_post.plot_data_with_std(
-                averaged_pressures[key],
-                normalized_time,
-                std_values=std_pressures[key],
-                figure=fig_pressure_group_107,
-                color=colors_dict[key],
-                style=styles_dict[key],
-                label=key,
-            )
-            
-            fig_strains_group_107 = utils_post.plot_data_with_std(
-                averaged_fiber_strains[key],
-                normalized_time,
-                std_values=std_fiber_strains[key],
-                figure=fig_strains_group_107,
-                color=colors_dict[key],
-                style=styles_dict[key],
-                label=key,
-            )
-            
-            fig_mw_group_107 = utils_post.plot_data_with_std(
-                averaged_MW[key],
-                normalized_time,
-                std_values=std_MW[key],
-                figure=fig_mw_group_107,
-                color=colors_dict[key],
-                style=styles_dict[key],
-                label=key,
-            )
-            
-        if '130' in key:
-            fig_activations_group_130 = utils_post.plot_data_with_std(
-                averaged_actvations[key],
-                normalized_time,
-                std_values=std_actvations[key],
-                figure=fig_activations_group_130,
-                color=colors_dict[key],
-                style=styles_dict[key],
-                label=key,
-            )
-            
-            fig_pressure_group_130 = utils_post.plot_data_with_std(
-                averaged_pressures[key],
-                normalized_time,
-                std_values=std_pressures[key],
-                figure=fig_pressure_group_130,
-                color=colors_dict[key],
-                style=styles_dict[key],
-                label=key,
-            )
-            
-            fig_mw_group_130 = utils_post.plot_data_with_std(
-                averaged_MW[key],
-                normalized_time,
-                std_values=std_MW[key],
-                figure=fig_mw_group_130,
-                color=colors_dict[key],
-                style=styles_dict[key],
-                label=key,
-            )
-            
-            fig_strains_group_130 = utils_post.plot_data_with_std(
-                averaged_fiber_strains[key],
-                normalized_time,
-                std_values=std_fiber_strains[key],
-                figure=fig_strains_group_130,
-                color=colors_dict[key],
-                style=styles_dict[key],
-                label=key,
-            )
-        if '150' in key:
-            fig_activations_group_150 = utils_post.plot_data_with_std(
-                averaged_actvations[key],
-                normalized_time,
-                std_values=std_actvations[key],
-                figure=fig_activations_group_150,
-                color=colors_dict[key],
-                style=styles_dict[key],
-                label=key,
-            )
-            
-            fig_pressure_group_150 = utils_post.plot_data_with_std(
-                averaged_pressures[key],
-                normalized_time,
-                std_values=std_pressures[key],
-                figure=fig_pressure_group_150,
-                color=colors_dict[key],
-                style=styles_dict[key],
-                label=key,
-            )
-            
-            fig_strains_group_150 = utils_post.plot_data_with_std(
-                averaged_fiber_strains[key],
-                normalized_time,
-                std_values=std_fiber_strains[key],
-                figure=fig_strains_group_150,
-                color=colors_dict[key],
-                style=styles_dict[key],
-                label=key,
-            )
-            
-            fig_mw_group_150 = utils_post.plot_data_with_std(
-                averaged_MW[key],
-                normalized_time,
-                std_values=std_MW[key],
-                figure=fig_mw_group_150,
-                color=colors_dict[key],
-                style=styles_dict[key],
-                label=key,
-            )
-    
-    figures = {
-    'fig_activations_group_sham':fig_activations_group_sham,
-    'fig_activations_group_107': fig_activations_group_107,
-    'fig_activations_group_130': fig_activations_group_130,
-    'fig_activations_group_150': fig_activations_group_150,
-    'fig_pressure_group_sham':fig_pressure_group_sham,
-    'fig_pressure_group_107': fig_pressure_group_107,
-    'fig_pressure_group_130': fig_pressure_group_130,
-    'fig_pressure_group_150': fig_pressure_group_150,
-    'fig_strains_group_sham':fig_strains_group_sham,
-    'fig_strains_group_107': fig_strains_group_107,
-    'fig_strains_group_130': fig_strains_group_130,
-    'fig_strains_group_150': fig_strains_group_150,
-    'fig_mw_group_sham':fig_mw_group_sham,
-    'fig_mw_group_107': fig_mw_group_107,
-    'fig_mw_group_130': fig_mw_group_130,
-    'fig_mw_group_150': fig_mw_group_150,
+    # Define a dictionary for each variable you want to plot
+    plot_vars = {
+        "activation": {
+            "avg": averaged_actvations,
+            "std": std_actvations,
+            "ylim": (-10, 110),
+            "ylabel": "Cardiac Muscle Tension Generation (Activation) [kPa]",
+            "fname_prefix": "activation",
+        },
+        "pressure": {
+            "avg": averaged_pressures,
+            "std": std_pressures,
+            "ylim": (-2, 30),
+            "ylabel": "LV Pressure [kPa]",
+            "fname_prefix": "pressure",
+        },
+        "strain": {
+            "avg": averaged_fiber_strains,
+            "std": std_fiber_strains,
+            "ylim": (-0.1, 0),
+            "ylabel": "Averaged Fiber Strains [-]",
+            "fname_prefix": "strain",
+        },
+        "work": {
+            "avg": averaged_MW,
+            "std": std_MW,
+            "ylim": (-4, 4),
+            "ylabel": "Averaged Myocardial Work [mJ]",
+            "fname_prefix": "work",
+        },
     }
-
-    # Iterate over the figure dictionary
-    for fig_name, fig in figures.items():
-        ax = fig.gca()
-        ax.set_xlim(0, 1)
-        ax.set_xlabel("Normalized Time [-]")
-        ax.grid()
-        if 'activations' in fig_name:
-            ax.set_ylim(-10, 120)
-            ax.set_ylabel("Cardiac Muscle Tension Generation (Activation) [kPa]")
-        elif 'strain' in fig_name:
-            ax.set_ylim(-0.1, 0)
-            ax.set_ylabel("Averaged Fiber Strains [-]")
-        elif 'mw' in fig_name:
-            ax.set_ylim(-4, 4)
-            ax.set_ylabel("Averaged Myocaridal Work [mJ]")
-        elif 'pressure' in fig_name:
-            ax.set_ylim(-2, 30)
-            ax.set_ylabel("LV Pressure [kPa]")
-            
-        # Save the figure
-        fname = output_folder / f"{fig_name}.png"  # Save as PNG or desired format
-        fig.savefig(fname.as_posix(), dpi=300)
-
+    
+    utils_post.export_results(output_folder, plot_vars, normalized_times)
+    group_names = ["SHAM", "107", "130", "150"]  
+    utils_post.export_group_results(output_folder, plot_vars, group_names, normalized_times)
 if __name__ == "__main__":
     main()
 # %%

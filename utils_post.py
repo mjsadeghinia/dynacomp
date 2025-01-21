@@ -196,9 +196,9 @@ def plot_data_with_std(
 
 def plot_and_save(
     key,
-    averaged_values,
-    normalized_time,
-    std_values,
+    data,
+    time,
+    std,
     colors_dict,
     styles_dict,
     output_folder,
@@ -207,9 +207,9 @@ def plot_and_save(
     fname_prefix=None,
 ):
     fig = plot_data_with_std(
-        averaged_values,
-        normalized_time,
-        std_values=std_values,
+        data,
+        time,
+        std_values=std,
         color=colors_dict[key],
         style=styles_dict[key],
         label="Averaged between Samples",
@@ -330,3 +330,97 @@ def compute_MW_values_from_file(MW_fname: Path, mesh: dolfin.mesh, num_time_step
         except:
             break
     return MW_value
+
+def export_results(output_folder, plot_vars, time):
+    colors_dict, styles_dict = get_colors_styles(time.keys())
+   # Create one figure per variable for the "all-in-one" plots
+    figs_all = {}
+    for var_name in plot_vars.keys():
+        figs_all[var_name] = plt.figure()
+
+    # Plot "all-in-one" figures (i.e., each variable with multiple curves)
+    for key, normalized_time in time.items():
+        for var_name, info in plot_vars.items():
+            avg_data = info["avg"][key]
+            std_data = info["std"][key]
+            if avg_data is None:
+                continue
+            
+            plot_and_save(
+                key=key,
+                data=avg_data,
+                time=normalized_time,
+                std=std_data,
+                colors_dict=colors_dict,
+                styles_dict=styles_dict,
+                output_folder=output_folder,
+                ylim=info["ylim"],
+                ylabel=info["ylabel"],
+                fname_prefix=info["fname_prefix"],
+            )
+            
+            figs_all[var_name] = plot_data_with_std(
+                avg_data,
+                normalized_time,
+                std_values=None,  # or std_data if you want the shaded region
+                figure=figs_all[var_name],
+                color=colors_dict[key],
+                style=styles_dict[key],
+                label=key,
+            )
+
+    for var_name, fig in figs_all.items():
+        ax = fig.gca()
+        ax.set_xlim(0, 1)
+        ax.set_ylim(plot_vars[var_name]["ylim"])
+        ax.set_xlabel("Normalized Time [-]")
+        ax.set_ylabel(plot_vars[var_name]["ylabel"])
+        ax.grid()
+        
+        fname = output_folder / (var_name + "_all_in_one.png")
+        fig.savefig(fname.as_posix(), dpi=300)
+        plt.close(fig)
+
+def export_group_results(output_folder, plot_vars, group_names, time):
+    colors_dict, styles_dict = get_colors_styles(time.keys())
+
+    figs_by_group = {
+        group: {var_name: plt.figure() for var_name in plot_vars.keys()}
+        for group in group_names
+    }
+    for key, normalized_time in time.items():
+        for var_name, info in plot_vars.items():
+            avg_data = info["avg"][key]
+            std_data = info["std"][key]
+            if avg_data is None:
+                continue
+            
+            # Figure out which group this key belongs to
+            for group in group_names:
+                if group in key: 
+                    figs_by_group[group][var_name] = plot_data_with_std(
+                        avg_data,
+                        normalized_time,
+                        std_values=std_data, 
+                        figure=figs_by_group[group][var_name],
+                        color=colors_dict[key],
+                        style=styles_dict[key],
+                        label=key,
+                    )
+                    break  
+
+    # Format and save each group-specific figure
+    for group, var_dict in figs_by_group.items():
+        for var_name, fig in var_dict.items():
+            ax = fig.gca()
+            ax.set_xlim(0, 1)
+            ax.set_ylim(plot_vars[var_name]["ylim"])
+            ax.set_xlabel("Normalized Time [-]")
+            ax.set_ylabel(plot_vars[var_name]["ylabel"])
+            ax.grid()
+
+            outname = f"{var_name}_group_{group}.png"
+            fname = output_folder / outname
+            fig.savefig(fname.as_posix(), dpi=300)
+
+
