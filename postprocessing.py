@@ -188,6 +188,7 @@ def plot_data_with_std(
             alpha=0.3,
             label="STD between samples",
         )
+    ax.grid()
 
     # Return the figure for further modification
     return figure
@@ -490,7 +491,7 @@ def main(args=None) -> int:
             fname_prefix="pressure",
         )
         fig_pressures = plot_data_with_std(
-            averaged_actvations[key],
+            averaged_pressures[key],
             normalized_time,
             std_values=None,
             figure=fig_pressures,
@@ -548,6 +549,7 @@ def main(args=None) -> int:
     ax.set_ylim(-10, 120)
     ax.set_xlabel("Normalized Time [-]")
     ax.set_ylabel("Cardiac Muscle Tension Generation (Activation) [kPa]")
+    ax.grid()
     # plt.legend()
     fname = output_folder / "Activation"
     fig_activations.savefig(fname.as_posix(), dpi=300)
@@ -557,6 +559,7 @@ def main(args=None) -> int:
     ax.set_ylim(-0.1, 0)
     ax.set_xlabel("Normalized Time [-]")
     ax.set_ylabel("Averaged Fiber Strains [-]")
+    ax.grid()
     # plt.legend()
     fname = output_folder / "Fiber_Strain"
     fig_fiber_strains.savefig(fname.as_posix(), dpi=300)
@@ -567,6 +570,7 @@ def main(args=None) -> int:
     ax.set_ylim(-4, 4)
     ax.set_xlabel("Normalized Time [-]")
     ax.set_ylabel("Averaged Myocaridal Work [mJ]")
+    ax.grid()
     # plt.legend()
     fname = output_folder / "Myocardial_Work"
     fig_MW.savefig(fname.as_posix(), dpi=300)
@@ -577,9 +581,10 @@ def main(args=None) -> int:
     ax.set_ylim(-2, 30)
     ax.set_xlabel("Normalized Time [-]")
     ax.set_ylabel("LV Pressure [kPa]")
+    ax.grid()
     # plt.legend()
     fname = output_folder / "LV_pressure"
-    fig_MW.savefig(fname.as_posix(), dpi=300)
+    fig_pressures.savefig(fname.as_posix(), dpi=300)
     
     fig_activations_group_sham = plt.figure()
     fig_activations_group_107 = plt.figure()
@@ -792,6 +797,7 @@ def main(args=None) -> int:
         ax = fig.gca()
         ax.set_xlim(0, 1)
         ax.set_xlabel("Normalized Time [-]")
+        ax.grid()
         if 'activations' in fig_name:
             ax.set_ylim(-10, 120)
             ax.set_ylabel("Cardiac Muscle Tension Generation (Activation) [kPa]")
