@@ -16,18 +16,30 @@ logger = get_logger()
 # %%
 # UNITS:
 # [kg]   [mm]    [s]    [mN]     [kPa]       [mN-mm]	    g = 9.806e+03
+def get_sample_name(sample_num, setting_dir):
+    # Get the list of .json files in the directory and sort them by name
+    sorted_files = sorted(
+        [
+            file
+            for file in setting_dir.iterdir()
+            if file.is_file() and file.suffix == ".json"
+        ]
+    )
+    sample_name = sorted_files[sample_num - 1].with_suffix("").name
+    return sample_name
+
 def load_settings(setting_dir, sample_name):
     settings_fname = setting_dir / f"{sample_name}.json"
     with open(settings_fname, "r") as file:
         settings = json.load(file)
     return settings
 
-def load_pressure_volumes(data_dir):
-    PV_data_fname = data_dir / "PV data/PV_data.csv"
+def load_pressure_volumes(data_dir, sample_name):
+    PV_data_fname = data_dir / f"PV data/PV data/{sample_name}_PV_data.csv"
     PV_data = np.loadtxt(PV_data_fname.as_posix(), delimiter=",")
     mmHg_to_kPa = 0.133322
-    pressures = PV_data[0, :] * mmHg_to_kPa
-    volumes = PV_data[1, :]
+    pressures = PV_data[:, 1] * mmHg_to_kPa
+    volumes = PV_data[:, 2]
     return pressures, volumes
 
 def caliberate_volumes(mesh_dir, vols, comm=None):
@@ -52,9 +64,10 @@ def main(args=None) -> int:
     else:
         args = arg_parser.update_arguments(args, step="processing")
 
-    sample_name = args.name
+    sample_num = args.number
     setting_dir = args.settings_dir
     output_folder = args.output_folder
+    sample_name = get_sample_name(sample_num, setting_dir)
     settings = load_settings(setting_dir, sample_name)
     bc_params = arg_parser.create_bc_params(args)
     data_dir = Path(settings["path"])
@@ -65,7 +78,7 @@ def main(args=None) -> int:
     comm.Barrier()
 
     # Loading PV Data
-    pressures, volumes = load_pressure_volumes(data_dir)
+    pressures, volumes = load_pressure_volumes(data_dir, sample_name)
     volumes = caliberate_volumes(mesh_dir, volumes, comm=comm)
     #
     unloaded_geometry_fname = mesh_dir / "unloaded_geometry_with_fibers.h5"
