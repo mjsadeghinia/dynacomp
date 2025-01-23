@@ -484,3 +484,17 @@ def export_group_results(output_folder, plot_vars, group_names, time):
             plt.close(fig)
 
 
+def get_maximums(results_dict):
+    maximums = {}
+    for group, times_group in results_dict.items():
+        for time_key, times_list in times_group.items():
+            if isinstance(times_list, dict):  # Check if there are diameters
+                for diameter, data_list in times_list.items():
+                    key = f"{group}_{time_key}_{diameter}"
+                    if data_list:
+                        maximums.update({key : [np.max(list) for list in results_dict[group][time_key][diameter]]})
+            else:  # Handle case without diameters
+                key = f"{group}_{time_key}"
+                if times_list:
+                    maximums.update({key : [np.max(list) for list in results_dict[group][time_key]]})
+    return maximums            
