@@ -7,7 +7,7 @@ import dolfin
 import pulse
 import utils_post
 
-import json
+import logging
 import argparse
 
 
@@ -38,7 +38,7 @@ def main(args=None) -> int:
 
     parser.add_argument(
         "--skip_samples",
-        default="170_1",
+        default="170_1" "166_3",
         nargs="+",
         type=str,
         help="The list of samples to be skipped",
@@ -47,7 +47,7 @@ def main(args=None) -> int:
     parser.add_argument(
         "-o",
         "--output_folder",
-        default="/home/shared/00_results_average",
+        default="00_results_average_",
         type=str,
         help="The result folder name tha would be created in the directory of the sample.",
     )
@@ -57,7 +57,7 @@ def main(args=None) -> int:
     setting_dir = Path(args.settings_dir)
     results_folder = args.results_folder
     skip_samples = args.skip_samples
-    output_folder = Path(args.output_folder)
+    output_folder = Path(args.output_folder+results_folder)
     output_folder.mkdir(parents=True, exist_ok=True)
 
     # Initialize the results dicts
@@ -85,6 +85,10 @@ def main(args=None) -> int:
         if sample_name in skip_samples:
             continue
 
+        logger.info(f"Processing {sample_name} ...")
+        pulse_logger = logging.getLogger("pulse")
+        pulse_logger.setLevel(logging.WARNING)
+        
         group = settings["group"]
         time = settings["time"]
         diameter = settings.get("ring_diameter", None)
