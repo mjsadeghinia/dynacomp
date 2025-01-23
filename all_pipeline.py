@@ -20,7 +20,7 @@ def get_sample_name(sample_num, setting_dir):
 number_i = 1
 number_f = 56
 mesh_quality = "coarse"
-output_folder = "coarse_mesh"
+output_folder = "coarse_mesh_v2"
 cpus_num = 8
 setting_dir = Path("/home/shared/dynacomp/settings")
 sample_with_error = []
