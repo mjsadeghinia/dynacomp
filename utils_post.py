@@ -33,10 +33,13 @@ def initialize_results_dict(group_list, time_list, diameter_list):
 def get_time_data(sample_dir, pv_folder="PV Data"):
     data_path = sample_dir / pv_folder / pv_folder
     csv_files = list(data_path.glob("*.csv"))
+    csv_file = csv_files[0]
     if len(csv_files) != 1:
-        logger.error("Data folder must contain exactly 1 .mat file.")
-        return
-    pv_data = np.loadtxt(csv_files[0], delimiter=",", skiprows=1)
+        n = [n for n, address in enumerate(csv_files) if "RAW" not in address.name]
+        csv_file = csv_files[n[0]]
+        logger.warning(f"There are {len(csv_files)} .csv files, we are using {csv_file.name}.")
+
+    pv_data = np.loadtxt(csv_file, delimiter=",", skiprows=1)
     return pv_data[:, 0]
 
 
