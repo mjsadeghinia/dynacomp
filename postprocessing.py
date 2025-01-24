@@ -132,6 +132,11 @@ def main(args=None) -> int:
             pressures[group][time][diameter].append(sample_data[:, 4])
             fiber_strains[group][time][diameter].append(Eff_ave)
             MW[group][time][diameter].append(MW_ave)
+            
+    max_activations = utils_post.get_maximums(activations)
+    max_pressures = utils_post.get_maximums(pressures)
+    fname = output_folder / "Maximums Activation-Pressure"
+    utils_post.plot_maximums_activation_pressure(fname, max_activations, max_pressures)
 
     avg_tissue_volume, std_tissue_volume = utils_post.calculate_data_average_and_std(tissue_volume)
     avg_cavity_volume, std_cavity_volume = utils_post.calculate_data_average_and_std(cavity_volume)
