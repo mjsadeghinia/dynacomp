@@ -232,7 +232,7 @@ def plot_and_save(
     plt.close(fig)
 
 
-def get_colors_styles(dict_keys):
+def get_colors_styles(dict_keys, marker_flags=False):
     styles_dict = {}
     colors_dict = {}
     for key in dict_keys:
@@ -248,15 +248,24 @@ def get_colors_styles(dict_keys):
             else:
                 color = "black"
                 logger.warning(f"You need to specify colors for {key}")
-
-        if "6" in key:
-            style = "-"
-        elif "12" in key:
-            style = "--"
-        elif "20" in key:
-            style = "-."
+        if marker_flags:
+            if "6" in key:
+                style = "o"
+            elif "12" in key:
+                style = "^"
+            elif "20" in key:
+                style = "D"
+            else:
+                logger.warning(f"You need to specify style for {key}")
         else:
-            logger.warning(f"You need to specify style for {key}")
+            if "6" in key:
+                style = "-"
+            elif "12" in key:
+                style = "--"
+            elif "20" in key:
+                style = "-."
+            else:
+                logger.warning(f"You need to specify style for {key}")
 
         styles_dict.update({key: style})
         colors_dict.update({key: color})
@@ -498,3 +507,17 @@ def get_maximums(results_dict):
                 if times_list:
                     maximums.update({key : [np.max(list) for list in results_dict[group][time_key]]})
     return maximums            
+
+def plot_maximums_activation_pressure(fname, max_activations, max_pressures):
+    dict_keys = max_activations.keys()
+    colors_dict, marker_dict = get_colors_styles(dict_keys, marker_flags=True)
+    figure = plt.figure()
+    ax = figure.gca() 
+    for key in dict_keys:
+        ax.scatter(max_pressures[key], max_activations[key], c=colors_dict[key], marker=marker_dict[key])
+    ax.grid()
+    ax.set_xlim(0, 30)
+    ax.set_ylim(0,120)
+    ax.set_xlabel("Maximum Pressure (kPa)")
+    ax.set_ylabel("Maximum Activation (kPa)")
+    plt.savefig(fname)
