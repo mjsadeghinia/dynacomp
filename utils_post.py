@@ -3,13 +3,12 @@ import numpy as np
 from pathlib import Path
 from structlog import get_logger
 from scipy.interpolate import interp1d
+from scipy.stats import linregress
 import matplotlib.pyplot as plt
 import dolfin
 import pulse
 
 import json
-import argparse
-
 
 logger = get_logger()
 
@@ -191,7 +190,6 @@ def plot_data_with_std(
             alpha=0.3,
             label="STD between samples",
         )
-    ax.grid()
 
     # Return the figure for further modification
     return figure
@@ -224,6 +222,7 @@ def plot_and_save(
         ax.set_ylim(ylim)
     ax.set_xlabel("Normalized Time [-]")
     ax.set_ylabel(ylabel)
+    ax.grid()
     if fname_prefix is None:
         fname = output_folder / key
     else:
@@ -508,16 +507,46 @@ def get_maximums(results_dict):
                     maximums.update({key : [np.max(list) for list in results_dict[group][time_key]]})
     return maximums            
 
-def plot_maximums_activation_pressure(fname, max_activations, max_pressures):
+def plot_maximums_with_regression(fname, max_activations, max_pressures):
     dict_keys = max_activations.keys()
     colors_dict, marker_dict = get_colors_styles(dict_keys, marker_flags=True)
-    figure = plt.figure()
-    ax = figure.gca() 
+    
+    # Prepare data for regression
+    all_pressures = []
+    all_activations = []
     for key in dict_keys:
-        ax.scatter(max_pressures[key], max_activations[key], c=colors_dict[key], marker=marker_dict[key])
+        all_pressures.extend(max_pressures[key])
+        all_activations.extend(max_activations[key])
+    
+    # Convert to numpy arrays for regression
+    all_pressures = np.array(all_pressures)
+    all_activations = np.array(all_activations)
+    
+    # Perform linear regression
+    slope, intercept, r_value, p_value, std_err = linregress(all_pressures, all_activations)
+    regression_line = slope * all_pressures + intercept
+
+    # Plot data with regression line
+    figure = plt.figure()
+    ax = figure.gca()
+    for key in dict_keys:
+        ax.scatter(max_pressures[key], max_activations[key], c=colors_dict[key], marker=marker_dict[key], label=key)
+    
+    ax.plot(all_pressures, regression_line, color='red', label=f"Regression Line (R²={r_value**2:.2f})")
     ax.grid()
     ax.set_xlim(0, 30)
-    ax.set_ylim(0,120)
+    ax.set_ylim(0, 120)
     ax.set_xlabel("Maximum Pressure (kPa)")
     ax.set_ylabel("Maximum Activation (kPa)")
     plt.savefig(fname)
+    
+    return slope, intercept, r_value**2, p_value, std_err
+
+def generate_report(fname, slope, intercept, r_squared, p_value, std_err):
+    with open(fname+'.txt', "w") as report:
+        report.write("Regression Analysis Report\n")
+        report.write("==========================\n\n")
+        report.write(f"Linear Regression Equation: y = {slope:.3f}x + {intercept:.3f}\n")
+        report.write(f"Coefficient of Determination (R²): {r_squared:.3f}\n")
+        report.write(f"P-value: {p_value:.3e}\n")
+        report.write(f"Standard Error: {std_err:.3f}\n")

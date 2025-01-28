@@ -38,7 +38,7 @@ def main(args=None) -> int:
 
     parser.add_argument(
         "--skip_samples",
-        default="170_1" "166_3",
+        default="100_1" "170_1" "166_3",
         nargs="+",
         type=str,
         help="The list of samples to be skipped",
@@ -136,8 +136,11 @@ def main(args=None) -> int:
     max_activations = utils_post.get_maximums(activations)
     max_pressures = utils_post.get_maximums(pressures)
     fname = output_folder / "Maximums Activation-Pressure"
-    utils_post.plot_maximums_activation_pressure(fname, max_activations, max_pressures)
-
+    # Plot and perform regression
+    slope, intercept, r_squared, p_value, std_err = utils_post.plot_maximums_with_regression(fname.as_posix(), max_activations, max_pressures)
+    # Generate report
+    utils_post.generate_report(fname.as_posix(), slope, intercept, r_squared, p_value, std_err)
+    
     avg_tissue_volume, std_tissue_volume = utils_post.calculate_data_average_and_std(tissue_volume)
     avg_cavity_volume, std_cavity_volume = utils_post.calculate_data_average_and_std(cavity_volume)
     ordered_keys = ["SHAM_6", "SHAM_12", "SHAM_20", "AS_6_150", "AS_12_150", "AS_6_130", "AS_12_130", "AS_12_107"]
