@@ -146,6 +146,8 @@ def main(args=None) -> int:
     # Generate report
     utils_post.generate_report(fname.as_posix(), slope, intercept, r_squared, p_value, std_err)
     
+    cavity_tissue_ratio = utils_post.noramalize_data_dicts(cavity_volume ,tissue_volume)
+    avg_cavity_tissue_ratio, std_cavity_tissue_ratio = utils_post.calculate_data_average_and_std(cavity_tissue_ratio)
     avg_tissue_volume, std_tissue_volume = utils_post.calculate_data_average_and_std(tissue_volume)
     avg_cavity_volume, std_cavity_volume = utils_post.calculate_data_average_and_std(cavity_volume)
     ordered_keys = ["SHAM_6", "SHAM_12", "SHAM_20", "AS_6_150", "AS_12_150", "AS_6_130", "AS_12_130", "AS_12_107"]
@@ -153,7 +155,9 @@ def main(args=None) -> int:
     utils_post.plot_bar_with_error(avg_tissue_volume, std_tissue_volume, fname, ylabel="Tissue Volume [mm³]", ordered_keys=ordered_keys)
     fname = output_folder / "Cavity Volume"
     utils_post.plot_bar_with_error(avg_cavity_volume, std_cavity_volume, fname, ylabel="Cavity Volume [mm³]", ordered_keys=ordered_keys)
-
+    fname = output_folder / "Cavity-Tissue Volume"
+    utils_post.plot_bar_with_error(avg_cavity_tissue_ratio, std_cavity_tissue_ratio, fname, ylabel="Cavity Volume/Tissue Volume [-]", ordered_keys=ordered_keys)
+    
     raw_data_dict = {
         "activation": activations,
         "pressure": pressures,

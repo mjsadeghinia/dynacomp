@@ -7,6 +7,7 @@ from scipy.stats import linregress
 import matplotlib.pyplot as plt
 import dolfin
 import pulse
+import copy
 
 import json
 
@@ -118,6 +119,35 @@ def normalize_and_interpolate(times_dict, data_dict, N=200):
 
     return interpolated_dict, normalized_times_dict
 
+def noramalize_data_dicts(data_dict1, data_dict2):
+    """
+    Calculate the the normalized data for each group, time_key, and diameter (if exists).
+
+    Parameters:
+    - data_dict1 (dict): Dictionary containing data to be normalized by data_dict2.
+    - data_dict2 (dict): Dictionary containing data to be normalized with.
+
+    Returns:
+    - normalized_dict (dict): Dictionary with keys as "group_time_key_diameter" and normalized data as values.
+    """
+    normalized_dict = copy.deepcopy(data_dict1)
+
+
+    for group, times_group in data_dict1.items():
+        for time_key, times_list in times_group.items():
+            if isinstance(times_list, dict):  # Check if there are diameters
+                for diameter, data_list in times_list.items():
+                    if data_list:
+                        normalized_dict[group][time_key][diameter] = [a / b for a, b in zip(data_list, data_dict2[group][time_key][diameter])]
+                    else:
+                        normalized_dict[group][time_key][diameter] = None
+            else:  # Handle case without diameters
+                if times_list:
+                    normalized_dict[group][time_key] = [a / b for a, b in zip(times_list, data_dict2[group][time_key])]
+                else:
+                    normalized_dict[group][time_key] = None
+
+    return normalized_dict
 
 def calculate_data_average_and_std(data_dict):
     """
