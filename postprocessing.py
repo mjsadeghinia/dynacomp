@@ -74,7 +74,7 @@ def main(args=None) -> int:
     fiber_strains = utils_post.initialize_results_dict(group_list, time_list, diameter_list)
     MW = utils_post.initialize_results_dict(group_list, time_list, diameter_list)
 
-    for settings_fname in sorted(setting_dir.iterdir()):
+    for settings_fname in sorted(setting_dir.iterdir())[:]:
         if not settings_fname.suffix == ".json":
             continue
 
@@ -135,9 +135,14 @@ def main(args=None) -> int:
             
     max_activations = utils_post.get_maximums(activations)
     max_pressures = utils_post.get_maximums(pressures)
+    all_pressures = utils_post.get_all_data(pressures)
+    all_activations = utils_post.get_all_data(activations)
     fname = output_folder / "Maximums Activation-Pressure"
     # Plot and perform regression
     slope, intercept, r_squared, p_value, std_err = utils_post.plot_maximums_with_regression(fname.as_posix(), max_activations, max_pressures)
+    fname = output_folder / "Maximums Activation-Pressure ALL"
+    slope, intercept, r_squared, p_value, std_err = utils_post.plot_maximums_with_regression(fname.as_posix(), all_activations, all_pressures, marker_size=.2)
+
     # Generate report
     utils_post.generate_report(fname.as_posix(), slope, intercept, r_squared, p_value, std_err)
     

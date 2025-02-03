@@ -507,17 +507,30 @@ def get_maximums(results_dict):
                     maximums.update({key : [np.max(list) for list in results_dict[group][time_key]]})
     return maximums            
 
-def plot_maximums_with_regression(fname, max_activations, max_pressures):
-    dict_keys = max_activations.keys()
+def get_all_data(results_dict):
+    all_data = {}
+    for group, times_group in results_dict.items():
+        for time_key, times_list in times_group.items():
+            if isinstance(times_list, dict):  # Check if there are diameters
+                for diameter, data_list in times_list.items():
+                    key = f"{group}_{time_key}_{diameter}"
+                    if data_list:
+                        all_data.update({key : [list for list in results_dict[group][time_key][diameter]]})
+            else:  # Handle case without diameters
+                key = f"{group}_{time_key}"
+                if times_list:
+                    all_data.update({key : [list for list in results_dict[group][time_key]]})
+    return all_data       
+
+def plot_maximums_with_regression(fname, activations, pressures, marker_size=1):
+    dict_keys = activations.keys()
     colors_dict, marker_dict = get_colors_styles(dict_keys, marker_flags=True)
-    
     # Prepare data for regression
     all_pressures = []
     all_activations = []
     for key in dict_keys:
-        all_pressures.extend(max_pressures[key])
-        all_activations.extend(max_activations[key])
-    
+        all_pressures.extend(np.concatenate([np.atleast_1d(item) for item in pressures[key]]))
+        all_activations.extend(np.concatenate([np.atleast_1d(item) for item in activations[key]]))
     # Convert to numpy arrays for regression
     all_pressures = np.array(all_pressures)
     all_activations = np.array(all_activations)
@@ -530,7 +543,9 @@ def plot_maximums_with_regression(fname, max_activations, max_pressures):
     figure = plt.figure()
     ax = figure.gca()
     for key in dict_keys:
-        ax.scatter(max_pressures[key], max_activations[key], c=colors_dict[key], marker=marker_dict[key], label=key)
+        pres = np.concatenate([np.atleast_1d(item) for item in pressures[key]])
+        act = np.concatenate([np.atleast_1d(item) for item in activations[key]])
+        ax.scatter(pres, act, s=marker_size, c=colors_dict[key], marker=marker_dict[key], label=key)
     
     ax.plot(all_pressures, regression_line, color='red', label=f"Regression Line (R²={r_value**2:.2f})")
     ax.grid()
