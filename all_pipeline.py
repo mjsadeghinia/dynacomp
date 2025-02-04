@@ -17,10 +17,10 @@ def get_sample_name(sample_num, setting_dir):
     sample_name = sorted_files[sample_num - 1].with_suffix("").name
     return sample_name
 
-number_i = 1
-number_f = 56
-mesh_quality = "coarse"
-output_folder = "coarse_mesh_v2"
+number_i = 2
+number_f = 2
+mesh_quality = "fine"
+output_folder = "fine_mesh"
 cpus_num = 8
 setting_dir = Path("/home/shared/dynacomp/settings")
 sample_with_error = []
