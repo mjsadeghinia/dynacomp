@@ -143,6 +143,7 @@ def export_unloaded_geometry(geo_dir, unloaded_geometry_with_corrected_fibers):
 
 # %%
 def main(args=None) -> int:
+    comm = dolfin.MPI.comm_world
     # Getting the arguments
     if args is None:
         args = arg_parser.parse_arguments_unloading(args)
