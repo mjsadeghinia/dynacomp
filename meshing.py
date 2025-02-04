@@ -135,6 +135,8 @@ def create_mesh(
     # Calculate normals
     normals_list_endo = mu.calculate_normals(points_cloud_endo, k_apex_endo)
     normals_list_epi = mu.calculate_normals(points_cloud_epi, k_apex_epi)
+    if directory_path.stem =='OP138_3':
+        normals_list_epi = mu.calculate_normals(points_cloud_epi, k_apex_epi, base_ind=7)
     
     outdir = results_folder / "06_Mesh"
     outdir.mkdir(exist_ok=True)
