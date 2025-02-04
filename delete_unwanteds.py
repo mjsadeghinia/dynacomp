@@ -8,7 +8,7 @@ logger = get_logger()
 
 # Specify the input and output folders
 settings_folder = Path("/home/shared/dynacomp/settings")  # Replace with the path to your JSON files
-keep_folders = ['PV Data', 't3']
+keep_folders = ['PV Data']
 
 # Loop through all JSON files in the input folder
 for json_file in sorted(settings_folder.glob("*.json")):
@@ -29,6 +29,8 @@ for json_file in sorted(settings_folder.glob("*.json")):
                 if folder.name not in keep_folders:
                     logger.info(f"Removing folder and contents: {folder}")
                     shutil.rmtree(folder)
+            if folder.stem[0] == '.':
+                folder.unlink()
     else:
         print(f"Warning: Path '{file_path}' does not exist or is not a directory.")
     
