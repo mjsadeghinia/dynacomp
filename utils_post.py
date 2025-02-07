@@ -405,6 +405,11 @@ def compute_spatial_average(value):
         value_ave.append(np.average(value_t))
     return np.array(value_ave)
 
+def compute_spatial_std(value):
+    value_std = []
+    for value_t in value:
+        value_std.append(np.std(value_t))
+    return np.array(value_std)
 
 def load_MW_function_from_file(MW_fname: Path, t: float, mesh: dolfin.mesh):
     MW_fname = Path(MW_fname)
