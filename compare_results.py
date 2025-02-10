@@ -142,11 +142,12 @@ def main(args=None) -> int:
     )
 
     parser.add_argument(
-        "-s",
-        "--sample_name",
-        default="100_1",
-        type=Path,
-        help="The sample name from which we compare the different results.",
+        "-n",
+        "--sample_numbers",
+        default="1",
+        nargs="+",
+        type=int,
+        help="The sample numbers from which we compare the different results.",
     )
 
     parser.add_argument(
@@ -166,38 +167,40 @@ def main(args=None) -> int:
 
     args = parser.parse_args(args)
     experiments = args.experiments
-    sample_name = args.sample_name
+    sample_numbers = args.sample_numbers
     settings_dir = args.settings_dir
     output_folder = Path(args.output_folder)
     output_folder.mkdir(exist_ok=True)
 
-    settings = load_settings(settings_dir, sample_name)
-    data_dir = Path(settings["path"])
+    for n in sample_numbers:
+        sample_name = get_sample_name(n, settings_dir)
+        settings = load_settings(settings_dir, sample_name)
+        data_dir = Path(settings["path"])
 
-    results_dict = {}
-    for exp in experiments:
-        results_dict.setdefault(exp, {})
-        dir = data_dir / exp
-        data = load_data(dir)
-        data_normalized = normalize_data(data)
-        strain = load_strain(dir)
-        strain_normalized = normalize_data(strain)
+        results_dict = {}
+        for exp in experiments:
+            results_dict.setdefault(exp, {})
+            dir = data_dir / exp
+            data = load_data(dir)
+            data_normalized = normalize_data(data)
+            strain = load_strain(dir)
+            strain_normalized = normalize_data(strain)
 
-        results_dict[exp].update({"directory": dir})
-        results_dict[exp].update({"data": data})
-        results_dict[exp].update({"data_normalized": data_normalized})
-        results_dict[exp].update({"strain": strain})
-        results_dict[exp].update({"strain_normalized": strain_normalized})
+            results_dict[exp].update({"directory": dir})
+            results_dict[exp].update({"data": data})
+            results_dict[exp].update({"data_normalized": data_normalized})
+            results_dict[exp].update({"strain": strain})
+            results_dict[exp].update({"strain_normalized": strain_normalized})
 
-    fig = plot_activations(results_dict)
-    fname = output_folder / f"Activation_comparison_{sample_name}"
-    fig.savefig(fname.as_posix(), dpi=300)
-    plt.close(fig)
+        fig = plot_activations(results_dict)
+        fname = output_folder / f"Activation_comparison_{sample_name}"
+        fig.savefig(fname.as_posix(), dpi=300)
+        plt.close(fig)
 
-    fig = plot_strains(results_dict)
-    fname = output_folder / f"Strain_comparison_{sample_name}"
-    fig.savefig(fname.as_posix(), dpi=300)
-    plt.close(fig)
+        fig = plot_strains(results_dict)
+        fname = output_folder / f"Strain_comparison_{sample_name}"
+        fig.savefig(fname.as_posix(), dpi=300)
+        plt.close(fig)
 
 
 if __name__ == "__main__":
