@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 import dolfin
 import pulse
 import utils_post
+import json
 
-import logging
 import argparse
 
 
@@ -16,6 +16,24 @@ logger = get_logger()
 
 # %%# UNITS:
 # [kg]   [mm]    [s]    [mN]     [kPa]       [mN-mm]	    g = 9.806e+03
+def load_settings(setting_dir, sample_name):
+    settings_fname = setting_dir / f"{sample_name}.json"
+    with open(settings_fname, "r") as file:
+        settings = json.load(file)
+    return settings
+
+def get_sample_name(sample_num, setting_dir):
+    # Get the list of .json files in the directory and sort them by name
+    sorted_files = sorted(
+        [
+            file
+            for file in setting_dir.iterdir()
+            if file.is_file() and file.suffix == ".json"
+        ]
+    )
+    sample_name = sorted_files[sample_num - 1].with_suffix("").name
+    return sample_name
+
 def get_time_data(data_dir, pv_folder="PV Data"):
     data_path = data_dir.parent / pv_folder / pv_folder
     csv_files = list(data_path.glob("*.csv"))
@@ -75,72 +93,35 @@ def load_strain(dir):
     return np.vstack((time_data, Eff_ave, Eff_std)).T
 
 
-def main(args=None) -> int:
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument(
-        "--first",
-        default="/home/shared/dynacomp/00_data/CineData/AS/6weeks/130/OP126_1/coarse_mesh_v2",
-        type=Path,
-        help="The address to the sample 1.",
-    )
-
-    parser.add_argument(
-        "--second",
-        default="/home/shared/dynacomp/00_data/CineData/AS/6weeks/130/OP126_3/coarse_mesh_v2",
-        type=Path,
-        help="The address to the sample 2.",
-    )
-
-    args = parser.parse_args(args)
-    dir_1 = args.first
-    dir_2 = args.second
-
-    data_1 = load_data(dir_1)
-    data_2 = load_data(dir_2)
-
-    normalize_data_1 = normalize_data(data_1)
-    normalize_data_2 = normalize_data(data_2)
-
-    strain_1 = load_strain(dir_1)
-    strain_2 = load_strain(dir_2)
-
-    strain_1_norm = normalize_data(strain_1)
-    strain_2_norm = normalize_data(strain_2)
-
+def plot_activations(results_dict):
     fig, ax = plt.subplots()
-    ax.plot(normalize_data_1[:, 0], normalize_data_1[:, 1], color="r", label=dir_1.parent.stem)
-    ax.plot(normalize_data_2[:, 0], normalize_data_2[:, 1], color="b", label=dir_2.parent.stem)
+    for exp in results_dict.keys():
+        data_normalized = results_dict[exp]["data_normalized"]
+        sample_name = results_dict[exp]['directory'].parent.stem
+        ax.plot(data_normalized[:, 0], data_normalized[:, 1],  label=sample_name+"_"+exp)
+
     ax.set_xlim(0, 1)
-    ax.set_ylim(-10, 100)
+    ax.set_ylim(-10, 110)
     ax.set_ylabel("Activation [kPa]")
     ax.set_xlabel("Normalized Time [-]")
     ax.grid()
     ax.legend()
+    return fig
 
-    fname = f"Activation_comparison"
-    fig.savefig(fname, dpi=300)
-    plt.close(fig)
-
+def plot_strains(results_dict):
     # Plot average line and fill standard deviation area
     fig, ax = plt.subplots()
-    ax.plot(strain_1_norm[:, 0], strain_1_norm[:, 1], label=dir_1.parent.stem, color="r")
-    ax.fill_between(
-        strain_1_norm[:, 0],
-        strain_1_norm[:, 1] - strain_1_norm[:, 2],
-        strain_1_norm[:, 1] + strain_1_norm[:, 2],
-        color="r",
-        alpha=0.3,
-    )
-
-    ax.plot(strain_2_norm[:, 0], strain_2_norm[:, 1], label=dir_2.parent.stem, color="b")
-    ax.fill_between(
-        strain_2_norm[:, 0],
-        strain_2_norm[:, 1] - strain_2_norm[:, 2],
-        strain_2_norm[:, 1] + strain_2_norm[:, 2],
-        color="b",
-        alpha=0.3,
-    )
+    for exp in results_dict.keys():
+        data_normalized = results_dict[exp]["data_normalized"]
+        strain_normalized = results_dict[exp]["strain_normalized"]
+        sample_name = results_dict[exp]['directory'].parent.stem
+        ax.plot(strain_normalized[:, 0], strain_normalized[:, 1],  label=sample_name+"_"+exp)
+        ax.fill_between(
+            strain_normalized[:, 0],
+            strain_normalized[:, 1] - strain_normalized[:, 2],
+            strain_normalized[:, 1] + strain_normalized[:, 2],
+            alpha=0.3,
+        )
 
     ax.set_xlim(0, 1)
     ax.set_ylim(-0.3, 0.1)
@@ -148,7 +129,73 @@ def main(args=None) -> int:
     ax.set_xlabel("Normalized Time [-]")
     ax.grid()
     ax.legend()
+    return fig
+    
+def main(args=None) -> int:
+    parser = argparse.ArgumentParser()
 
+    parser.add_argument(
+        "-e",
+        "--experiments",
+        default="coarse_mesh_v2",
+        nargs='+',
+        type=str,
+        help="The result folder to be compared with each other, it should be more than two.",
+    )
+
+    parser.add_argument(
+        "-s",
+        "--sample_name",
+        default="100_1",
+        type=Path,
+        help="The sample name from which we compare the different results.",
+    )
+    
+    parser.add_argument(
+        "--settings_dir",
+        default="/home/shared/dynacomp/settings",
+        type=Path,
+        help="The settings directory where json files are stored.",
+    )
+    
+    parser.add_argument(
+        "-o",
+        "--output_folder",
+        default= "fine_mesh",
+        type=str,
+        help="The result folder name tha would be created in the directory of the sample.",
+    )
+
+    args = parser.parse_args(args)
+    experiments = args.experiments
+    sample_name = args.sample_name
+    settings_dir = args.settings_dir
+    output_folder = args.output_folder
+    
+    settings = load_settings(settings_dir, sample_name)
+    data_dir = Path(settings["path"])
+    
+    results_dict = {}
+    for exp in experiments:
+        results_dict.setdefault(exp, {})
+        dir = data_dir / exp
+        data = load_data(dir)
+        data_normalized = normalize_data(data)
+        strain = load_strain(dir)
+        strain_normalized = normalize_data(strain)
+        
+        results_dict[exp].update({"directory": dir})
+        results_dict[exp].update({"data": data})
+        results_dict[exp].update({"data_normalized": data_normalized})
+        results_dict[exp].update({"strain": strain})
+        results_dict[exp].update({"strain_normalized": strain_normalized})                                 
+
+    fig = plot_activations(results_dict)
+    fname = f"Activation_comparison"
+    fig.savefig(fname, dpi=300)
+    plt.close(fig)
+
+    fig = plot_strains(results_dict)
     fname = f"Strain_comparison"
     fig.savefig(fname, dpi=300)
     plt.close(fig)
