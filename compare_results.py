@@ -89,12 +89,26 @@ def load_strain(dir):
     return np.vstack((time_data, Eff_ave, Eff_std)).T
 
 
+def calulate_rmse(data):
+    reference = data[0, :]
+    rmse_per_expe = np.sqrt(np.mean((data - reference) ** 2, axis=1))
+    return rmse_per_expe
+
+
 def plot_activations(results_dict):
     fig, ax = plt.subplots()
-    for exp in results_dict.keys():
+    all_data = []
+    exp_keys = list(results_dict.keys())
+    for exp in exp_keys:
         data_normalized = results_dict[exp]["data_normalized"]
         sample_name = results_dict[exp]["directory"].parent.stem
         ax.plot(data_normalized[:, 0], data_normalized[:, 1], label=sample_name + "_" + exp)
+        all_data.append(data_normalized[:, 1])
+    all_data = np.array(all_data)
+    rmse_values = calulate_rmse(all_data)
+    # Format RMSE values for title
+    rmse_text = ", ".join([f"{exp_keys[i+1]}: {rmse:.2f}kPa" for i, rmse in enumerate(rmse_values[1:])])
+    ax.set_title(f"RMSE : {rmse_text}")
 
     ax.set_xlim(0, 1)
     ax.set_ylim(-10, 110)
@@ -108,7 +122,9 @@ def plot_activations(results_dict):
 def plot_strains(results_dict):
     # Plot average line and fill standard deviation area
     fig, ax = plt.subplots()
-    for exp in results_dict.keys():
+    all_data = []
+    exp_keys = list(results_dict.keys())
+    for exp in exp_keys:
         data_normalized = results_dict[exp]["data_normalized"]
         strain_normalized = results_dict[exp]["strain_normalized"]
         sample_name = results_dict[exp]["directory"].parent.stem
@@ -119,6 +135,12 @@ def plot_strains(results_dict):
             strain_normalized[:, 1] + strain_normalized[:, 2],
             alpha=0.3,
         )
+        all_data.append(strain_normalized[:, 1])
+    all_data = np.array(all_data)
+    rmse_values = calulate_rmse(all_data)
+    # Format RMSE values for title
+    rmse_text = ", ".join([f"{exp_keys[i+1]}: {rmse:.2f}" for i, rmse in enumerate(rmse_values[1:])])
+    ax.set_title(f"RMSE per Experiment (w.r.t. First): {rmse_text}")
 
     ax.set_xlim(0, 1)
     ax.set_ylim(-0.3, 0.1)
@@ -126,6 +148,7 @@ def plot_strains(results_dict):
     ax.set_xlabel("Normalized Time [-]")
     ax.grid()
     ax.legend()
+
     return fig
 
 
@@ -144,7 +167,7 @@ def main(args=None) -> int:
     parser.add_argument(
         "-n",
         "--sample_numbers",
-        default="1",
+        default=[1],
         nargs="+",
         type=int,
         help="The sample numbers from which we compare the different results.",
