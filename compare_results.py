@@ -22,17 +22,13 @@ def load_settings(setting_dir, sample_name):
         settings = json.load(file)
     return settings
 
+
 def get_sample_name(sample_num, setting_dir):
     # Get the list of .json files in the directory and sort them by name
-    sorted_files = sorted(
-        [
-            file
-            for file in setting_dir.iterdir()
-            if file.is_file() and file.suffix == ".json"
-        ]
-    )
+    sorted_files = sorted([file for file in setting_dir.iterdir() if file.is_file() and file.suffix == ".json"])
     sample_name = sorted_files[sample_num - 1].with_suffix("").name
     return sample_name
+
 
 def get_time_data(data_dir, pv_folder="PV Data"):
     data_path = data_dir.parent / pv_folder / pv_folder
@@ -97,8 +93,8 @@ def plot_activations(results_dict):
     fig, ax = plt.subplots()
     for exp in results_dict.keys():
         data_normalized = results_dict[exp]["data_normalized"]
-        sample_name = results_dict[exp]['directory'].parent.stem
-        ax.plot(data_normalized[:, 0], data_normalized[:, 1],  label=sample_name+"_"+exp)
+        sample_name = results_dict[exp]["directory"].parent.stem
+        ax.plot(data_normalized[:, 0], data_normalized[:, 1], label=sample_name + "_" + exp)
 
     ax.set_xlim(0, 1)
     ax.set_ylim(-10, 110)
@@ -108,14 +104,15 @@ def plot_activations(results_dict):
     ax.legend()
     return fig
 
+
 def plot_strains(results_dict):
     # Plot average line and fill standard deviation area
     fig, ax = plt.subplots()
     for exp in results_dict.keys():
         data_normalized = results_dict[exp]["data_normalized"]
         strain_normalized = results_dict[exp]["strain_normalized"]
-        sample_name = results_dict[exp]['directory'].parent.stem
-        ax.plot(strain_normalized[:, 0], strain_normalized[:, 1],  label=sample_name+"_"+exp)
+        sample_name = results_dict[exp]["directory"].parent.stem
+        ax.plot(strain_normalized[:, 0], strain_normalized[:, 1], label=sample_name + "_" + exp)
         ax.fill_between(
             strain_normalized[:, 0],
             strain_normalized[:, 1] - strain_normalized[:, 2],
@@ -130,7 +127,8 @@ def plot_strains(results_dict):
     ax.grid()
     ax.legend()
     return fig
-    
+
+
 def main(args=None) -> int:
     parser = argparse.ArgumentParser()
 
@@ -138,7 +136,7 @@ def main(args=None) -> int:
         "-e",
         "--experiments",
         default="coarse_mesh_v2",
-        nargs='+',
+        nargs="+",
         type=str,
         help="The result folder to be compared with each other, it should be more than two.",
     )
@@ -150,18 +148,18 @@ def main(args=None) -> int:
         type=Path,
         help="The sample name from which we compare the different results.",
     )
-    
+
     parser.add_argument(
         "--settings_dir",
         default="/home/shared/dynacomp/settings",
         type=Path,
         help="The settings directory where json files are stored.",
     )
-    
+
     parser.add_argument(
         "-o",
         "--output_folder",
-        default= "fine_mesh",
+        default="fine_mesh",
         type=str,
         help="The result folder name tha would be created in the directory of the sample.",
     )
@@ -171,10 +169,10 @@ def main(args=None) -> int:
     sample_name = args.sample_name
     settings_dir = args.settings_dir
     output_folder = args.output_folder
-    
+
     settings = load_settings(settings_dir, sample_name)
     data_dir = Path(settings["path"])
-    
+
     results_dict = {}
     for exp in experiments:
         results_dict.setdefault(exp, {})
@@ -183,12 +181,12 @@ def main(args=None) -> int:
         data_normalized = normalize_data(data)
         strain = load_strain(dir)
         strain_normalized = normalize_data(strain)
-        
+
         results_dict[exp].update({"directory": dir})
         results_dict[exp].update({"data": data})
         results_dict[exp].update({"data_normalized": data_normalized})
         results_dict[exp].update({"strain": strain})
-        results_dict[exp].update({"strain_normalized": strain_normalized})                                 
+        results_dict[exp].update({"strain_normalized": strain_normalized})
 
     fig = plot_activations(results_dict)
     fname = f"Activation_comparison"
