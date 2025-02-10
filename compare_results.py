@@ -159,7 +159,7 @@ def main(args=None) -> int:
     parser.add_argument(
         "-o",
         "--output_folder",
-        default="fine_mesh",
+        default="00_results_mesh_convergence",
         type=str,
         help="The result folder name tha would be created in the directory of the sample.",
     )
@@ -168,7 +168,8 @@ def main(args=None) -> int:
     experiments = args.experiments
     sample_name = args.sample_name
     settings_dir = args.settings_dir
-    output_folder = args.output_folder
+    output_folder = Path(args.output_folder)
+    output_folder.mkdir(exist_ok=True)
 
     settings = load_settings(settings_dir, sample_name)
     data_dir = Path(settings["path"])
@@ -189,13 +190,13 @@ def main(args=None) -> int:
         results_dict[exp].update({"strain_normalized": strain_normalized})
 
     fig = plot_activations(results_dict)
-    fname = f"Activation_comparison"
-    fig.savefig(fname, dpi=300)
+    fname = output_folder / f"Activation_comparison_{sample_name}"
+    fig.savefig(fname.as_posix(), dpi=300)
     plt.close(fig)
 
     fig = plot_strains(results_dict)
-    fname = f"Strain_comparison"
-    fig.savefig(fname, dpi=300)
+    fname = output_folder / f"Strain_comparison_{sample_name}"
+    fig.savefig(fname.as_posix(), dpi=300)
     plt.close(fig)
 
 
