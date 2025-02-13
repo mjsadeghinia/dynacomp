@@ -18,7 +18,7 @@ def create_mesh(
 ):
     if scan_type == "TPM":
         mask, T_array, slice_thickness, resolution, I = mesh_utils.read_data_h5_TPM(h5_file)
-        mask_epi, mask_endo = mu.get_endo_epi(mask[:, :, :, 0])
+        mask_epi, mask_endo = mu.get_endo_epi(mask[:, :, :, mesh_settings["t_mesh"]])
         coords_epi = mu.get_coords_from_mask(mask_epi, resolution, slice_thickness)
         coords_endo = mu.get_coords_from_mask(mask_endo, resolution, slice_thickness)
     elif scan_type == "CINE":
