@@ -4,6 +4,7 @@ import cv2 as cv
 import h5py
 from scipy.interpolate import splprep
 from ventric_mesh.mesh_utils import interpolate_splines, equally_spaced_points_on_spline
+from tqdm import tqdm
 
 from pathlib import Path
 import pymatreader
@@ -114,65 +115,70 @@ def compile_h5_TPM(directory_path, overwrite):
         return h5_files[0].as_posix()
 
     # Ensure there is exactly one .mat file
-    mat_files = list(directory_path.glob("*.mat"))
-    if len(mat_files) != 1:
-        logger.error("Data folder must contain exactly 1 .mat file.")
-        return
-
+    mat_files = sorted(list(directory_path.glob("*.mat")))
     mat_file = mat_files[0]
-    logger.info(f"{mat_file.name} is loading.")
-
-    try:
+    if len(mat_files) != 1:
+        logger.warning(f"Data folder contains {len(mat_files)} .mat files.")
+        logger.warning("Combining all the matfiles into a single dataset")
+        data = combine_mat_files(mat_files)
+    else:
+        logger.info(f"{mat_file.name} is loading.")
         # Load .mat file
         data = pymatreader.read_mat(mat_file)
         data = dict(sorted(data["ComboData"].items()))
+    # Sort from base to apex
+    label = "pss0" if "pss0" in data else "PVM_SPackArrSliceOffset"
+    slice_loc = [(data[label][k]) for k in range(len(data[label]))]
+    has_positive = any(x > 0 for x in slice_loc)
+    has_negative = any(x < 0 for x in slice_loc)
+    sorted_indexes = np.argsort(
+            [(data[label][k]) for k in range(len(data[label]))]
+        )
+    if has_negative and not has_positive:
+        sorted_indexes = sorted_indexes[::-1]
+    data = {key: [data[key][i] for i in sorted_indexes] for key in data.keys()}
+    # Compute necessary arrays and matrices
+    I = int(data["I"][0])  # Image matrix size
+    K = len(data[label])  # Number of slices
+    T_end = np.min([int(val) for val in data["TimePointEndAcquisition"]])
+    TED = [int(val) for val in data["TimePointEndDiastole"]]
+    TES = [int(val) for val in data["TimePointEndSystole"]]
+    S = len(data["WallThickness"][0][0])  # Number of segments
 
-        # Sort from base to apex
-        label = "pss0" if "pss0" in data else "PVM_SPackArrSliceOffset"
-        slice_loc = [(data[label][k]) for k in range(len(data[label]))]
-        has_positive = any(x > 0 for x in slice_loc)
-        has_negative = any(x < 0 for x in slice_loc)
-        sorted_indexes = np.argsort(
-                [(data[label][k]) for k in range(len(data[label]))]
-            )
-        if has_negative and not has_positive:
-            sorted_indexes = sorted_indexes[::-1]
-        data = {key: [data[key][i] for i in sorted_indexes] for key in data.keys()}
+    # Interpolate T_array
+    T_array = interpolate_T_array(TES, TED, K)
 
-        # Compute necessary arrays and matrices
-        I = int(data["I"][0])  # Image matrix size
-        K = len(data[label])  # Number of slices
-        T_end = np.min([int(val) for val in data["TimePointEndAcquisition"]])
-        TED = [int(val) for val in data["TimePointEndDiastole"]]
-        TES = [int(val) for val in data["TimePointEndSystole"]]
-        S = len(data["WallThickness"][0][0])  # Number of segments
+    # Generate and populate datasets
+    datasets = prepare_datasets(K, I, S, T_array, data)
+    # Prepare attributes
+    # NOTE: Slice thickness is in cm which should be converted to mm.
+    attrs = {
+        "image_matrix_size": I,
+        "number_of_slices": K,
+        "temporal_resolution": data["TR"][0],
+        "slice_thickness": data["SliceThickness"][0],
+        "resolution": data["Resolution"][0] * 10,
+        "TED": list(TED),
+        "TES": list(TES),
+        "T_end_acquisition": T_end,
+        "T_end": len(T_array),
+        "S": S,
+    }
+    h5_file_address = mat_file.with_suffix(".h5").as_posix()
+    save_to_h5(h5_file_address, datasets, attrs)
+    logger.info(f"{mat_file.with_suffix('.h5').name} is created.")
+    return h5_file_address
 
-        # Interpolate T_array
-        T_array = interpolate_T_array(TES, TED, K)
-
-        # Generate and populate datasets
-        datasets = prepare_datasets(K, I, S, T_array, data)
-        # Prepare attributes
-        # NOTE: Slice thickness is in cm which should be converted to mm.
-        attrs = {
-            "image_matrix_size": I,
-            "number_of_slices": K,
-            "temporal_resolution": data["TR"][0],
-            "slice_thickness": data["SliceThickness"][0],
-            "resolution": data["Resolution"][0] * 10,
-            "TED": list(TED),
-            "TES": list(TES),
-            "T_end_acquisition": T_end,
-            "T_end": len(T_array),
-            "S": S,
-        }
-        h5_file_address = mat_file.with_suffix(".h5").as_posix()
-        save_to_h5(h5_file_address, datasets, attrs)
-        logger.info(f"{mat_file.with_suffix('.h5').name} is created.")
-        return h5_file_address
-
-    except Exception as e:
-        logger.error(f"Failed processing due to {e}")
+def combine_mat_files(mat_files):
+    data = pymatreader.read_mat(mat_files[0])
+    label = "pss0" if "pss0" in data["ComboData"] else "PVM_SPackArrSliceOffset"
+    master_keys = [label, "I", "TR", "SliceThickness", "Resolution","TimePointEndAcquisition", "TimePointEndDiastole", "TimePointEndSystole", "WallThickness", "Mask"]
+    combined_data = {key: [] for key in master_keys}
+    for key in tqdm(combined_data.keys(), desc="Combining matlab files ...", ncols=100):
+        for mat_file in mat_files:
+            data = pymatreader.read_mat(mat_file)
+            combined_data[key].append(data["ComboData"][key])
+    return combined_data
 
 
 def interpolate_T_array(TES, TED, K):
