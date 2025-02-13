@@ -746,3 +746,58 @@ def prepare_coords(h5_file, outdir, settings):
         h5_file = remove_coords(h5_file, remove_coords_num, results_folder=outdir)  
         
     return h5_file
+
+def shift_coord_wrt_slicethickness(coords_epi, coords_endo, slice_thickness):
+    K = len(coords_epi)
+    K_endo = len(coords_endo)
+    for k in range(K):
+        coords_epi[k][:,2] = coords_epi[k][:,2] + slice_thickness/2
+        if k < K_endo:
+            coords_endo[k][:,2] = coords_endo[k][:,2] + slice_thickness/2
+    return coords_epi, coords_endo    
+        
+
+def generate_voxel_mesh_meshio(voxel_array, resolution, slice_thickness):
+    """Generate a 3D voxel mesh and save it as a VTK file using meshio."""
+    # Reorder the voxel array to X × Y × Z
+    voxel_array = np.transpose(voxel_array, (2, 1, 0))  # Z × X × Y -> X × Y × Z
+
+    vertices = []
+    cells = []
+
+    nx, ny, nz = voxel_array.shape
+
+    for i in range(nx):
+        for j in range(ny):
+            for k in range(nz):
+                if voxel_array[i, j, k]:  # Only process non-zero voxels
+                    x, y = i * resolution, (ny-j) * resolution
+                    z = -k * slice_thickness  # Negative progression in Z-direction
+
+                    # Define voxel vertices
+                    voxel_vertices = [
+                        [x, y, z],
+                        [x + resolution, y, z],
+                        [x, y + resolution, z],
+                        [x + resolution, y + resolution, z],
+                        [x, y, z - slice_thickness],
+                        [x + resolution, y, z - slice_thickness],
+                        [x, y + resolution, z - slice_thickness],
+                        [x + resolution, y + resolution, z - slice_thickness],
+                    ]
+
+                    # Add vertices
+                    base_index = len(vertices)
+                    vertices.extend(voxel_vertices)
+
+                    # Define hexahedron cell
+                    cells.append([
+                        base_index, base_index + 1, base_index + 3, base_index + 2,
+                        base_index + 4, base_index + 5, base_index + 7, base_index + 6
+                    ])
+
+    # Convert to numpy arrays for meshio
+    vertices = np.array(vertices)
+    cells = [("hexahedron", np.array(cells))]
+
+    return vertices, cells
