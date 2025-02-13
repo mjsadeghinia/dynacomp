@@ -41,8 +41,13 @@ def main(args=None) -> int:
     mesh_quality = args.mesh_quality
     h5_overwrite = args.h5_overwrite
     output_folder = args.output_folder
-
+    time_mesh = args.time_mesh
     settings = load_settings(setting_dir, sample_name)
+    
+    if time_mesh is not None:
+        output_folder = f"{output_folder}_{time_mesh}"
+        settings["mesh"][mesh_quality]['t_mesh'] = time_mesh
+    
     data_dir = Path(settings["path"])
     mesh_settings = settings["mesh"][mesh_quality]
     # Creating outdir, a folder with the name of output_folder in the data_dir for saving the results
