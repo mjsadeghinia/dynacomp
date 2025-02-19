@@ -55,6 +55,13 @@ def parse_arguments_pre(args=None):
         help="The mesh quality. Settings will be loaded accordingly from json file",
     )
     
+    parser.add_argument(
+        "-t",
+        "--time_mesh",
+        default=None,
+        type=int,
+        help="The time fram to create the mesh from, if specified would overwrite the settings json file",
+    )
     
     parser.add_argument(
         "-o",
@@ -64,12 +71,21 @@ def parse_arguments_pre(args=None):
         help="The result folder name tha would be created in the directory of the sample.",
     )
 
-    parser.add_argument(
+    # Create a mutually exclusive group to allow only one of the two options
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
         "--h5_overwrite",
-        default=True,
-        type=bool,
-        help="The flag to overwrtie the current h5 file compiled from mat data.",
+        dest="h5_overwrite",
+        action="store_true",
+        help="Overwrite the h5 file (default behavior)."
     )
+    group.add_argument(
+        "--no-h5_overwrite",
+        dest="h5_overwrite",
+        action="store_false",
+        help="Do not overwrite the h5 file."
+    )
+    parser.set_defaults(h5_overwrite=True)
 
     return parser.parse_args(args)
 
