@@ -420,7 +420,7 @@ def pre_process_mask(
     h5_path,
     save_flag=False,
     results_folder: str = "00_Results",
-    settings: list = {1,1,1,1,1,1,1,1,1,1},
+    mask_settings: dict = {'default': [1,1,1,1,1,1,1,1,1,1]},
 ):
     datasets, attrs = load_from_h5(h5_path)
     K, I, T_end = attrs["number_of_slices"], attrs["image_matrix_size"], attrs["T_end"]
@@ -430,8 +430,11 @@ def pre_process_mask(
         output_dir.mkdir(exist_ok=True)
 
     mask_closed = np.empty((K, I, I, T_end))
-
     for t in range(T_end):
+        if str(t+1) in mask_settings:
+            settings = mask_settings[f'{t+1}']
+        else:
+            settings = mask_settings["default"]
         for k in range(K):
             mask_t = mask[k, :, :, t]
             mask_closed[k, :, :, t] = close_gaps(
@@ -724,7 +727,7 @@ def prepare_mask(h5_file, outdir, settings):
     h5_file = pre_process_mask(
         h5_file,
         save_flag=True,
-        settings=mask_settings,
+        mask_settings=mask_settings,
         results_folder=outdir,
     )
     if settings["remove_slice"]:
