@@ -45,7 +45,7 @@ def main(args=None) -> int:
     settings = load_settings(setting_dir, sample_name)
     
     if time_mesh is not None:
-        output_folder = f"{output_folder}_{time_mesh}"
+        output_folder = f"{output_folder}_{time_mesh+1}"
         settings["mesh"][mesh_quality]['t_mesh'] = time_mesh
     
     data_dir = Path(settings["path"])
