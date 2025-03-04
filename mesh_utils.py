@@ -99,7 +99,7 @@ def compile_h5_TPM(directory_path, overwrite):
         overwrite (bool): Whether to overwrite an existing .h5 file.
     """
     directory_path = Path(directory_path)
-
+    logger.info(f"The directory {directory_path} is being processed...")
     # Check if directory exist
     if not directory_path.is_dir():
         logger.error("the folder does not exist")
@@ -734,8 +734,8 @@ def prepare_mask(h5_file, outdir, settings):
         h5_file = remove_slice(h5_file, slice_num=0, save_flag=True, results_folder=outdir)  
         
     if settings["shift_slice_mask"]:
-        slice_num = 2
-        slice_num_ref = 1
+        slice_num = settings["shift_slice_mask_num"]
+        slice_num_ref = slice_num - 1
         h5_file = shift_slice_mask(h5_file,slice_num,slice_num_ref,save_flag = True, results_folder=outdir)    
 
     if settings["close_apex"]:
