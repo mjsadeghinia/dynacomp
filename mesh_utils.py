@@ -16,7 +16,7 @@ def compile_h5(directory_path, scan_type, overwrite=False, is_inverted = False )
     if scan_type == 'CINE':
         h5_file_address = compile_h5_CINE(directory_path, overwrite=overwrite, is_inverted=is_inverted)
     elif scan_type == 'TPM':
-        h5_file_address = compile_h5_TPM(directory_path, overwrite=overwrite)
+        h5_file_address = compile_h5_TPM(directory_path, overwrite=overwrite, is_inverted=is_inverted)
     else:
         logger.error(f'The settings for scan_type is invalid ({scan_type}), it should be either CINE or TPM')
     return h5_file_address
@@ -88,7 +88,7 @@ def compile_h5_CINE(directory_path, overwrite, is_inverted):
     except Exception as e:
         logger.error(f"Failed processing due to {e}")
 
-def compile_h5_TPM(directory_path, overwrite):
+def compile_h5_TPM(directory_path, overwrite, is_inverted):
     """
     Compiles .mat files from OUS datasets into a structured .h5 file.
 
@@ -134,7 +134,8 @@ def compile_h5_TPM(directory_path, overwrite):
     sorted_indexes = np.argsort(
             [(data[label][k]) for k in range(len(data[label]))]
         )
-    if has_negative and not has_positive:
+    # if has_negative and not has_positive:
+    if is_inverted:
         sorted_indexes = sorted_indexes[::-1]
     data = {key: [data[key][i] for i in sorted_indexes] for key in data.keys()}
     # Compute necessary arrays and matrices
