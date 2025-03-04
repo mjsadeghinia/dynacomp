@@ -77,30 +77,31 @@ def main(args=None) -> int:
     
     parser.add_argument(
         "--mri",
-        default='/home/shared/dynacomp/00_data/TPMData/AS/6weeks/130/OP129_1/coarse_mesh',
+        # default='/home/shared/dynacomp/00_data/TPMData/AS/6weeks/130/OP129_1/coarse_mesh',
+        default='/home/shared/dynacomp/00_data/TPMData/SHAM/6weeks/OP130_2/coarse_mesh',
         type=str,
         help="The directory to mri results, where the meshes are generated and stored in folders",
     )
 
     parser.add_argument(
         "--pv",
-        default='dynacomp/00_data/CineData/AS/6weeks/130/OP129_1/PV Data/PV Data',
+        default='/home/shared/dynacomp/00_data/CineData/SHAM/6weeks/OP130_2/PV Data/PV Data',
         type=str,
         help="The directory to pv results",
     )
 
-    parser.add_argument(
-        "-o",
-        "--output_folder",
-        default='/home/shared/dynacomp/00_data/TPMData/AS/6weeks/130/OP129_1/coarse_mesh',
-        type=str,
-        help="The result folder name tha would be created in the directory of the sample.",
-    )
+    # parser.add_argument(
+    #     "-o",
+    #     "--output_folder",
+    #     default='/home/shared/dynacomp/00_data/TPMData/AS/6weeks/130/OP129_1/coarse_mesh',
+    #     type=str,
+    #     help="The result folder name tha would be created in the directory of the sample.",
+    # )
     args = parser.parse_args()
 
     mri = Path(args.mri)
     pv = Path(args.pv)
-    output_folder = Path(args.output_folder)
+    # output_folder = Path(args.output_folder)
     
     mri_time_series = [file for file in mri.iterdir() if file.is_dir()]
     # Sorting numerically based on the number in 'time_X'
@@ -111,6 +112,10 @@ def main(args=None) -> int:
     
     volumes = []
     tissues = []
+    
+    tissues_tot = [] 
+    volumes_tot = []
+    
     for folder in mri_time_series:
         mesh_fname = folder / 'geometry/Geometry.h5'
         geo = pulse.HeartGeometry.from_file(
@@ -121,6 +126,8 @@ def main(args=None) -> int:
         tissue_t = calculate_tissue_volume_sliced(geo)
         tissues.append(tissue_t)
         
+        volumes_tot.append(geo.cavity_volume())
+        tissues_tot.append(dolfin.assemble(dolfin.Constant(1)*dolfin.dx(domain=geo.mesh)))
         
     
     fig, ax = plt.subplots(figsize=(8, 6))
@@ -130,7 +137,7 @@ def main(args=None) -> int:
     plt.xlabel("Normalized time from ES to ED[-]]")
     plt.ylabel("Volume [micro Liter]")
     plt.legend()
-    fname = output_folder / f"MRI_Volumes.png"
+    fname = mri / f"MRI_Volumes.png"
     plt.savefig(fname, dpi=300)
     plt.close()
     
@@ -138,10 +145,33 @@ def main(args=None) -> int:
     ax.scatter(np.linspace(0,1,len(tissues)), tissues, s=20, label="Data Points")
     ax.plot(np.linspace(0,1,len(tissues)), tissues, color="b")    
     
-    plt.xlabel("Normalized time from ES to ED[-]]")
+    plt.xlabel("Normalized time from ES to ED[-]")
     plt.ylabel("Tissue Volume [micro Liter]")
     plt.legend()
-    fname = output_folder / f"MRI_Tissue_Volumes.png"
+    fname = mri / f"MRI_Tissue_Volumes.png"
+    plt.savefig(fname, dpi=300)
+    plt.close()
+    
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.scatter(np.linspace(0,1,len(tissues_tot)), tissues_tot, s=20, label="Data Points")
+    ax.plot(np.linspace(0,1,len(tissues_tot)), tissues_tot, color="b")    
+    
+    plt.xlabel("Normalized time from ES to ED[-]")
+    plt.ylabel("Tissue Volume [micro Liter]")
+    plt.legend()
+    fname = mri / f"MRI_Tissue_Volumes_total.png"
+    plt.savefig(fname, dpi=300)
+    plt.close()
+    
+    
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.scatter(np.linspace(0,1,len(volumes_tot)), volumes_tot, s=20, label="Data Points")
+    ax.plot(np.linspace(0,1,len(volumes_tot)), volumes_tot, color="b")    
+    
+    plt.xlabel("Normalized time from ES to ED[-]")
+    plt.ylabel("Volume [micro Liter]")
+    plt.legend()
+    fname = mri / f"MRI_Volumes_total.png"
     plt.savefig(fname, dpi=300)
     plt.close()
 
