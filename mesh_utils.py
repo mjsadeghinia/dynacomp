@@ -147,7 +147,7 @@ def compile_h5_TPM(directory_path, overwrite, is_inverted):
     S = len(data["WallThickness"][0][0])  # Number of segments
 
     # Interpolate T_array
-    T_array = interpolate_T_array(TES, TED, K)
+    T_array = interpolate_T_array(TES, TED)
 
     # Generate and populate datasets
     datasets = prepare_datasets(K, I, S, T_array, data)
@@ -182,12 +182,11 @@ def combine_mat_files(mat_files):
     return combined_data
 
 
-def interpolate_T_array(TES, TED, K):
+def interpolate_T_array(TES, TED):
     """
     Generates the T_array used for interpolation.
     """
     nn = TED[0] - TES[0]
-    steps = (np.array(TED) - np.array(TES)) / (nn + 1)
     steps = (np.array(TED) - np.array(TES)) / (nn + 1)
     T_array = []
     for i in range(1, nn + 1):
