@@ -149,6 +149,15 @@ def compile_h5_TPM(directory_path, overwrite, is_inverted):
     # Interpolate T_array
     T_array = interpolate_T_array(TES, TED)
 
+    HR = data['HR'] # heart rate for each slice beats per minute
+    cardiac_cycle_time = [60/bpm for bpm in HR] #the duration of one cardiac cycle for each slice
+    cardiac_cycle_length = [int(round(cycle_time/time_res)) for cycle_time, time_res in zip(cardiac_cycle_time, data['TR'])]
+    if TED == cardiac_cycle_length:
+        T_array = append_T_array(TES, T_array)
+    else:
+        logger.warning(f"The End diastolic time and cardiac cycle lenght (CCL) are not consistent!!!, \n TED: {TED} \n CCL: {cardiac_cycle_length}")
+        logger.warning("Only End systole to end diasotle in being used")
+        
     # Generate and populate datasets
     datasets = prepare_datasets(K, I, S, T_array, data)
     # Prepare attributes
@@ -194,6 +203,20 @@ def interpolate_T_array(TES, TED):
         T_array.append(array.tolist())
     return np.array(T_array)
 
+def append_T_array(TES, T_array):
+    """
+    Append the time before end systle, assuming TED == cardiac cycle lenght (CCL)
+    """
+    T0 = np.ones(len(TES), dtype=int)  # Initial array of ones
+    steps = np.ones(len(TES), dtype=int)  # Steps to increment
+    T = [T0.copy()]  # Start with the initial values
+
+    for _ in range(TES[0]):  # Ensure TES[0] is a valid number
+        T0 = T0 + steps  # Increment T0
+        T.append(T0.copy())  # Append a copy to avoid mutation issues
+
+    T = np.array(T)
+    return np.vstack((T, T_array))
 
 def get_first_timestep_from_coords_data(*coords):
     sliced_coords = []
