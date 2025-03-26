@@ -157,7 +157,7 @@ def compile_h5_TPM(directory_path, overwrite, is_inverted):
     else:
         logger.warning(f"The End diastolic time and cardiac cycle lenght (CCL) are not consistent!!!, \n TED: {TED} \n CCL: {cardiac_cycle_length}")
         logger.warning("Only End systole to end diasotle in being used")
-        
+
     # Generate and populate datasets
     datasets = prepare_datasets(K, I, S, T_array, data)
     # Prepare attributes
@@ -173,6 +173,7 @@ def compile_h5_TPM(directory_path, overwrite, is_inverted):
         "T_end_acquisition": T_end,
         "T_end": len(T_array),
         "S": S,
+        "cardiac_cycle_duration": list(cardiac_cycle_time),
     }
     h5_file_address = mat_file.with_suffix(".h5").as_posix()
     save_to_h5(h5_file_address, datasets, attrs)
