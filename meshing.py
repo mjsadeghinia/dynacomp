@@ -3,6 +3,7 @@ from pathlib import Path
 import numpy as np
 import plotly.graph_objects as go
 
+import meshio
 import mesh_utils
 from ventric_mesh.create_mesh import read_data_h5
 import ventric_mesh.mesh_utils as mu
@@ -18,9 +19,13 @@ def create_mesh(
 ):
     if scan_type == "TPM":
         mask, T_array, slice_thickness, resolution, I = mesh_utils.read_data_h5_TPM(h5_file)
-        mask_epi, mask_endo = mu.get_endo_epi(mask[:, :, :, 0])
+        if mesh_settings["t_mesh"]>=T_array.shape[0]:
+            logger.error("The requested time for meshing is out-of-range")
+        array_3d = mask[:, :, :, mesh_settings["t_mesh"]]
+        mask_epi, mask_endo = mu.get_endo_epi(array_3d)
         coords_epi = mu.get_coords_from_mask(mask_epi, resolution, slice_thickness)
         coords_endo = mu.get_coords_from_mask(mask_endo, resolution, slice_thickness)
+        # coords_epi, coords_endo = mesh_utils.shift_coord_wrt_slicethickness(coords_epi, coords_endo, slice_thickness)
     elif scan_type == "CINE":
         coords_endo,coords_epi,slice_thickness,resolution, I = mesh_utils.read_data_h5_CINE(h5_file)
         coords_epi = mesh_utils.transform_to_img_cs_for_all_slices(coords_epi, resolution, slice_thickness, I)
@@ -159,6 +164,15 @@ def create_mesh(
         fname = outdir.as_posix() + "/Mesh_vs_Coords.html"
         fig.write_html(fname)
         
+    # Generate the voxelated mesh and save as VTK
+    vertices, cells = mesh_utils.generate_voxel_mesh_meshio(array_3d, resolution, slice_thickness)
+    vtk_filename = outdir / "Mesh_3d_MRI.vtk"
+    # Use meshio to save the mesh
+    meshio.write_points_cells(
+        vtk_filename.as_posix(),
+        vertices,
+        cells
+    )
         
     # making error report 
     errors_epi = ventric_utils.calculate_error_between_coords_and_mesh(coords_epi, mesh_epi_filename)

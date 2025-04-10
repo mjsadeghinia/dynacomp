@@ -4,6 +4,7 @@ import cv2 as cv
 import h5py
 from scipy.interpolate import splprep
 from ventric_mesh.mesh_utils import interpolate_splines, equally_spaced_points_on_spline
+from tqdm import tqdm
 
 from pathlib import Path
 import pymatreader
@@ -15,7 +16,7 @@ def compile_h5(directory_path, scan_type, overwrite=False, is_inverted = False )
     if scan_type == 'CINE':
         h5_file_address = compile_h5_CINE(directory_path, overwrite=overwrite, is_inverted=is_inverted)
     elif scan_type == 'TPM':
-        h5_file_address = compile_h5_TPM(directory_path, overwrite=overwrite)
+        h5_file_address = compile_h5_TPM(directory_path, overwrite=overwrite, is_inverted=is_inverted)
     else:
         logger.error(f'The settings for scan_type is invalid ({scan_type}), it should be either CINE or TPM')
     return h5_file_address
@@ -87,7 +88,7 @@ def compile_h5_CINE(directory_path, overwrite, is_inverted):
     except Exception as e:
         logger.error(f"Failed processing due to {e}")
 
-def compile_h5_TPM(directory_path, overwrite):
+def compile_h5_TPM(directory_path, overwrite, is_inverted):
     """
     Compiles .mat files from OUS datasets into a structured .h5 file.
 
@@ -98,7 +99,7 @@ def compile_h5_TPM(directory_path, overwrite):
         overwrite (bool): Whether to overwrite an existing .h5 file.
     """
     directory_path = Path(directory_path)
-
+    logger.info(f"The directory {directory_path} is being processed...")
     # Check if directory exist
     if not directory_path.is_dir():
         logger.error("the folder does not exist")
@@ -114,73 +115,88 @@ def compile_h5_TPM(directory_path, overwrite):
         return h5_files[0].as_posix()
 
     # Ensure there is exactly one .mat file
-    mat_files = list(directory_path.glob("*.mat"))
-    if len(mat_files) != 1:
-        logger.error("Data folder must contain exactly 1 .mat file.")
-        return
-
+    mat_files = sorted(list(directory_path.glob("*.mat")))
     mat_file = mat_files[0]
-    logger.info(f"{mat_file.name} is loading.")
-
-    try:
+    if len(mat_files) != 1:
+        logger.warning(f"Data folder contains {len(mat_files)} .mat files.")
+        logger.warning("Combining all the matfiles into a single dataset")
+        data = combine_mat_files(mat_files)
+    else:
+        logger.info(f"{mat_file.name} is loading.")
         # Load .mat file
         data = pymatreader.read_mat(mat_file)
         data = dict(sorted(data["ComboData"].items()))
+    # Sort from base to apex
+    label = "pss0" if "pss0" in data else "PVM_SPackArrSliceOffset"
+    slice_loc = [(data[label][k]) for k in range(len(data[label]))]
+    has_positive = any(x > 0 for x in slice_loc)
+    has_negative = any(x < 0 for x in slice_loc)
+    sorted_indexes = np.argsort(
+            [(data[label][k]) for k in range(len(data[label]))]
+        )
+    # if has_negative and not has_positive:
+    if is_inverted:
+        sorted_indexes = sorted_indexes[::-1]
+    data = {key: [data[key][i] for i in sorted_indexes] for key in data.keys()}
+    # Compute necessary arrays and matrices
+    I = int(data["I"][0])  # Image matrix size
+    K = len(data[label])  # Number of slices
+    T_end = np.min([int(val) for val in data["TimePointEndAcquisition"]])
+    TED = [int(val) for val in data["TimePointEndDiastole"]]
+    TES = [int(val) for val in data["TimePointEndSystole"]]
+    S = len(data["WallThickness"][0][0])  # Number of segments
 
-        # Sort from base to apex
-        label = "pss0" if "pss0" in data else "PVM_SPackArrSliceOffset"
-        slice_loc = [(data[label][k]) for k in range(len(data[label]))]
-        has_positive = any(x > 0 for x in slice_loc)
-        has_negative = any(x < 0 for x in slice_loc)
-        sorted_indexes = np.argsort(
-                [(data[label][k]) for k in range(len(data[label]))]
-            )
-        if has_negative and not has_positive:
-            sorted_indexes = sorted_indexes[::-1]
-        data = {key: [data[key][i] for i in sorted_indexes] for key in data.keys()}
+    # Interpolate T_array
+    T_array = interpolate_T_array(TES, TED)
 
-        # Compute necessary arrays and matrices
-        I = int(data["I"][0])  # Image matrix size
-        K = len(data[label])  # Number of slices
-        T_end = np.min([int(val) for val in data["TimePointEndAcquisition"]])
-        TED = [int(val) for val in data["TimePointEndDiastole"]]
-        TES = [int(val) for val in data["TimePointEndSystole"]]
-        S = len(data["WallThickness"][0][0])  # Number of segments
+    HR = data['HR'] # heart rate for each slice beats per minute
+    cardiac_cycle_time = [60/bpm for bpm in HR] #the duration of one cardiac cycle for each slice
+    cardiac_cycle_length = [int(round(cycle_time/time_res)) for cycle_time, time_res in zip(cardiac_cycle_time, data['TR'])]
+    if TED == cardiac_cycle_length:
+        T_array = append_T_array(TES, T_array)
+    else:
+        logger.warning(f"The End diastolic time and cardiac cycle lenght (CCL) are not consistent!!!, \n TED: {TED} \n CCL: {cardiac_cycle_length}")
+        logger.warning("Only End systole to end diasotle in being used")
 
-        # Interpolate T_array
-        T_array = interpolate_T_array(TES, TED, K)
+    # Generate and populate datasets
+    datasets = prepare_datasets(K, I, S, T_array, data)
+    # Prepare attributes
+    # NOTE: Slice thickness is in cm which should be converted to mm.
+    attrs = {
+        "image_matrix_size": I,
+        "number_of_slices": K,
+        "temporal_resolution": data["TR"][0],
+        "slice_thickness": data["SliceThickness"][0],
+        "resolution": data["Resolution"][0] * 10,
+        "TED": list(TED),
+        "TES": list(TES),
+        "T_end_acquisition": T_end,
+        "T_end": len(T_array),
+        "S": S,
+        "cardiac_cycle_duration": list(cardiac_cycle_time),
+    }
+    h5_file_address = mat_file.with_suffix(".h5").as_posix()
+    save_to_h5(h5_file_address, datasets, attrs)
+    logger.info(f"{mat_file.with_suffix('.h5').name} is created.")
+    return h5_file_address
 
-        # Generate and populate datasets
-        datasets = prepare_datasets(K, I, S, T_array, data)
-        # Prepare attributes
-        # NOTE: Slice thickness is in cm which should be converted to mm.
-        attrs = {
-            "image_matrix_size": I,
-            "number_of_slices": K,
-            "temporal_resolution": data["TR"][0],
-            "slice_thickness": data["SliceThickness"][0],
-            "resolution": data["Resolution"][0] * 10,
-            "TED": list(TED),
-            "TES": list(TES),
-            "T_end_acquisition": T_end,
-            "T_end": len(T_array),
-            "S": S,
-        }
-        h5_file_address = mat_file.with_suffix(".h5").as_posix()
-        save_to_h5(h5_file_address, datasets, attrs)
-        logger.info(f"{mat_file.with_suffix('.h5').name} is created.")
-        return h5_file_address
-
-    except Exception as e:
-        logger.error(f"Failed processing due to {e}")
+def combine_mat_files(mat_files):
+    data = pymatreader.read_mat(mat_files[0])
+    label = "pss0" if "pss0" in data["ComboData"] else "PVM_SPackArrSliceOffset"
+    master_keys = [label, "I", "TR", "SliceThickness", "Resolution","TimePointEndAcquisition", "TimePointEndDiastole", "TimePointEndSystole", "WallThickness", "Mask"]
+    combined_data = {key: [] for key in master_keys}
+    for key in tqdm(combined_data.keys(), desc="Combining matlab files ...", ncols=100):
+        for mat_file in mat_files:
+            data = pymatreader.read_mat(mat_file)
+            combined_data[key].append(data["ComboData"][key])
+    return combined_data
 
 
-def interpolate_T_array(TES, TED, K):
+def interpolate_T_array(TES, TED):
     """
     Generates the T_array used for interpolation.
     """
     nn = TED[0] - TES[0]
-    steps = (np.array(TED) - np.array(TES)) / (nn + 1)
     steps = (np.array(TED) - np.array(TES)) / (nn + 1)
     T_array = []
     for i in range(1, nn + 1):
@@ -188,6 +204,20 @@ def interpolate_T_array(TES, TED, K):
         T_array.append(array.tolist())
     return np.array(T_array)
 
+def append_T_array(TES, T_array):
+    """
+    Append the time before end systle, assuming TED == cardiac cycle lenght (CCL)
+    """
+    T0 = np.ones(len(TES), dtype=int)  # Initial array of ones
+    steps = np.ones(len(TES), dtype=int)  # Steps to increment
+    T = [T0.copy()]  # Start with the initial values
+
+    for _ in range(TES[0]):  # Ensure TES[0] is a valid number
+        T0 = T0 + steps  # Increment T0
+        T.append(T0.copy())  # Append a copy to avoid mutation issues
+
+    T = np.array(T)
+    return np.vstack((T, T_array))
 
 def get_first_timestep_from_coords_data(*coords):
     sliced_coords = []
@@ -414,7 +444,7 @@ def pre_process_mask(
     h5_path,
     save_flag=False,
     results_folder: str = "00_Results",
-    settings: list = {1,1,1,1,1,1,1,1,1,1},
+    mask_settings: dict = {'default': [1,1,1,1,1,1,1,1,1,1]},
 ):
     datasets, attrs = load_from_h5(h5_path)
     K, I, T_end = attrs["number_of_slices"], attrs["image_matrix_size"], attrs["T_end"]
@@ -424,8 +454,11 @@ def pre_process_mask(
         output_dir.mkdir(exist_ok=True)
 
     mask_closed = np.empty((K, I, I, T_end))
-
     for t in range(T_end):
+        if str(t+1) in mask_settings:
+            settings = mask_settings[f'{t+1}']
+        else:
+            settings = mask_settings["default"]
         for k in range(K):
             mask_t = mask[k, :, :, t]
             mask_closed[k, :, :, t] = close_gaps(
@@ -718,15 +751,15 @@ def prepare_mask(h5_file, outdir, settings):
     h5_file = pre_process_mask(
         h5_file,
         save_flag=True,
-        settings=mask_settings,
+        mask_settings=mask_settings,
         results_folder=outdir,
     )
     if settings["remove_slice"]:
         h5_file = remove_slice(h5_file, slice_num=0, save_flag=True, results_folder=outdir)  
         
     if settings["shift_slice_mask"]:
-        slice_num = 2
-        slice_num_ref = 1
+        slice_num = settings["shift_slice_mask_num"]
+        slice_num_ref = slice_num - 1
         h5_file = shift_slice_mask(h5_file,slice_num,slice_num_ref,save_flag = True, results_folder=outdir)    
 
     if settings["close_apex"]:
@@ -740,3 +773,58 @@ def prepare_coords(h5_file, outdir, settings):
         h5_file = remove_coords(h5_file, remove_coords_num, results_folder=outdir)  
         
     return h5_file
+
+def shift_coord_wrt_slicethickness(coords_epi, coords_endo, slice_thickness):
+    K = len(coords_epi)
+    K_endo = len(coords_endo)
+    for k in range(K):
+        coords_epi[k][:,2] = coords_epi[k][:,2] + slice_thickness/2
+        if k < K_endo:
+            coords_endo[k][:,2] = coords_endo[k][:,2] + slice_thickness/2
+    return coords_epi, coords_endo    
+        
+
+def generate_voxel_mesh_meshio(voxel_array, resolution, slice_thickness):
+    """Generate a 3D voxel mesh and save it as a VTK file using meshio."""
+    # Reorder the voxel array to X × Y × Z
+    voxel_array = np.transpose(voxel_array, (2, 1, 0))  # Z × X × Y -> X × Y × Z
+
+    vertices = []
+    cells = []
+
+    nx, ny, nz = voxel_array.shape
+
+    for i in range(nx):
+        for j in range(ny):
+            for k in range(nz):
+                if voxel_array[i, j, k]:  # Only process non-zero voxels
+                    x, y = i * resolution, (ny-j) * resolution
+                    z = -k * slice_thickness  # Negative progression in Z-direction
+
+                    # Define voxel vertices
+                    voxel_vertices = [
+                        [x, y, z],
+                        [x + resolution, y, z],
+                        [x, y + resolution, z],
+                        [x + resolution, y + resolution, z],
+                        [x, y, z - slice_thickness],
+                        [x + resolution, y, z - slice_thickness],
+                        [x, y + resolution, z - slice_thickness],
+                        [x + resolution, y + resolution, z - slice_thickness],
+                    ]
+
+                    # Add vertices
+                    base_index = len(vertices)
+                    vertices.extend(voxel_vertices)
+
+                    # Define hexahedron cell
+                    cells.append([
+                        base_index, base_index + 1, base_index + 3, base_index + 2,
+                        base_index + 4, base_index + 5, base_index + 7, base_index + 6
+                    ])
+
+    # Convert to numpy arrays for meshio
+    vertices = np.array(vertices)
+    cells = [("hexahedron", np.array(cells))]
+
+    return vertices, cells
