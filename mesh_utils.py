@@ -147,7 +147,16 @@ def compile_h5_TPM(directory_path, overwrite, is_inverted):
     S = len(data["WallThickness"][0][0])  # Number of segments
 
     # Interpolate T_array
-    T_array = interpolate_T_array(TES, TED, K)
+    T_array = interpolate_T_array(TES, TED)
+
+    HR = data['HR'] # heart rate for each slice beats per minute
+    cardiac_cycle_time = [60/bpm for bpm in HR] #the duration of one cardiac cycle for each slice
+    cardiac_cycle_length = [int(round(cycle_time/time_res)) for cycle_time, time_res in zip(cardiac_cycle_time, data['TR'])]
+    if TED == cardiac_cycle_length:
+        T_array = append_T_array(TES, T_array)
+    else:
+        logger.warning(f"The End diastolic time and cardiac cycle lenght (CCL) are not consistent!!!, \n TED: {TED} \n CCL: {cardiac_cycle_length}")
+        logger.warning("Only End systole to end diasotle in being used")
 
     # Generate and populate datasets
     datasets = prepare_datasets(K, I, S, T_array, data)
@@ -164,6 +173,7 @@ def compile_h5_TPM(directory_path, overwrite, is_inverted):
         "T_end_acquisition": T_end,
         "T_end": len(T_array),
         "S": S,
+        "cardiac_cycle_duration": list(cardiac_cycle_time),
     }
     h5_file_address = mat_file.with_suffix(".h5").as_posix()
     save_to_h5(h5_file_address, datasets, attrs)
@@ -182,12 +192,11 @@ def combine_mat_files(mat_files):
     return combined_data
 
 
-def interpolate_T_array(TES, TED, K):
+def interpolate_T_array(TES, TED):
     """
     Generates the T_array used for interpolation.
     """
     nn = TED[0] - TES[0]
-    steps = (np.array(TED) - np.array(TES)) / (nn + 1)
     steps = (np.array(TED) - np.array(TES)) / (nn + 1)
     T_array = []
     for i in range(1, nn + 1):
@@ -195,6 +204,20 @@ def interpolate_T_array(TES, TED, K):
         T_array.append(array.tolist())
     return np.array(T_array)
 
+def append_T_array(TES, T_array):
+    """
+    Append the time before end systle, assuming TED == cardiac cycle lenght (CCL)
+    """
+    T0 = np.ones(len(TES), dtype=int)  # Initial array of ones
+    steps = np.ones(len(TES), dtype=int)  # Steps to increment
+    T = [T0.copy()]  # Start with the initial values
+
+    for _ in range(TES[0]):  # Ensure TES[0] is a valid number
+        T0 = T0 + steps  # Increment T0
+        T.append(T0.copy())  # Append a copy to avoid mutation issues
+
+    T = np.array(T)
+    return np.vstack((T, T_array))
 
 def get_first_timestep_from_coords_data(*coords):
     sliced_coords = []

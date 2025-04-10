@@ -1,10 +1,10 @@
 import argparse
-import json
 import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
 import pulse
 import dolfin
+import h5py
 
 
 from structlog import get_logger
@@ -78,37 +78,48 @@ def slice_cfun(geometry):
         infile.write(cfun)
     return geometry
 
+def load_mr_cardiac_cycle_duration(h5_dir):
+    # Finding the h5 file:
+    h5_files = list(h5_dir.glob('*.h5'))
+    if len(h5_files) > 1:
+        logger.error("There are multiple h5 files!")
+        return
+    
+    with h5py.File(h5_files[0], "r") as f:
+        CC_duration = f.attrs["cardiac_cycle_duration"]
+        
+    return CC_duration
 
 def main(args=None) -> int:
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
         "--mri",
-        # default='/home/shared/dynacomp/00_data/TPMData/AS/6weeks/130/OP129_1/coarse_mesh',
-        default="/home/shared/dynacomp/00_data/TPMData/SHAM/6weeks/OP130_2/coarse_mesh",
+        default='/home/shared/dynacomp/00_data/TPMData/AS/6weeks/130/OP129_1/coarse_mesh_full',
+        # default="/home/shared/dynacomp/00_data/TPMData/SHAM/6weeks/OP130_2/coarse_mesh_full",
         type=str,
         help="The directory to mri results, where the meshes are generated and stored in folders",
     )
 
     parser.add_argument(
         "--pv",
-        default="/home/shared/dynacomp/00_data/CineData/SHAM/6weeks/OP130_2/PV Data/PV Data",
+        default="/home/shared/dynacomp/00_data/CineData/AS/6weeks/130/OP129_1/PV Data/PV Data",
+        # default="/home/shared/dynacomp/00_data/CineData/SHAM/6weeks/OP130_2/PV Data/PV Data",
         type=str,
         help="The directory to pv results",
     )
-
-    # parser.add_argument(
-    #     "-o",
-    #     "--output_folder",
-    #     default='/home/shared/dynacomp/00_data/TPMData/AS/6weeks/130/OP129_1/coarse_mesh',
-    #     type=str,
-    #     help="The result folder name tha would be created in the directory of the sample.",
-    # )
+    
     args = parser.parse_args()
 
     mri = Path(args.mri)
     pv = Path(args.pv)
-    # output_folder = Path(args.output_folder)
+    
+    h5_dir = mri.parent
+    cc_duration = load_mr_cardiac_cycle_duration(h5_dir)
+    time_tot_mean = np.mean(cc_duration)*1000
+    time_tot_std = np.std(cc_duration)*1000
+    if time_tot_std/time_tot_mean>0.05:
+        logger.warning(f"The cardiac cyclee duration between stacks have a STD/AVE > 5%, Ave: {time_tot_mean}ms and STD: {time_tot_std}ms")
 
     mri_time_series = [file for file in mri.iterdir() if file.is_dir()]
     # Sorting numerically based on the number in 'time_X'
@@ -126,19 +137,18 @@ def main(args=None) -> int:
     for folder in mri_time_series:
         mesh_fname = folder / "geometry/Geometry.h5"
         geo = pulse.HeartGeometry.from_file(mesh_fname.as_posix())
+        volumes_tot.append(geo.cavity_volume())
+        tissues_tot.append(dolfin.assemble(dolfin.Constant(1) * dolfin.dx(domain=geo.mesh)))
         volume_t = calculate_cavity_volume_sliced(geo)
         volumes.append(volume_t)
         tissue_t = calculate_tissue_volume_sliced(geo)
         tissues.append(tissue_t)
-
-        volumes_tot.append(geo.cavity_volume())
-        tissues_tot.append(dolfin.assemble(dolfin.Constant(1) * dolfin.dx(domain=geo.mesh)))
-
+    
     fig, ax = plt.subplots(figsize=(8, 6))
-    ax.scatter(np.linspace(0, 1, len(volumes)), volumes, s=20, label="Data Points")
-    ax.plot(np.linspace(0, 1, len(volumes)), volumes, color="b")
+    ax.scatter(np.linspace(0, time_tot_mean, len(volumes)), volumes, s=20, label="Data Points")
+    ax.plot(np.linspace(0, time_tot_mean, len(volumes)), volumes, color="b")
 
-    plt.xlabel("Normalized time from ES to ED[-]]")
+    plt.xlabel("time [ms]")
     plt.ylabel("Volume [micro Liter]")
     plt.legend()
     fname = mri / f"MRI_Volumes.png"
@@ -146,10 +156,10 @@ def main(args=None) -> int:
     plt.close()
 
     fig, ax = plt.subplots(figsize=(8, 6))
-    ax.scatter(np.linspace(0, 1, len(tissues)), tissues, s=20, label="Data Points")
-    ax.plot(np.linspace(0, 1, len(tissues)), tissues, color="b")
+    ax.scatter(np.linspace(0, time_tot_mean, len(tissues)), tissues, s=20, label="Data Points")
+    ax.plot(np.linspace(0, time_tot_mean, len(tissues)), tissues, color="b")
 
-    plt.xlabel("Normalized time from ES to ED[-]")
+    plt.xlabel("time [ms]")
     plt.ylabel("Tissue Volume [micro Liter]")
     plt.legend()
     fname = mri / f"MRI_Tissue_Volumes.png"
@@ -157,10 +167,10 @@ def main(args=None) -> int:
     plt.close()
 
     fig, ax = plt.subplots(figsize=(8, 6))
-    ax.scatter(np.linspace(0, 1, len(tissues_tot)), tissues_tot, s=20, label="Data Points")
-    ax.plot(np.linspace(0, 1, len(tissues_tot)), tissues_tot, color="b")
+    ax.scatter(np.linspace(0, time_tot_mean, len(tissues_tot)), tissues_tot, s=20, label="Data Points")
+    ax.plot(np.linspace(0, time_tot_mean, len(tissues_tot)), tissues_tot, color="b")
 
-    plt.xlabel("Normalized time from ES to ED[-]")
+    plt.xlabel("time [ms]")
     plt.ylabel("Tissue Volume [micro Liter]")
     plt.legend()
     fname = mri / f"MRI_Tissue_Volumes_total.png"
@@ -168,10 +178,10 @@ def main(args=None) -> int:
     plt.close()
 
     fig, ax = plt.subplots(figsize=(8, 6))
-    ax.scatter(np.linspace(0, 1, len(volumes_tot)), volumes_tot, s=20, label="Data Points")
-    ax.plot(np.linspace(0, 1, len(volumes_tot)), volumes_tot, color="b")
+    ax.scatter(np.linspace(0, time_tot_mean, len(volumes_tot)), volumes_tot, s=20, label="Data Points")
+    ax.plot(np.linspace(0, time_tot_mean, len(volumes_tot)), volumes_tot, color="b")
 
-    plt.xlabel("Normalized time from ES to ED[-]")
+    plt.xlabel("time [ms]")
     plt.ylabel("Volume [micro Liter]")
     plt.legend()
     fname = mri / f"MRI_Volumes_total.png"

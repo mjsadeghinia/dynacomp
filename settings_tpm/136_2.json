@@ -7,7 +7,7 @@
     "shift_slice_mask": false,
     "close_apex": true,
     "mask": {
-        "default": [2,2,1,1,1,1,1,1,1,1]
+        "default": [2,2,1,1,1,1,1,1,4]
         },
     "mesh": {
         "coarse": {
