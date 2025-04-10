@@ -2,14 +2,15 @@
     "path": "/home/shared/dynacomp/00_data/TPMData/SHAM/6weeks/OP130_2",
     "scan_type": "TPM",
     "remove_coords": [],
-    "is_inverted": true,
+    "is_inverted": false,
     "remove_slice": false,
     "shift_slice_mask": true,
     "shift_slice_mask_num": 2,
     "close_apex": false,
     "mask": {
         "default": [2,2,1,1,1,1,1,1,1,1],
-        "5": [3,3,1,1,1,1,1,1,1,1]
+        "26": [3,3,1,1,1,1,1,1,1,1],
+        "27": [3,3,1,1,1,1,1,1,1,1]
         },
     "mesh": {
         "coarse": {
