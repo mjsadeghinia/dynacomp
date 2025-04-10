@@ -264,6 +264,9 @@ class HeartModelDynaComp:
         fname = outdir / "Myocardial_Work.xdmf"
         self.save_scalar(MW, fname, t, name="Myocardium Work")
 
+        fname = outdir / "Activation_results.xdmf"
+        self.save_scalar(self.activation, fname, t, name="Activation")
+
         # fname = outdir / "Green_Lagrange_Strain.xdmf"
         # self.save_tensor(E, fname, t, name = 'Green Lagrange Strain')
         # fname = outdir / "Second_Piola_Stress.xdmf"
