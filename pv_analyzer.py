@@ -179,7 +179,7 @@ def get_edpvr_cycles(pres):
     # Create a new list for the filtered descending sequence
     descending_sequence = [inds[0]]  
     for i in inds[1:]:
-        if max_pres[i] < max_pres[descending_sequence[-1]] and max_pres[i]-max_pres[descending_sequence[-1]]<-1:
+        if max_pres[i] < max_pres[descending_sequence[-1]] and max_pres[i]-max_pres[descending_sequence[-1]]<-1 and max_pres[i]-max_pres[descending_sequence[-1]]>-10:
             descending_sequence.append(i)
     run = first_consecutive_run(descending_sequence)
     return descending_sequence[run:]
