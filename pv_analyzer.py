@@ -172,47 +172,16 @@ def get_end_diastole_ind(
 
     return index
 
-def get_longest_consecutive_ids(arr):
-    # Parameters:
-    allowed_gap = 3  # Allowed gap after the first few strict numbers
-    strict_required_count = 5  # The first 'strict_required_count' numbers must be strictly consecutive with gap==1
-    longest_seq = []
-    current_seq = [arr[0]]
-    for i in range(1, len(arr)):
-        gap = arr[i] - arr[i - 1]
-        # Check if we're still in the "strict" part (first strict_required_count numbers)
-        if len(current_seq) < strict_required_count:
-            # During the strict part, the gap must be exactly 1
-            if gap == 1:
-                current_seq.append(arr[i])
-            else:
-                # Before moving on, check if the current sequence is the longest
-                if len(current_seq) > len(longest_seq):
-                    longest_seq = current_seq.copy()
-                # Start a new sequence from the current number
-                current_seq = [arr[i]]
-        else:
-            # After the strict portion, allow gaps up to allowed_gap
-            if gap <= allowed_gap:
-                current_seq.append(arr[i])
-            else:
-                # Check if the current sequence is the longest found so far
-                if len(current_seq) > len(longest_seq):
-                    longest_seq = current_seq.copy()
-                current_seq = [arr[i]]
-
-    # Final check for the last sequence
-    if len(current_seq) > len(longest_seq):
-        longest_seq = current_seq.copy()
-    return longest_seq
-
 def get_edpvr_cycles(pres):
     max_pres = [np.max(p) for p in pres]
-    inds_with_high_dP = np.where((np.diff(max_pres))<-1)[0]
-    consecutive_inds_with_high_dP = get_longest_consecutive_ids(inds_with_high_dP)
-    ind_i = consecutive_inds_with_high_dP[0]
-    ind_f = consecutive_inds_with_high_dP[-1]
-    return ind_i, ind_f
+    inds = np.where((np.diff(max_pres))<-1)[0]+1
+    inds = inds.tolist()
+    # Create a new list for the filtered descending sequence
+    descending_sequence = [inds[0]]  
+    for i in inds[1:]:
+        if max_pres[i] < max_pres[descending_sequence[-1]] and max_pres[i]-max_pres[descending_sequence[-1]]<-1:
+            descending_sequence.append(i)
+    return descending_sequence
 
 # %%
 def parse_arguments(args=None):
@@ -400,24 +369,28 @@ def main(args=None) -> int:
         if settings["PV"]["process_occlusion_flag"]:
             occlusion_data = load_caval_occlusion_data(pv_data_dir, settings["PV"]["Occlusion_recording_num"])
             pres_occlusion, vols_occlusion = occlusion_data["pressures"], occlusion_data["volumes"]
-            pres_occlusion_divided, vols_occlusion_divided = divide_pv_data(pres_occlusion, vols_occlusion)
+            pres_occlusion_divided_all, vols_occlusion_divided_all = divide_pv_data(pres_occlusion, vols_occlusion)
 
             if settings["PV"]["Occlusion_data_index_i"] is None and settings["PV"]["Occlusion_data_index_f"] is None:
-                first_cycle, last_cycle = get_edpvr_cycles(pres_occlusion_divided)
+                inds = get_edpvr_cycles(pres_occlusion_divided_all)
+                pres_occlusion_divided = [pres_occlusion_divided_all[i] for i in inds]
+                vols_occlusion_divided = [vols_occlusion_divided_all[i] for i in inds]
             else:
                 first_cycle, last_cycle = settings["PV"]["Occlusion_data_index_i"], settings["PV"]["Occlusion_data_index_f"]
-
+                inds = np.linspace(first_cycle,last_cycle,dtype=int)
+                pres_occlusion_divided = pres_occlusion_divided_all[first_cycle:last_cycle]
+                vols_occlusion_divided = vols_occlusion_divided_all[first_cycle:last_cycle]
+                                                                
             # Plotting maximum pressure in occlusion acquisiton
             fig, ax = plt.subplots(figsize=(8, 6))
-            for i, p in enumerate(pres_occlusion_divided):
-                ax.scatter(i, np.max(p), s=5, c="r")
-            ax.axvline(x=first_cycle, color='black', linestyle='--')
-            ax.axvline(x=last_cycle, color='black', linestyle='--', label='Selected ROI for EDPVR')
+            for i, p in enumerate(pres_occlusion_divided_all):
+                ax.scatter(i, np.max(p), s=5, c="k")
+                if i in inds:
+                    ax.scatter(i, np.max(p), s=5, c="r")
             fname = output_dir / f"{sample_name}_Occcluion_max_Pressure.png"
             plt.ylabel("Max LV Pressure during Caval Occlusion [mmHg]")
             plt.xlabel("Cycle no.")
             plt.grid()
-            plt.legend()
             plt.savefig(fname, dpi=300)
             plt.close()
             
@@ -426,7 +399,7 @@ def main(args=None) -> int:
             edpvr_v = []
             fig, ax = plt.subplots(figsize=(8, 6))
             skip_cycle = settings["PV"]["Occlusion_data_skip_index"]
-            for p, v in zip(pres_occlusion_divided[first_cycle:last_cycle:skip_cycle],vols_occlusion_divided[first_cycle:last_cycle:skip_cycle]):
+            for p, v in zip(pres_occlusion_divided[::skip_cycle],vols_occlusion_divided[::skip_cycle]):
                 ind = get_end_diastole_ind(p,v, pressure_threshold_percent=0.05, volume_threshold_percent=0.05)
                 edpvr_p.append(p[ind])
                 edpvr_v.append(v[ind])
