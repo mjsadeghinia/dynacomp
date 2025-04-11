@@ -171,6 +171,47 @@ def get_end_diastole_ind(
 
     return index
 
+def get_longest_consecutive_ids(arr):
+    # Parameters:
+    allowed_gap = 3  # Allowed gap after the first few strict numbers
+    strict_required_count = 5  # The first 'strict_required_count' numbers must be strictly consecutive with gap==1
+    longest_seq = []
+    current_seq = [arr[0]]
+    for i in range(1, len(arr)):
+        gap = arr[i] - arr[i - 1]
+        # Check if we're still in the "strict" part (first strict_required_count numbers)
+        if len(current_seq) < strict_required_count:
+            # During the strict part, the gap must be exactly 1
+            if gap == 1:
+                current_seq.append(arr[i])
+            else:
+                # Before moving on, check if the current sequence is the longest
+                if len(current_seq) > len(longest_seq):
+                    longest_seq = current_seq.copy()
+                # Start a new sequence from the current number
+                current_seq = [arr[i]]
+        else:
+            # After the strict portion, allow gaps up to allowed_gap
+            if gap <= allowed_gap:
+                current_seq.append(arr[i])
+            else:
+                # Check if the current sequence is the longest found so far
+                if len(current_seq) > len(longest_seq):
+                    longest_seq = current_seq.copy()
+                current_seq = [arr[i]]
+
+    # Final check for the last sequence
+    if len(current_seq) > len(longest_seq):
+        longest_seq = current_seq.copy()
+    return longest_seq
+
+def get_edpvr_cycles(pres):
+    max_pres = [np.max(p) for p in pres]
+    inds_with_high_dP = np.where((np.diff(max_pres))<-1)[0]
+    consecutive_inds_with_high_dP = get_longest_consecutive_ids(inds_with_high_dP)
+    ind_i = consecutive_inds_with_high_dP[0]
+    ind_f = consecutive_inds_with_high_dP[-1]
+    return ind_i, ind_f
 
 # %%
 def parse_arguments(args=None):
@@ -358,12 +399,17 @@ def main(args=None) -> int:
             pres_occlusion, vols_occlusion = occlusion_data["pressures"], occlusion_data["volumes"]
             pres_occlusion_divided, vols_occlusion_divided = divide_pv_data(pres_occlusion, vols_occlusion)
 
+            if settings["PV"]["Occlusion_data_index_i"] is None and settings["PV"]["Occlusion_data_index_f"] is None:
+                first_cycle, last_cycle = get_edpvr_cycles(pres_occlusion_divided)
+            else:
+                first_cycle, last_cycle = settings["PV"]["Occlusion_data_index_i"], settings["PV"]["Occlusion_data_index_f"]
+
             # Plotting maximum pressure in occlusion acquisiton
             fig, ax = plt.subplots(figsize=(8, 6))
             for i, p in enumerate(pres_occlusion_divided):
                 ax.scatter(i, np.max(p), s=5, c="r")
-            ax.axvline(x=settings["PV"]["Occlusion_data_index_f"], color='black', linestyle='--')
-            ax.axvline(x=settings["PV"]["Occlusion_data_index_i"], color='black', linestyle='--', label='Selected ROI for EDPVR')
+            ax.axvline(x=first_cycle, color='black', linestyle='--')
+            ax.axvline(x=last_cycle, color='black', linestyle='--', label='Selected ROI for EDPVR')
             fname = output_dir / f"{sample_name}_Occcluion_max_Pressure.png"
             plt.ylabel("Max LV Pressure during Caval Occlusion [mmHg]")
             plt.xlabel("Cycle no.")
@@ -372,12 +418,12 @@ def main(args=None) -> int:
             plt.savefig(fname, dpi=300)
             plt.close()
 
+            ind_i, ind_f = get_edpvr_cycles(pres_occlusion_divided)
+
             # Processing data to cacluate EDPVR
             edpvr_p = []
             edpvr_v = []
             fig, ax = plt.subplots(figsize=(8, 6))
-            first_cycle = settings["PV"]["Occlusion_data_index_i"]
-            last_cycle = settings["PV"]["Occlusion_data_index_f"]
             skip_cycle = settings["PV"]["Occlusion_data_skip_index"]
             for p, v in zip(pres_occlusion_divided[first_cycle:last_cycle:skip_cycle],vols_occlusion_divided[first_cycle:last_cycle:skip_cycle]):
                 ind = get_end_diastole_ind(p,v, pressure_threshold_percent=0.05, volume_threshold_percent=0.05)
