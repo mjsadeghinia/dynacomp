@@ -72,19 +72,20 @@ def load_caval_occlusion_data(pv_data_dir, occlusion_recording_num=None):
         logger.error("Data folder must contain exactly 1 .mat file.")
 
     mat_file = mat_files[0]
-    logger.info(f"{mat_file.name} is loading.")
-
     data = pymatreader.read_mat(mat_file)
     if occlusion_recording_num is not None:
         recording_num = occlusion_recording_num
     else:
         for i in range(1, len(data['comments']["str"])):
-            if 'Caval' in data['comments']['str'][-i] or 'Occlu' in data['comments']['str'][-i]:
+            comment = data['comments']['str'][-i].lower()
+            # NB! the metadata is not fully right and consistent with typos as occulution or occulatio
+            if 'caval' in comment or 'occ' in comment :                
                 recording_num = int(data['comments']['record'][-i]) - 1
                 logger.info(f"Channel no. {recording_num+1} is selected for Caval occlusion based on metadata")
                 break
             else:
                 logger.error("Metadata Caval occlusion is not in the dataset! Check the metadata")
+                print(comment)
     p_channel = get_pressure_channel(data["channel_meta"])
     v_channel = get_volume_channel(data["channel_meta"])
     pressures = data[f"data__chan_{p_channel+1}_rec_{recording_num}"]
@@ -394,6 +395,8 @@ def main(args=None) -> int:
         np.savetxt(fname, np.vstack((time, pressures, volumes)).T, delimiter=",")
 
         # Processing the cval occlusion data for EDPVR
+        output_dir = Path('EDPVR_all_data')
+        output_dir.mkdir(exist_ok=True)
         if settings["PV"]["process_occlusion_flag"]:
             occlusion_data = load_caval_occlusion_data(pv_data_dir, settings["PV"]["Occlusion_recording_num"])
             pres_occlusion, vols_occlusion = occlusion_data["pressures"], occlusion_data["volumes"]
@@ -417,9 +420,7 @@ def main(args=None) -> int:
             plt.legend()
             plt.savefig(fname, dpi=300)
             plt.close()
-
-            ind_i, ind_f = get_edpvr_cycles(pres_occlusion_divided)
-
+            
             # Processing data to cacluate EDPVR
             edpvr_p = []
             edpvr_v = []
@@ -445,7 +446,7 @@ def main(args=None) -> int:
             textstr = (
                 f"slope (95%): {res.slope:.3f} $\pm$ {ts*res.stderr:.3f}\n"
                 f"intercept (95%): {res.intercept:.3f} $\pm$ {ts*res.intercept_stderr:.3f}\n"
-                f"$v_0$ (P=0): {v_0:.3f}"
+                f"$v_0$ (P=0): {v_0:.5f}"
             )
             ax.text(
                 0.05, 0.95, textstr,
@@ -461,7 +462,7 @@ def main(args=None) -> int:
             plt.close()
 
             fname = output_dir / f"{sample_name}_EDPVR.csv"
-            np.savetxt(fname, np.vstack((edpvr_p, edpvr_v)).T, delimiter=",")
-
+            # np.savetxt(fname, np.vstack((edpvr_p, edpvr_v)).T, delimiter=",")
+            logger.info("------------------")
 if __name__ == "__main__":
     main()
