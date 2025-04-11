@@ -181,7 +181,15 @@ def get_edpvr_cycles(pres):
     for i in inds[1:]:
         if max_pres[i] < max_pres[descending_sequence[-1]] and max_pres[i]-max_pres[descending_sequence[-1]]<-1:
             descending_sequence.append(i)
-    return descending_sequence
+    run = first_consecutive_run(descending_sequence)
+    return descending_sequence[run:]
+
+def first_consecutive_run(lst):
+    # Build the consecutive run starting at the valid first element
+    for i in range(len(lst)-1):
+        if lst[i+1]-lst[i] <= 2:
+            return i
+    return 0
 
 # %%
 def parse_arguments(args=None):
