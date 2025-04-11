@@ -81,6 +81,7 @@ def load_caval_occlusion_data(pv_data_dir, occlusion_recording_num=None):
         for i in range(1, len(data['comments']["str"])):
             if 'Caval' in data['comments']['str'][-i] or 'Occlu' in data['comments']['str'][-i]:
                 recording_num = int(data['comments']['record'][-i]) - 1
+                logger.info(f"Channel no. {recording_num+1} is selected for Caval occlusion based on metadata")
                 break
             else:
                 logger.error("Metadata Caval occlusion is not in the dataset! Check the metadata")
@@ -362,11 +363,12 @@ def main(args=None) -> int:
             for i, p in enumerate(pres_occlusion_divided):
                 ax.scatter(i, np.max(p), s=5, c="r")
             ax.axvline(x=settings["PV"]["Occlusion_data_index_f"], color='black', linestyle='--')
-            ax.axvline(x=settings["PV"]["Occlusion_data_index_i"], color='black', linestyle='--')
+            ax.axvline(x=settings["PV"]["Occlusion_data_index_i"], color='black', linestyle='--', label='Selected ROI for EDPVR')
             fname = output_dir / f"{sample_name}_Occcluion_max_Pressure.png"
-            plt.ylabel("LV Pressure [mmHg]")
+            plt.ylabel("Max LV Pressure during Caval Occlusion [mmHg]")
             plt.xlabel("Cycle no.")
             plt.grid()
+            plt.legend()
             plt.savefig(fname, dpi=300)
             plt.close()
 
@@ -411,6 +413,9 @@ def main(args=None) -> int:
             ax.axhline(y=0, color='gray', linestyle='--')
             plt.savefig(fname, dpi=300)
             plt.close()
+
+            fname = output_dir / f"{sample_name}_EDPVR.csv"
+            np.savetxt(fname, np.vstack((edpvr_p, edpvr_v)).T, delimiter=",")
 
 if __name__ == "__main__":
     main()
