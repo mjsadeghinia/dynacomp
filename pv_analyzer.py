@@ -60,6 +60,35 @@ def get_volume_channel(channel_meta):
     return -1
 
 
+def load_caval_occlusion_data(pv_data_dir):
+    # Check if directory exist
+    if not pv_data_dir.is_dir():
+        logger.error("the folder does not exist")
+
+    # Ensure there is exactly one .mat file
+    mat_files = list(pv_data_dir.glob("*.mat"))
+    if len(mat_files) != 1:
+        logger.error("Data folder must contain exactly 1 .mat file.")
+
+    mat_file = mat_files[0]
+    logger.info(f"{mat_file.name} is loading.")
+
+    data = pymatreader.read_mat(mat_file)
+    for i in range(1, len(data['comments']["str"])):
+        if 'Caval occlusion' in data['comments']['str'][-i]:
+            recording_num = int(data['comments']['record'][-i]) - 1
+            break
+        else:
+            logger.error("Metadata Caval occlusion is not in the dataset! Check the metadata")
+
+    p_channel = get_pressure_channel(data["channel_meta"])
+    v_channel = get_volume_channel(data["channel_meta"])
+    pressures = data[f"data__chan_{p_channel+1}_rec_{recording_num}"]
+    volumes = data[f"data__chan_{v_channel+1}_rec_{recording_num}"]
+    dt = data["channel_meta"]["dt"][p_channel][recording_num]
+
+    return {"pressures": pressures, "volumes": volumes, "dt": dt}
+
 def divide_pv_data(pres, vols):
     # Dividing the data into different curves
     pres_divided = []
