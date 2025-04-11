@@ -8,6 +8,7 @@ from scipy.signal import find_peaks
 from scipy.interpolate import interp1d, splprep, splev
 from scipy.ndimage import gaussian_filter1d
 from scipy.signal import savgol_filter
+from scipy.stats import linregress
 
 from structlog import get_logger
 
@@ -347,6 +348,45 @@ def main(args=None) -> int:
         
         fname = output_dir / f"{sample_name}_PV_data.csv"
         np.savetxt(fname, np.vstack((time, pressures, volumes)).T, delimiter=",")
+
+        # Processing the cval occlusion data for EDPVR
+        occlusion_data = load_caval_occlusion_data(pv_data_dir)
+        pres_occlusion, vols_occlusion = occlusion_data["pressures"], occlusion_data["volumes"]
+        pres_occlusion_divided, vols_occlusion_divided = divide_pv_data(pres_occlusion, vols_occlusion)
+        edpvr_p = []
+        edpvr_v = []
+        fig, ax = plt.subplots(figsize=(8, 6))
+        for p, v in zip(pres_occlusion_divided,vols_occlusion_divided):
+            ind = get_end_diastole_ind(p,v)
+            edpvr_p.append(p[ind])
+            edpvr_v.append(v[ind])
+            ax.plot(v, p, "k", linewidth=0.1)
+            ax.scatter(v[ind], p[ind], s=5, c="r")
+        # fname = output_dir / f"{sample_name}_EDPVR.png"
+        edpvr_p = np.array(edpvr_p)
+        edpvr_v = np.array(edpvr_v)
+        res = linregress(edpvr_v, edpvr_p)
+        plt.plot(edpvr_v, res.intercept + res.slope*edpvr_v, 'b', label='EDVPR')
+        fname = "test.png"
+        # Create a text box with the regression parameters and confidence intervals
+        from scipy.stats import t
+        tinv = lambda p, df: abs(t.ppf(p/2, df))
+        ts = tinv(0.05, len(edpvr_v)-2)
+        textstr = (
+            f"slope (95%): {res.slope:.3f} $\pm$ {ts*res.stderr:.3f}\n"
+            f"intercept (95%): {res.intercept:.3f} $\pm$ {ts*res.intercept_stderr:.3f}"
+        )
+        ax.text(
+            0.05, 0.95, textstr,
+            transform=ax.transAxes,
+            fontsize=10,
+            verticalalignment='top',
+            # bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+        )
+        plt.xlabel("Volume [RVU]")
+        plt.ylabel("LV Pressure [mmHg]")
+        plt.savefig(fname, dpi=300)
+        plt.close()
 
 if __name__ == "__main__":
     main()
