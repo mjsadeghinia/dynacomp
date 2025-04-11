@@ -61,7 +61,7 @@ def get_volume_channel(channel_meta):
     return -1
 
 
-def load_caval_occlusion_data(pv_data_dir):
+def load_caval_occlusion_data(pv_data_dir, occlusion_recording_num=None):
     # Check if directory exist
     if not pv_data_dir.is_dir():
         logger.error("the folder does not exist")
@@ -75,13 +75,15 @@ def load_caval_occlusion_data(pv_data_dir):
     logger.info(f"{mat_file.name} is loading.")
 
     data = pymatreader.read_mat(mat_file)
-    for i in range(1, len(data['comments']["str"])):
-        if 'Caval occlusion' in data['comments']['str'][-i]:
-            recording_num = int(data['comments']['record'][-i]) - 1
-            break
-        else:
-            logger.error("Metadata Caval occlusion is not in the dataset! Check the metadata")
-
+    if occlusion_recording_num is not None:
+        recording_num = occlusion_recording_num
+    else:
+        for i in range(1, len(data['comments']["str"])):
+            if 'Caval' in data['comments']['str'][-i] or 'Occlu' in data['comments']['str'][-i]:
+                recording_num = int(data['comments']['record'][-i]) - 1
+                break
+            else:
+                logger.error("Metadata Caval occlusion is not in the dataset! Check the metadata")
     p_channel = get_pressure_channel(data["channel_meta"])
     v_channel = get_volume_channel(data["channel_meta"])
     pressures = data[f"data__chan_{p_channel+1}_rec_{recording_num}"]
@@ -350,31 +352,36 @@ def main(args=None) -> int:
         np.savetxt(fname, np.vstack((time, pressures, volumes)).T, delimiter=",")
 
         # Processing the cval occlusion data for EDPVR
-        occlusion_data = load_caval_occlusion_data(pv_data_dir)
+        occlusion_data = load_caval_occlusion_data(pv_data_dir, settings["PV"]["Occlusion_recording_num"])
         pres_occlusion, vols_occlusion = occlusion_data["pressures"], occlusion_data["volumes"]
         pres_occlusion_divided, vols_occlusion_divided = divide_pv_data(pres_occlusion, vols_occlusion)
         edpvr_p = []
         edpvr_v = []
         fig, ax = plt.subplots(figsize=(8, 6))
-        for p, v in zip(pres_occlusion_divided,vols_occlusion_divided):
-            ind = get_end_diastole_ind(p,v)
+        first_cycle = settings["PV"]["Occlusion_data_index_i"]
+        last_cycle = settings["PV"]["Occlusion_data_index_f"]
+        for p, v in zip(pres_occlusion_divided[first_cycle:last_cycle],vols_occlusion_divided[first_cycle:last_cycle]):
+            ind = get_end_diastole_ind(p,v, pressure_threshold_percent=0.05, volume_threshold_percent=0.05)
             edpvr_p.append(p[ind])
             edpvr_v.append(v[ind])
             ax.plot(v, p, "k", linewidth=0.1)
             ax.scatter(v[ind], p[ind], s=5, c="r")
-        # fname = output_dir / f"{sample_name}_EDPVR.png"
+        fname = output_dir / f"{sample_name}_EDPVR.png"
+        fname = "test.png"
         edpvr_p = np.array(edpvr_p)
         edpvr_v = np.array(edpvr_v)
         res = linregress(edpvr_v, edpvr_p)
         plt.plot(edpvr_v, res.intercept + res.slope*edpvr_v, 'b', label='EDVPR')
-        fname = "test.png"
         # Create a text box with the regression parameters and confidence intervals
         from scipy.stats import t
         tinv = lambda p, df: abs(t.ppf(p/2, df))
         ts = tinv(0.05, len(edpvr_v)-2)
+        # Calculate the x value at which y = 0 using the regression line equation (avoid division by zero)
+        v_0 = -res.intercept / res.slope if res.slope != 0 else float('nan')
         textstr = (
             f"slope (95%): {res.slope:.3f} $\pm$ {ts*res.stderr:.3f}\n"
-            f"intercept (95%): {res.intercept:.3f} $\pm$ {ts*res.intercept_stderr:.3f}"
+            f"intercept (95%): {res.intercept:.3f} $\pm$ {ts*res.intercept_stderr:.3f}\n"
+            f"$v_0$ (P=0): {v_0:.3f}"
         )
         ax.text(
             0.05, 0.95, textstr,
@@ -385,6 +392,7 @@ def main(args=None) -> int:
         )
         plt.xlabel("Volume [RVU]")
         plt.ylabel("LV Pressure [mmHg]")
+        ax.axhline(y=0, color='gray', linestyle='--')
         plt.savefig(fname, dpi=300)
         plt.close()
 
