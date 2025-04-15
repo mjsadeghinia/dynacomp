@@ -54,7 +54,7 @@ def add_or_update_field(json_file_path, section, field_name, field_values, overw
         logger.error("Failed to write to JSON file", path=str(json_file_path), error=str(e))
 
 
-def process_all_json_files(directory, section, field_name, field_values):
+def process_all_json_files(directory, section, field_name, field_values, overwrite=False):
     """
     Process all JSON files in a directory, adding or updating the specified field.
 
@@ -68,7 +68,7 @@ def process_all_json_files(directory, section, field_name, field_values):
     if directory_path.is_file():
         json_file_path = directory_path
         logger.info("Processing file", filename=json_file_path.name)
-        add_or_update_field(json_file_path, section, field_name, field_values)
+        add_or_update_field(json_file_path, section, field_name, field_values, overwrite=overwrite)
         return
         
     if not directory_path.is_dir():
@@ -80,7 +80,7 @@ def process_all_json_files(directory, section, field_name, field_values):
     # Iterate over all JSON files in the directory
     for json_file_path in directory_path.glob("*.json"):
         logger.info("Processing file", filename=json_file_path.name)
-        add_or_update_field(json_file_path, section, field_name, field_values)
+        add_or_update_field(json_file_path, section, field_name, field_values, overwrite=overwrite)
         
 import json
 from pathlib import Path
@@ -332,4 +332,10 @@ updated_field_values = {"skip_redundant_data_flag": False}
 # add_or_update_field('/home/shared/dynacomp/settings/128_1.json', 'PV', '', updated_field_values)
 #process_all_json_files('/home/shared/dynacomp/settings/', 'PV', '', updated_field_values)
 # copy_coarse_from_fine('/home/shared/dynacomp/settings/')
-add_groups('/home/shared/dynacomp/settings/')
+# add_groups('/home/shared/dynacomp/settings/')
+updated_field_values = {"process_occlusion_flag": True,
+                        "Occlusion_data_index_i": None,
+                        "Occlusion_data_index_f": None,
+                        "Occlusion_recording_num": None,
+                        "Occlusion_data_skip_index": 1}
+process_all_json_files('/home/shared/dynacomp/settings/', 'PV', '', updated_field_values, overwrite=False)

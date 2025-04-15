@@ -8,6 +8,7 @@ from scipy.signal import find_peaks
 from scipy.interpolate import interp1d, splprep, splev
 from scipy.ndimage import gaussian_filter1d
 from scipy.signal import savgol_filter
+from scipy.stats import linregress
 
 from structlog import get_logger
 
@@ -59,6 +60,39 @@ def get_volume_channel(channel_meta):
     logger.error("Volume channel has not found!")
     return -1
 
+
+def load_caval_occlusion_data(pv_data_dir, occlusion_recording_num=None):
+    # Check if directory exist
+    if not pv_data_dir.is_dir():
+        logger.error("the folder does not exist")
+
+    # Ensure there is exactly one .mat file
+    mat_files = list(pv_data_dir.glob("*.mat"))
+    if len(mat_files) != 1:
+        logger.error("Data folder must contain exactly 1 .mat file.")
+
+    mat_file = mat_files[0]
+    data = pymatreader.read_mat(mat_file)
+    if occlusion_recording_num is not None:
+        recording_num = occlusion_recording_num
+    else:
+        for i in range(1, len(data['comments']["str"])):
+            comment = data['comments']['str'][-i].lower()
+            # NB! the metadata is not fully right and consistent with typos as occulution or occulatio
+            if 'caval' in comment or 'occ' in comment :                
+                recording_num = int(data['comments']['record'][-i]) - 1
+                logger.info(f"Channel no. {recording_num+1} is selected for Caval occlusion based on metadata")
+                break
+            else:
+                logger.error("Metadata Caval occlusion is not in the dataset! Check the metadata")
+                print(comment)
+    p_channel = get_pressure_channel(data["channel_meta"])
+    v_channel = get_volume_channel(data["channel_meta"])
+    pressures = data[f"data__chan_{p_channel+1}_rec_{recording_num}"]
+    volumes = data[f"data__chan_{v_channel+1}_rec_{recording_num}"]
+    dt = data["channel_meta"]["dt"][p_channel][recording_num]
+
+    return {"pressures": pressures, "volumes": volumes, "dt": dt}
 
 def divide_pv_data(pres, vols):
     # Dividing the data into different curves
@@ -138,6 +172,29 @@ def get_end_diastole_ind(
 
     return index
 
+def get_edpvr_cycles(pres):
+    max_pres = [np.max(p) for p in pres]
+    inds = np.where((np.diff(max_pres))<-1)[0]+1
+    inds = inds.tolist()
+    # Create a new list for the filtered descending sequence
+    descending_sequence = [inds[0]]  
+    for i in inds[1:]:
+        if max_pres[i] < max_pres[descending_sequence[-1]] and max_pres[i]-max_pres[descending_sequence[-1]]<-1 and max_pres[i]-max_pres[descending_sequence[-1]]>-10:
+            descending_sequence.append(i)
+    run = first_consecutive_run(descending_sequence)
+    return descending_sequence[run:]
+
+def first_consecutive_run(lst):
+    # Build the consecutive run starting at the valid first element
+    for i in range(len(lst)-1):
+        if lst[i+1]-lst[i] <= 2:
+            return i
+    return 0
+
+def delete_previous_EDPVR(output_dir):
+    for file in output_dir.iterdir():
+        if "EDPVR" in file.stem:
+            file.unlink()
 
 # %%
 def parse_arguments(args=None):
@@ -166,8 +223,16 @@ def parse_arguments(args=None):
         "--output_folder",
         default="PV Data",
         type=str,
-        help="The result folder name tha would be created in the directory of the sample.",
+        help="The result folder name that would be created in the directory of the sample.",
     )
+
+    parser.add_argument(
+        "--output_edpvr",
+        default="EDPVR_all_data",
+        type=str,
+        help="The result folder for all EDPVR data that would be created in the root directory.",
+    )
+
     return parser.parse_args(args)
 
 
@@ -194,6 +259,8 @@ def main(args=None) -> int:
     sample_nums = args.number
     setting_dir = args.settings_dir
     output_folder = args.output_folder
+    output_edpvr = Path('EDPVR_all_data')
+    output_edpvr.mkdir(exist_ok=True)
 
     # Get the list of .json files in the directory and sort them by name
     sorted_files = sorted(
@@ -318,6 +385,85 @@ def main(args=None) -> int:
         
         fname = output_dir / f"{sample_name}_PV_data.csv"
         np.savetxt(fname, np.vstack((time, pressures, volumes)).T, delimiter=",")
+
+        # Processing the caval occlusion data for EDPVR
+        delete_previous_EDPVR(output_dir)
+
+        if settings["PV"]["process_occlusion_flag"]:
+            occlusion_data = load_caval_occlusion_data(pv_data_dir, settings["PV"]["Occlusion_recording_num"])
+            pres_occlusion, vols_occlusion = occlusion_data["pressures"], occlusion_data["volumes"]
+            pres_occlusion_divided_all, vols_occlusion_divided_all = divide_pv_data(pres_occlusion, vols_occlusion)
+
+            if settings["PV"]["Occlusion_data_index_i"] is None and settings["PV"]["Occlusion_data_index_f"] is None:
+                inds = get_edpvr_cycles(pres_occlusion_divided_all)
+                pres_occlusion_divided = [pres_occlusion_divided_all[i] for i in inds]
+                vols_occlusion_divided = [vols_occlusion_divided_all[i] for i in inds]
+            else:
+                first_cycle, last_cycle = settings["PV"]["Occlusion_data_index_i"], settings["PV"]["Occlusion_data_index_f"]
+                inds = np.linspace(first_cycle,last_cycle,dtype=int)
+                pres_occlusion_divided = pres_occlusion_divided_all[first_cycle:last_cycle]
+                vols_occlusion_divided = vols_occlusion_divided_all[first_cycle:last_cycle]
+                                                                
+            # Plotting maximum pressure in occlusion acquisiton
+            fig, ax = plt.subplots(figsize=(8, 6))
+            for i, p in enumerate(pres_occlusion_divided_all):
+                ax.scatter(i, np.max(p), s=5, c="k")
+                if i in inds:
+                    ax.scatter(i, np.max(p), s=5, c="r")
+            plt.ylabel("Max LV Pressure during Caval Occlusion [mmHg]")
+            plt.xlabel("Cycle no.")
+            plt.grid()
+            fname = output_dir / f"{sample_name}_EDPVR_max_Pressure.png"
+            plt.savefig(fname, dpi=300)
+            fname = output_edpvr / f"{sample_name}_EDPVR_max_Pressure.png"
+            plt.savefig(fname, dpi=300)
+            plt.close()
+            
+            # Processing data to cacluate EDPVR
+            edpvr_p = []
+            edpvr_v = []
+            fig, ax = plt.subplots(figsize=(8, 6))
+            skip_cycle = settings["PV"]["Occlusion_data_skip_index"]
+            for p, v in zip(pres_occlusion_divided[::skip_cycle],vols_occlusion_divided[::skip_cycle]):
+                ind = get_end_diastole_ind(p,v, pressure_threshold_percent=0.05, volume_threshold_percent=0.05)
+                edpvr_p.append(p[ind])
+                edpvr_v.append(v[ind])
+                ax.plot(v, p, "k", linewidth=0.1)
+                ax.scatter(v[ind], p[ind], s=5, c="r")
+            edpvr_p = np.array(edpvr_p)
+            edpvr_v = np.array(edpvr_v)
+            res = linregress(edpvr_v, edpvr_p)
+            plt.plot(edpvr_v, res.intercept + res.slope*edpvr_v, 'b', label='EDVPR')
+            # Create a text box with the regression parameters and confidence intervals
+            from scipy.stats import t
+            tinv = lambda p, df: abs(t.ppf(p/2, df))
+            ts = tinv(0.05, len(edpvr_v)-2)
+            # Calculate the x value at which y = 0 using the regression line equation (avoid division by zero)
+            v_0 = -res.intercept / res.slope if res.slope != 0 else float('nan')
+            textstr = (
+                f"slope (95%): {res.slope:.3f} $\pm$ {ts*res.stderr:.3f}\n"
+                f"intercept (95%): {res.intercept:.3f} $\pm$ {ts*res.intercept_stderr:.3f}\n"
+                f"$v_0$ (P=0): {v_0:.5f}"
+            )
+            ax.text(
+                0.05, 0.95, textstr,
+                transform=ax.transAxes,
+                fontsize=10,
+                verticalalignment='top',
+                # bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+            )
+            plt.xlabel("Volume [RVU]")
+            plt.ylabel("LV Pressure [mmHg]")
+            ax.axhline(y=0, color='gray', linestyle='--')
+            fname = output_dir / f"{sample_name}_EDPVR.png"
+            plt.savefig(fname, dpi=300)
+            fname = output_edpvr / f"{sample_name}_EDPVR.png"
+            plt.savefig(fname, dpi=300)
+            plt.close()
+
+            fname = output_dir / f"{sample_name}_EDPVR.csv"
+            np.savetxt(fname, np.vstack((edpvr_p, edpvr_v)).T, delimiter=",")
+            logger.info("------------------")
 
 if __name__ == "__main__":
     main()

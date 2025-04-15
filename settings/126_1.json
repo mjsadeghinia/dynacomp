@@ -95,7 +95,12 @@
         "recording_num": 11,
         "volume_smooth_window_length": 15,
         "pressure_smooth_window_length": 15,
-        "skip_redundant_data_flag": false
+        "skip_redundant_data_flag": false,
+        "process_occlusion_flag": false,
+        "Occlusion_data_index_i": 120,
+        "Occlusion_data_index_f": 510,
+        "Occlusion_recording_num": 11,
+        "Occlusion_data_skip_index": 5 
     },
     "group": "AS",
     "id": "OP126_1",

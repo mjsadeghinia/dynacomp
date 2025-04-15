@@ -97,7 +97,12 @@
         "recording_num": 1,
         "volume_smooth_window_length": 15,
         "pressure_smooth_window_length": 15,
-        "skip_redundant_data_flag": false
+        "skip_redundant_data_flag": false,
+        "process_occlusion_flag": true,
+        "Occlusion_data_index_i": null,
+        "Occlusion_data_index_f": null,
+        "Occlusion_recording_num": null,
+        "Occlusion_data_skip_index": 1
     },
     "group": "SHAM",
     "id": "OP136_3",
