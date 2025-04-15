@@ -75,13 +75,14 @@ def load_caval_occlusion_data(pv_data_dir, occlusion_recording_num=None):
     data = pymatreader.read_mat(mat_file)
     if occlusion_recording_num is not None:
         recording_num = occlusion_recording_num
+        logger.warning(f"Channel no. {recording_num+1} is specified by the user")
     else:
         for i in range(1, len(data['comments']["str"])):
             comment = data['comments']['str'][-i].lower()
             # NB! the metadata is not fully right and consistent with typos as occulution or occulatio
             if 'caval' in comment or 'occ' in comment :                
-                recording_num = int(data['comments']['record'][-i]) - 1
-                logger.info(f"Channel no. {recording_num+1} is selected for Caval occlusion based on metadata")
+                recording_num = int(data['comments']['record'][-i])
+                logger.info(f"Channel no. {recording_num} is selected for Caval occlusion based on metadata")
                 break
             else:
                 logger.error("Metadata Caval occlusion is not in the dataset! Check the metadata")
@@ -90,8 +91,7 @@ def load_caval_occlusion_data(pv_data_dir, occlusion_recording_num=None):
     v_channel = get_volume_channel(data["channel_meta"])
     pressures = data[f"data__chan_{p_channel+1}_rec_{recording_num}"]
     volumes = data[f"data__chan_{v_channel+1}_rec_{recording_num}"]
-    dt = data["channel_meta"]["dt"][p_channel][recording_num]
-
+    dt = data["channel_meta"]["dt"][p_channel][recording_num-1]
     return {"pressures": pressures, "volumes": volumes, "dt": dt}
 
 def divide_pv_data(pres, vols):
