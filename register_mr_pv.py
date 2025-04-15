@@ -174,8 +174,15 @@ def main(args=None) -> int:
     
     
     regirstered_pressures = np.interp(mri_time, pv_time, pv_pressures)    
-    
-    
+    #Triming the mri_volumes based on EDV
+    ind = np.where(mri_volumes[-10:]>mri_volumes[0])[0]
+    if ind.shape[0]>0:
+        print(ind)
+        ind = ind[-1]
+        mri_time = mri_time[:-ind]
+        mri_volumes = mri_volumes[:-ind]
+        regirstered_pressures = regirstered_pressures[:-ind]
+        
     
     fig, ax1 = plt.subplots(figsize=(8, 6))
     ax1.scatter(mri_time, mri_volumes, s=20, label="MRI Volumes", color="b")
