@@ -75,7 +75,7 @@ def load_caval_occlusion_data(pv_data_dir, occlusion_recording_num=None):
     data = pymatreader.read_mat(mat_file)
     if occlusion_recording_num is not None:
         recording_num = occlusion_recording_num
-        logger.warning(f"Channel no. {recording_num+1} is specified by the user")
+        logger.warning(f"Channel no. {recording_num} is specified by the user")
     else:
         for i in range(1, len(data['comments']["str"])):
             comment = data['comments']['str'][-i].lower()
