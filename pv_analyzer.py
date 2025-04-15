@@ -191,6 +191,11 @@ def first_consecutive_run(lst):
             return i
     return 0
 
+def delete_previous_EDPVR(output_dir):
+    for file in output_dir.iterdir():
+        if "EDPVR" in file.stem:
+            file.unlink()
+
 # %%
 def parse_arguments(args=None):
     """
@@ -218,8 +223,16 @@ def parse_arguments(args=None):
         "--output_folder",
         default="PV Data",
         type=str,
-        help="The result folder name tha would be created in the directory of the sample.",
+        help="The result folder name that would be created in the directory of the sample.",
     )
+
+    parser.add_argument(
+        "--output_edpvr",
+        default="EDPVR_all_data",
+        type=str,
+        help="The result folder for all EDPVR data that would be created in the root directory.",
+    )
+
     return parser.parse_args(args)
 
 
@@ -246,6 +259,8 @@ def main(args=None) -> int:
     sample_nums = args.number
     setting_dir = args.settings_dir
     output_folder = args.output_folder
+    output_edpvr = Path('EDPVR_all_data')
+    output_edpvr.mkdir(exist_ok=True)
 
     # Get the list of .json files in the directory and sort them by name
     sorted_files = sorted(
@@ -371,9 +386,9 @@ def main(args=None) -> int:
         fname = output_dir / f"{sample_name}_PV_data.csv"
         np.savetxt(fname, np.vstack((time, pressures, volumes)).T, delimiter=",")
 
-        # Processing the cval occlusion data for EDPVR
-        output_dir = Path('EDPVR_all_data')
-        output_dir.mkdir(exist_ok=True)
+        # Processing the caval occlusion data for EDPVR
+        delete_previous_EDPVR(output_dir)
+
         if settings["PV"]["process_occlusion_flag"]:
             occlusion_data = load_caval_occlusion_data(pv_data_dir, settings["PV"]["Occlusion_recording_num"])
             pres_occlusion, vols_occlusion = occlusion_data["pressures"], occlusion_data["volumes"]
@@ -395,10 +410,12 @@ def main(args=None) -> int:
                 ax.scatter(i, np.max(p), s=5, c="k")
                 if i in inds:
                     ax.scatter(i, np.max(p), s=5, c="r")
-            fname = output_dir / f"{sample_name}_Occcluion_max_Pressure.png"
             plt.ylabel("Max LV Pressure during Caval Occlusion [mmHg]")
             plt.xlabel("Cycle no.")
             plt.grid()
+            fname = output_dir / f"{sample_name}_EDPVR_max_Pressure.png"
+            plt.savefig(fname, dpi=300)
+            fname = output_edpvr / f"{sample_name}_EDPVR_max_Pressure.png"
             plt.savefig(fname, dpi=300)
             plt.close()
             
@@ -413,7 +430,6 @@ def main(args=None) -> int:
                 edpvr_v.append(v[ind])
                 ax.plot(v, p, "k", linewidth=0.1)
                 ax.scatter(v[ind], p[ind], s=5, c="r")
-            fname = output_dir / f"{sample_name}_EDPVR.png"
             edpvr_p = np.array(edpvr_p)
             edpvr_v = np.array(edpvr_v)
             res = linregress(edpvr_v, edpvr_p)
@@ -439,11 +455,15 @@ def main(args=None) -> int:
             plt.xlabel("Volume [RVU]")
             plt.ylabel("LV Pressure [mmHg]")
             ax.axhline(y=0, color='gray', linestyle='--')
+            fname = output_dir / f"{sample_name}_EDPVR.png"
+            plt.savefig(fname, dpi=300)
+            fname = output_edpvr / f"{sample_name}_EDPVR.png"
             plt.savefig(fname, dpi=300)
             plt.close()
 
             fname = output_dir / f"{sample_name}_EDPVR.csv"
-            # np.savetxt(fname, np.vstack((edpvr_p, edpvr_v)).T, delimiter=",")
+            np.savetxt(fname, np.vstack((edpvr_p, edpvr_v)).T, delimiter=",")
             logger.info("------------------")
+
 if __name__ == "__main__":
     main()
