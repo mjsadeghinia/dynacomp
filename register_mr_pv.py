@@ -90,13 +90,23 @@ def load_mr_cardiac_cycle_duration(h5_dir):
         
     return CC_duration
 
+def load_pressure_volumes(data_dir, sample_name):
+    PV_data_fname = [fname for fname in data_dir.iterdir() if "PV_data" in fname.stem][0]
+    PV_data = np.loadtxt(PV_data_fname.as_posix(), delimiter=",")
+    mmHg_to_kPa = 0.133322
+    time = PV_data[:, 0] * 1000
+    pressures = PV_data[:, 1] * mmHg_to_kPa
+    volumes = PV_data[:, 2]
+    return time, pressures, volumes
+
+
+#%%
 def main(args=None) -> int:
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
         "--mri",
-        default='/home/shared/dynacomp/00_data/TPMData/AS/6weeks/130/OP129_1/coarse_mesh_full',
-        # default="/home/shared/dynacomp/00_data/TPMData/SHAM/6weeks/OP130_2/coarse_mesh_full",
+        default='/home/shared/dynacomp/00_data/TPMData/AS/6weeks/130/OP129_1/coarse_mesh',
         type=str,
         help="The directory to mri results, where the meshes are generated and stored in folders",
     )
@@ -104,90 +114,61 @@ def main(args=None) -> int:
     parser.add_argument(
         "--pv",
         default="/home/shared/dynacomp/00_data/CineData/AS/6weeks/130/OP129_1/PV Data/PV Data",
-        # default="/home/shared/dynacomp/00_data/CineData/SHAM/6weeks/OP130_2/PV Data/PV Data",
         type=str,
         help="The directory to pv results",
     )
     
     args = parser.parse_args()
 
-    mri = Path(args.mri)
-    pv = Path(args.pv)
-    
-    h5_dir = mri.parent
-    cc_duration = load_mr_cardiac_cycle_duration(h5_dir)
-    time_tot_mean = np.mean(cc_duration)*1000
-    time_tot_std = np.std(cc_duration)*1000
-    if time_tot_std/time_tot_mean>0.05:
-        logger.warning(f"The cardiac cyclee duration between stacks have a STD/AVE > 5%, Ave: {time_tot_mean}ms and STD: {time_tot_std}ms")
+    mri_folder = Path(args.mri)
+    sample_name = mri_folder.parent.stem
+    pv_folder = Path(args.pv)
+    pv_time, pv_pressures, pv_volumes = load_pressure_volumes(pv_folder, sample_name)
 
-    mri_time_series = [file for file in mri.iterdir() if file.is_dir()]
+    h5_dir = mri_folder.parent
+    cc_duration = load_mr_cardiac_cycle_duration(h5_dir)
+    mri_time_total = np.mean(cc_duration)*1000
+    mri_time_total_std = np.std(cc_duration)*1000
+    if mri_time_total_std/mri_time_total>0.05:
+        logger.warning(f"The cardiac cyclee duration between stacks have a STD/AVE > 5%, Ave: {mri_time_total}ms and STD: {mri_time_total_std}ms")
+
+    mri_time_series = [file for file in mri_folder.iterdir() if file.is_dir()]
     # Sorting numerically based on the number in 'time_X'
     mri_time_series = sorted(
         mri_time_series,
         key=lambda p: int(p.name.split("_")[-1]),  # Extract and convert the number
     )
-
-    volumes = []
-    tissues = []
-
-    tissues_tot = []
-    volumes_tot = []
+    
+    mri_volumes = []
 
     for folder in mri_time_series:
         mesh_fname = folder / "geometry/Geometry.h5"
         geo = pulse.HeartGeometry.from_file(mesh_fname.as_posix())
-        volumes_tot.append(geo.cavity_volume())
-        tissues_tot.append(dolfin.assemble(dolfin.Constant(1) * dolfin.dx(domain=geo.mesh)))
-        volume_t = calculate_cavity_volume_sliced(geo)
-        volumes.append(volume_t)
-        tissue_t = calculate_tissue_volume_sliced(geo)
-        tissues.append(tissue_t)
+        mri_volumes.append(geo.cavity_volume())
+    mri_time = np.linspace(0, mri_time_total, len(mri_volumes))
+    mri_shift = 2
+    mri_volumes = np.roll(mri_volumes, mri_shift)
     
-    fig, ax = plt.subplots(figsize=(8, 6))
-    ax.scatter(np.linspace(0, time_tot_mean, len(volumes)), volumes, s=20, label="Data Points")
-    ax.plot(np.linspace(0, time_tot_mean, len(volumes)), volumes, color="b")
-
-    plt.xlabel("time [ms]")
-    plt.ylabel("Volume [micro Liter]")
-    plt.legend()
-    fname = mri / f"MRI_Volumes.png"
+    fig, ax1 = plt.subplots(figsize=(8, 6))
+    ax1.scatter(mri_time, mri_volumes, s=20, label="MRI Volumes", color="b")
+    ax1.plot(mri_time, mri_volumes, color="b")
+    ax1.set_xlabel("Time [ms]")
+    ax1.set_ylabel("MRI Volume [micro Liter]", color="b")
+    ax1.tick_params(axis='y', labelcolor="b")
+    # Create a second y-axis sharing the same x-axis for PV data
+    ax2 = ax1.twinx()
+    ax2.scatter(pv_time, pv_volumes, s=20, label="PV Volumes", color="r")
+    ax2.plot(pv_time, pv_volumes, color="r")
+    ax2.set_ylabel("PV Volume [RVU]", color="r")  
+    ax2.tick_params(axis='y', labelcolor="r")
+    # Combine legends from both axes
+    lines_1, labels_1 = ax1.get_legend_handles_labels()
+    lines_2, labels_2 = ax2.get_legend_handles_labels()
+    ax1.legend(lines_1 + lines_2, labels_1 + labels_2, loc='lower right')
+    plt.tight_layout()
+    fname = mri_folder.parent / f"Volumes.png"
     plt.savefig(fname, dpi=300)
     plt.close()
-
-    fig, ax = plt.subplots(figsize=(8, 6))
-    ax.scatter(np.linspace(0, time_tot_mean, len(tissues)), tissues, s=20, label="Data Points")
-    ax.plot(np.linspace(0, time_tot_mean, len(tissues)), tissues, color="b")
-
-    plt.xlabel("time [ms]")
-    plt.ylabel("Tissue Volume [micro Liter]")
-    plt.legend()
-    fname = mri / f"MRI_Tissue_Volumes.png"
-    plt.savefig(fname, dpi=300)
-    plt.close()
-
-    fig, ax = plt.subplots(figsize=(8, 6))
-    ax.scatter(np.linspace(0, time_tot_mean, len(tissues_tot)), tissues_tot, s=20, label="Data Points")
-    ax.plot(np.linspace(0, time_tot_mean, len(tissues_tot)), tissues_tot, color="b")
-
-    plt.xlabel("time [ms]")
-    plt.ylabel("Tissue Volume [micro Liter]")
-    plt.legend()
-    fname = mri / f"MRI_Tissue_Volumes_total.png"
-    plt.savefig(fname, dpi=300)
-    plt.close()
-
-    fig, ax = plt.subplots(figsize=(8, 6))
-    ax.scatter(np.linspace(0, time_tot_mean, len(volumes_tot)), volumes_tot, s=20, label="Data Points")
-    ax.plot(np.linspace(0, time_tot_mean, len(volumes_tot)), volumes_tot, color="b")
-
-    plt.xlabel("time [ms]")
-    plt.ylabel("Volume [micro Liter]")
-    plt.legend()
-    fname = mri / f"MRI_Volumes_total.png"
-    plt.savefig(fname, dpi=300)
-    plt.close()
-
 
 if __name__ == "__main__":
     main()
