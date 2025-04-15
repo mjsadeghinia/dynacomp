@@ -334,8 +334,8 @@ updated_field_values = {"skip_redundant_data_flag": False}
 # copy_coarse_from_fine('/home/shared/dynacomp/settings/')
 # add_groups('/home/shared/dynacomp/settings/')
 updated_field_values = {"process_occlusion_flag": True,
-                        "Occlusion_data_index_i": 0,
-                        "Occlusion_data_index_f": -1,
+                        "Occlusion_data_index_i": None,
+                        "Occlusion_data_index_f": None,
                         "Occlusion_recording_num": None,
                         "Occlusion_data_skip_index": 1}
 process_all_json_files('/home/shared/dynacomp/settings/', 'PV', '', updated_field_values, overwrite=False)
