@@ -101,7 +101,7 @@
         "process_occlusion_flag": true,
         "Occlusion_data_index_i": null,
         "Occlusion_data_index_f": null,
-        "Occlusion_recording_num": null,
+        "Occlusion_recording_num": 6,
         "Occlusion_data_skip_index": 1
     },
     "group": "AS",
