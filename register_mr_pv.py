@@ -93,9 +93,8 @@ def load_mr_cardiac_cycle_duration(h5_dir):
 def load_pressure_volumes(data_dir, sample_name):
     PV_data_fname = [fname for fname in data_dir.iterdir() if "PV_data" in fname.stem][0]
     PV_data = np.loadtxt(PV_data_fname.as_posix(), delimiter=",")
-    mmHg_to_kPa = 0.133322
     time = PV_data[:, 0] * 1000
-    pressures = PV_data[:, 1] * mmHg_to_kPa
+    pressures = PV_data[:, 1]
     volumes = PV_data[:, 2]
     return time, pressures, volumes
 
@@ -173,6 +172,11 @@ def main(args=None) -> int:
     if best_shift>0:
         logger.warning(f"MRI data has been shifted by {best_shift} in time")
     
+    
+    regirstered_pressures = np.interp(mri_time, pv_time, pv_pressures)    
+    
+    
+    
     fig, ax1 = plt.subplots(figsize=(8, 6))
     ax1.scatter(mri_time, mri_volumes, s=20, label="MRI Volumes", color="b")
     ax1.plot(mri_time, mri_volumes, color="b")
@@ -193,6 +197,25 @@ def main(args=None) -> int:
     fname = mri_folder.parent / f"Volumes.png"
     plt.savefig(fname, dpi=300)
     plt.close()
+    
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.plot(mri_volumes, regirstered_pressures, "k", linewidth=1)
+    ax.scatter(mri_volumes, regirstered_pressures, s=15, c="k")
+    ax.scatter(mri_volumes[0], regirstered_pressures[0], c="r", s=20)
+    plt.xlabel("Volume [micro Liter]")
+    plt.ylabel("LV Pressure [mmHg]")
+
+    # Add a second y-axis for LV Pressure in kPa
+    ax2 = ax.twinx()
+    mmHg_to_kPa = 0.133322
+    ymin, ymax = ax.get_ylim()      
+    ax2.set_ylim(ymin * mmHg_to_kPa, ymax * mmHg_to_kPa)  
+    ax2.set_ylabel("LV Pressure [kPa]") 
+
+    fname = mri_folder.parent / f"Registered_PV.png"
+    plt.savefig(fname, dpi=300)
+    plt.close()
+
 
 if __name__ == "__main__":
     main()
