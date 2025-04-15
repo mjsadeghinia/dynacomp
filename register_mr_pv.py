@@ -99,7 +99,29 @@ def load_pressure_volumes(data_dir, sample_name):
     volumes = PV_data[:, 2]
     return time, pressures, volumes
 
+def find_best_mri_shift(mri_time, mri_volumes, pv_time, pv_volumes, N=5):
+    """
+    Find the best roll (shift) for mri_volumes so that its path aligns best with pv_volumes.
+    Returns:
+      best_shift   : int
+                     The shift value (between 0 and N) that gives the highest correlation.
+      best_corr    : float
+                     The Pearson correlation coefficient at the best shift.
+    """
+    best_shift = 0
+    best_corr = -np.inf  
+    for shift in range(N + 1):
+        rolled_volumes = np.roll(mri_volumes, shift)
+        # Interpolate the rolled mri_volumes onto the pv_time scale.
+        aligned_volumes = np.interp(pv_time, mri_time, rolled_volumes)
+        # Calculate the Pearson correlation coefficient between the aligned mri volumes and pv_volumes.
+        corr = np.corrcoef(aligned_volumes, pv_volumes)[0, 1]
+        # Update the best_shift if this shift gives a higher correlation.
+        if corr > best_corr:
+            best_corr = corr
+            best_shift = shift
 
+    return best_shift, best_corr
 #%%
 def main(args=None) -> int:
     parser = argparse.ArgumentParser()
@@ -146,8 +168,10 @@ def main(args=None) -> int:
         geo = pulse.HeartGeometry.from_file(mesh_fname.as_posix())
         mri_volumes.append(geo.cavity_volume())
     mri_time = np.linspace(0, mri_time_total, len(mri_volumes))
-    mri_shift = 2
-    mri_volumes = np.roll(mri_volumes, mri_shift)
+    best_shift, _ = find_best_mri_shift(mri_time, mri_volumes, pv_time, pv_volumes, N=5)
+    mri_volumes = np.roll(mri_volumes, best_shift)
+    if best_shift>0:
+        logger.warning(f"MRI data has been shifted by {best_shift} in time")
     
     fig, ax1 = plt.subplots(figsize=(8, 6))
     ax1.scatter(mri_time, mri_volumes, s=20, label="MRI Volumes", color="b")
