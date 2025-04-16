@@ -141,19 +141,21 @@ def find_best_mri_shift(mri_time, mri_volumes, pv_time, pv_volumes, N=5):
 
     return best_shift, best_corr
 
-#TODO @enhance weighted average so that it would be more accurate at EDV
-def calibrate_pv_to_mri(mri_time, mri_volumes, pv_time, pv_volumes):
-    # Interpolate PV volumes onto MRI time grid.
+
+def calibrate_pv_to_mri(mri_time, mri_volumes, pv_time, pv_volumes, weights=None):
     pv_interp = np.interp(mri_time, pv_time, pv_volumes)
-    
-    # Compute least-squares linear calibration: mri_volumes ≈ a * pv_interp + b.
-    mean_pv = np.mean(pv_interp)
-    mean_mri = np.mean(mri_volumes)
-    a = np.sum((pv_interp - mean_pv) * (mri_volumes - mean_mri)) / np.sum((pv_interp - mean_pv) ** 2)
+    if weights is None:
+        weights = np.ones_like(mri_time)
+    mean_pv = np.average(pv_interp, weights=weights)
+    mean_mri = np.average(mri_volumes, weights=weights)
+    a = np.sum(weights * (pv_interp - mean_pv) * (mri_volumes - mean_mri)) / np.sum(
+        weights * (pv_interp - mean_pv) ** 2
+    )
     b = mean_mri - a * mean_pv
-    
-    calibrated_pv = a * pv_volumes + b
-    return a, b, calibrated_pv
+
+    calibrated_pv_volumes = a * pv_volumes + b
+    return a, b, calibrated_pv_volumes
+
 
 # %%
 def main(args=None) -> int:
@@ -234,8 +236,11 @@ def main(args=None) -> int:
         mri_time = mri_time[:-ind]
         mri_volumes = mri_volumes[:-ind]
         regirstered_pressures = regirstered_pressures[:-ind]
-        
-    a, b, calibrated_pv_volumes = calibrate_pv_to_mri(mri_time, mri_volumes, pv_time, pv_volumes)
+
+    N = len(mri_time)
+    weights = np.ones(len(mri_time))
+    weights[: int(0.25 * N)] = 3
+    a, b, calibrated_pv_volumes = calibrate_pv_to_mri(mri_time, mri_volumes, pv_time, pv_volumes, weights=weights)
 
     fig, ax1 = plt.subplots(figsize=(8, 6))
     # MRI volumes in black and calibrated PV volumes in tab:blue on the left y-axis.
@@ -279,6 +284,8 @@ def main(args=None) -> int:
     plt.savefig(fname, dpi=300)
     plt.close()
 
+
+# TODO dumping the calibrationn coeficients to the settings jsom files
 
 if __name__ == "__main__":
     main()
