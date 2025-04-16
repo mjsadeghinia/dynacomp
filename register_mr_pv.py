@@ -141,6 +141,19 @@ def find_best_mri_shift(mri_time, mri_volumes, pv_time, pv_volumes, N=5):
 
     return best_shift, best_corr
 
+#TODO @enhance weighted average so that it would be more accurate at EDV
+def calibrate_pv_to_mri(mri_time, mri_volumes, pv_time, pv_volumes):
+    # Interpolate PV volumes onto MRI time grid.
+    pv_interp = np.interp(mri_time, pv_time, pv_volumes)
+    
+    # Compute least-squares linear calibration: mri_volumes ≈ a * pv_interp + b.
+    mean_pv = np.mean(pv_interp)
+    mean_mri = np.mean(mri_volumes)
+    a = np.sum((pv_interp - mean_pv) * (mri_volumes - mean_mri)) / np.sum((pv_interp - mean_pv) ** 2)
+    b = mean_mri - a * mean_pv
+    
+    calibrated_pv = a * pv_volumes + b
+    return a, b, calibrated_pv
 
 # %%
 def main(args=None) -> int:
@@ -221,19 +234,24 @@ def main(args=None) -> int:
         mri_time = mri_time[:-ind]
         mri_volumes = mri_volumes[:-ind]
         regirstered_pressures = regirstered_pressures[:-ind]
+        
+    a, b, calibrated_pv_volumes = calibrate_pv_to_mri(mri_time, mri_volumes, pv_time, pv_volumes)
 
     fig, ax1 = plt.subplots(figsize=(8, 6))
-    ax1.scatter(mri_time, mri_volumes, s=20, label="MRI Volumes", color="b")
-    ax1.plot(mri_time, mri_volumes, color="b")
+    # MRI volumes in black and calibrated PV volumes in tab:blue on the left y-axis.
+    ax1.scatter(mri_time, mri_volumes, s=15, label="MRI Volumes", color="black")
+    ax1.plot(mri_time, mri_volumes, color="black")
+    ax1.plot(pv_time, calibrated_pv_volumes, color="tab:blue", linewidth=1)
+    ax1.scatter(pv_time, calibrated_pv_volumes, label="Calibrated PV Volumes", s=15, color="tab:blue")
     ax1.set_xlabel("Time [ms]")
-    ax1.set_ylabel("MRI Volume [micro Liter]", color="b")
-    ax1.tick_params(axis="y", labelcolor="b")
-    # Create a second y-axis sharing the same x-axis for PV data
+    ax1.set_ylabel("MRI / Calibrated PV Volume", color="black")
+    ax1.tick_params(axis="y", labelcolor="black")
+    # Original PV volumes in tab:orange on the right y-axis.
     ax2 = ax1.twinx()
-    ax2.scatter(pv_time, pv_volumes, s=20, label="PV Volumes", color="r")
-    ax2.plot(pv_time, pv_volumes, color="r")
-    ax2.set_ylabel("PV Volume [RVU]", color="r")
-    ax2.tick_params(axis="y", labelcolor="r")
+    ax2.scatter(pv_time, pv_volumes, s=15, label="PV Volumes", color="tab:orange")
+    ax2.plot(pv_time, pv_volumes, color="tab:orange")
+    ax2.set_ylabel("PV Volume [RVU]", color="tab:orange")
+    ax2.tick_params(axis="y", labelcolor="tab:orange")
     # Combine legends from both axes
     lines_1, labels_1 = ax1.get_legend_handles_labels()
     lines_2, labels_2 = ax2.get_legend_handles_labels()
