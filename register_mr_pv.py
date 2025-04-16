@@ -5,12 +5,31 @@ from pathlib import Path
 import pulse
 import dolfin
 import h5py
+import json
 
 
 from structlog import get_logger
 
 logger = get_logger()
 
+#%%
+def load_settings(setting_dir, sample_name):
+    settings_fname = setting_dir / f"{sample_name}.json"
+    with open(settings_fname, "r") as file:
+        settings = json.load(file)
+    return settings
+
+def get_sample_name(sample_num, setting_dir):
+    # Get the list of .json files in the directory and sort them by name
+    sorted_files = sorted(
+        [
+            file
+            for file in setting_dir.iterdir()
+            if file.is_file() and file.suffix == ".json"
+        ]
+    )
+    sample_name = sorted_files[sample_num - 1].with_suffix("").name
+    return sample_name
 
 def calculate_cavity_volume_sliced(geometry):
     """
@@ -126,24 +145,42 @@ def main(args=None) -> int:
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "--mri",
-        default='/home/shared/dynacomp/00_data/TPMData/AS/6weeks/130/OP129_1/coarse_mesh',
-        type=str,
-        help="The directory to mri results, where the meshes are generated and stored in folders",
+        "-n",
+        "--number",
+        type=int,
+        help="The sample number(s), will process all the sample if not indicated",
     )
-
     parser.add_argument(
-        "--pv",
-        default="/home/shared/dynacomp/00_data/CineData/AS/6weeks/130/OP129_1/PV Data/PV Data",
+        "-f",
+        "--data_folder",
+        default='coarse_mesh',
         type=str,
-        help="The directory to pv results",
+        help="The data folder where the time series mesh are stored",
     )
-    
+    parser.add_argument(
+        "--settings_dir",
+        default="/home/shared/dynacomp/settings",
+        type=Path,
+        help="The settings directory where json files are stored.",
+    )
+    parser.add_argument(
+        "--settings_tpm_dir",
+        default="/home/shared/dynacomp/settings_tpm",
+        type=Path,
+        help="The settings directory where json files are stored.",
+    )
     args = parser.parse_args()
 
-    mri_folder = Path(args.mri)
-    sample_name = mri_folder.parent.stem
-    pv_folder = Path(args.pv)
+    sample_num = args.number
+    folder = args.data_folder
+    setting_dir = args.settings_dir
+    setting_tpm_dir = args.settings_tpm_dir
+    sample_name = get_sample_name(sample_num, setting_tpm_dir)
+    settings = load_settings(setting_dir, sample_name)
+    settings_tpm = load_settings(setting_tpm_dir, sample_name)
+    
+    mri_folder = Path(settings_tpm["path"]) / folder
+    pv_folder = Path(settings["path"]) / "PV Data" / "PV Data"
     pv_time, pv_pressures, pv_volumes = load_pressure_volumes(pv_folder, sample_name)
 
     h5_dir = mri_folder.parent
