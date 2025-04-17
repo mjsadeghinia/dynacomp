@@ -41,10 +41,35 @@ def parse_arguments_pre(args=None):
     )
     
     parser.add_argument(
+        "-d",
+       "--data_dir",
+        default="/home/shared/dynacomp/00_data",
+        type=Path,
+        help="The settings directory where data files are stored.",
+    )
+    
+    parser.add_argument(
+        "-st",
         "--settings_dir",
         default="/home/shared/dynacomp/settings",
         type=Path,
         help="The settings directory where json files are stored.",
+    )
+    
+    parser.add_argument(
+        "-r",
+        "--results_dir",
+        default="/home/shared/dynacomp/00_results",
+        type=str,
+        help="The results folder where the processed data should be saved.",
+    )
+        
+    parser.add_argument(
+        "-o",
+        "--output_folder",
+        default="coarse_mesh",
+        type=str,
+        help="The results folder where the processed data should be saved.",
     )
     
     parser.add_argument(
@@ -56,6 +81,14 @@ def parse_arguments_pre(args=None):
     )
     
     parser.add_argument(
+        "-s",
+        "--scan_type",
+        default='CINE',
+        type=str,
+        help="The scan type. Settings will be loaded accordingly from json file",
+    )
+    
+    parser.add_argument(
         "-t",
         "--time_mesh",
         default=None,
@@ -63,13 +96,6 @@ def parse_arguments_pre(args=None):
         help="The time fram to create the mesh from, if specified would overwrite the settings json file",
     )
     
-    parser.add_argument(
-        "-o",
-        "--output_folder",
-        default= "output",
-        type=str,
-        help="The result folder name tha would be created in the directory of the sample.",
-    )
 
     # Create a mutually exclusive group to allow only one of the two options
     group = parser.add_mutually_exclusive_group()
@@ -213,13 +239,13 @@ def prepare_oudir_processing(data_dir, output_folder, comm=None):
     return outdir
 
 
-def prepare_outdir(data_dir, output_folder):
+def prepare_outdir(outdir):
     """
     Prepare the output directory by removing all files and folders if it exists,
     and ensuring it is created again.
-    """
-    outdir = data_dir / output_folder
-    
+    """    
+    outdir.mkdir(parents=True, exist_ok=True)
+
     # If the directory exists, remove it and all its contents
     if outdir.exists():
         shutil.rmtree(outdir)

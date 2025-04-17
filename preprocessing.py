@@ -6,25 +6,19 @@ import mesh_utils
 import meshing
 import create_geometry
 
+from structlog import get_logger
+
+logger = get_logger()
+
 
 # %%
-def load_settings(setting_dir, sample_name):
-    settings_fname = setting_dir / f"{sample_name}.json"
+def load_settings(setting_dir, sample_num):
+    sorted_files = sorted([file for file in setting_dir.iterdir() if file.is_file() and file.suffix == ".json"])
+    settings_fname = sorted_files[sample_num - 1]
     with open(settings_fname, "r") as file:
         settings = json.load(file)
     return settings
 
-def get_sample_name(sample_num, setting_dir):
-    # Get the list of .json files in the directory and sort them by name
-    sorted_files = sorted(
-        [
-            file
-            for file in setting_dir.iterdir()
-            if file.is_file() and file.suffix == ".json"
-        ]
-    )
-    sample_name = sorted_files[sample_num - 1].with_suffix("").name
-    return sample_name
 
 # %%
 def main(args=None) -> int:
@@ -36,34 +30,40 @@ def main(args=None) -> int:
 
     sample_num = args.number
     setting_dir = args.settings_dir
-    sample_name = get_sample_name(sample_num, setting_dir)
-
-    mesh_quality = args.mesh_quality
-    h5_overwrite = args.h5_overwrite
+    data_dir = args.data_dir
+    results_dir = args.results_dir
     output_folder = args.output_folder
     time_mesh = args.time_mesh
-    settings = load_settings(setting_dir, sample_name)
-    
-    if time_mesh is not None:
-        output_folder = f"{output_folder}_{time_mesh+1}"
-        settings["mesh"][mesh_quality]['t_mesh'] = time_mesh
-    
-    data_dir = Path(settings["path"])
-    mesh_settings = settings["mesh"][mesh_quality]
-    # Creating outdir, a folder with the name of output_folder in the data_dir for saving the results
-    outdir = arg_parser.prepare_outdir(data_dir, output_folder)
+    scan_type = args.scan_type
+    mesh_quality = args.mesh_quality
+    h5_overwrite = args.h5_overwrite
+
+    settings = load_settings(setting_dir, sample_num)
+    sample_name = settings["id"]
+    logger.info(f"Loaded settings from {sample_name}")
+    # #TODO check if the time_mesh is needed
+    # if time_mesh is not None:
+    #     output_folder = f"{output_folder}_{time_mesh+1}"
+    #     settings["mesh"][mesh_quality]['t_mesh'] = time_mesh
+
+    sample_dir = data_dir / sample_name / scan_type
+    # creating the output folder
+    output_dir = Path(results_dir) / sample_name / scan_type / output_folder
+    output_dir = arg_parser.prepare_outdir(output_dir)
+    # Creating the mesh settings
     h5_file = mesh_utils.compile_h5(
-        data_dir,
-        settings["scan_type"],
+        sample_dir,
+        scan_type,
         overwrite=h5_overwrite,
-        is_inverted=settings["is_inverted"],
+        is_inverted=settings["CINE"]["is_inverted"],
     )
 
-    if settings["scan_type"] == "TPM":
-        h5_file = mesh_utils.prepare_mask(h5_file, outdir, settings)
-    if settings["scan_type"] == "CINE":
-        h5_file = mesh_utils.prepare_coords(h5_file, outdir, settings)
+    if scan_type == "TPM":
+        h5_file = mesh_utils.prepare_mask(h5_file, output_dir, settings["TPM"])
+    if scan_type == "CINE":
+        h5_file = mesh_utils.prepare_coords(h5_file, settings["CINE"])
 
+    mesh_settings = settings["mesh"][mesh_quality]
     mesh_fname = meshing.create_mesh(
         data_dir,
         settings["scan_type"],
@@ -72,9 +72,7 @@ def main(args=None) -> int:
         plot_flag=True,
         results_folder=outdir,
     )
-    geometry = create_geometry.create_geometry(
-        mesh_fname, fiber_angles=settings["fiber_angles"], plot_flag=True
-    )
+    geometry = create_geometry.create_geometry(mesh_fname, fiber_angles=settings["fiber_angles"], plot_flag=True)
 
     geo_outdir = outdir / "Geometry"
     geo_fname = geo_outdir / "geometry"
