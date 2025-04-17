@@ -1,12 +1,12 @@
 {
-    "path": "/home/shared/dynacomp/00_data/CineData/AS/6weeks/130/OP126_1",
-    "scan_type": "CINE",
-    "is_inverted": true,
-    "remove_coords": [],
-    "remove_slice": false,
-    "shift_slice_mask": false,
-    "close_apex": false,
-    "mask": [],
+    "id": "OP126_1",
+    "group": "AS",
+    "time": 6,
+    "ring_diameter": 130.0,
+    "CINE": {
+        "is_inverted": true,
+        "remove_coords": []
+    },
     "mesh": {
         "coarse": {
             "seed_num_base_epi": 100,
@@ -100,10 +100,6 @@
         "Occlusion_data_index_i": 120,
         "Occlusion_data_index_f": 510,
         "Occlusion_recording_num": 11,
-        "Occlusion_data_skip_index": 5 
-    },
-    "group": "AS",
-    "id": "OP126_1",
-    "time": 6,
-    "ring_diameter": 130.0
+        "Occlusion_data_skip_index": 5
+    }
 }

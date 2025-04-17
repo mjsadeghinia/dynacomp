@@ -1,12 +1,12 @@
 {
-    "path": "/home/shared/dynacomp/00_data/CineData/SHAM/20weeks/OP100_1",
-    "scan_type": "CINE",
-    "is_inverted": true,
-    "remove_coords": [],
-    "remove_slice": false,
-    "shift_slice_mask": false,
-    "close_apex": false,
-    "mask": [],
+    "id": "OP100_1",
+    "group": "SHAM",
+    "time": 20,
+    "ring_diameter": null,
+    "CINE": {
+        "is_inverted": true,
+        "remove_coords": []
+    },
     "mesh": {
         "coarse": {
             "seed_num_base_epi": 100,
@@ -100,10 +100,6 @@
         "Occlusion_data_index_i": 148,
         "Occlusion_data_index_f": 170,
         "Occlusion_recording_num": 11,
-        "Occlusion_data_skip_index": 1 
-    },
-    "group": "SHAM",
-    "id": "OP100_1",
-    "time": 20,
-    "ring_diameter": null
+        "Occlusion_data_skip_index": 1
+    }
 }

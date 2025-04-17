@@ -1,12 +1,12 @@
 {
-    "path": "/home/shared/dynacomp/00_data/CineData/AS/12weeks/130/OP164_3",
-    "scan_type": "CINE",
-    "is_inverted": true,
-    "remove_coords": [],
-    "remove_slice": false,
-    "shift_slice_mask": false,
-    "close_apex": false,
-    "mask": [],
+    "id": "OP164_3",
+    "group": "AS",
+    "time": 12,
+    "ring_diameter": 130.0,
+    "CINE": {
+        "is_inverted": true,
+        "remove_coords": []
+    },
     "mesh": {
         "coarse": {
             "seed_num_base_epi": 100,
@@ -101,9 +101,5 @@
         "Occlusion_data_index_f": null,
         "Occlusion_recording_num": null,
         "Occlusion_data_skip_index": 1
-    },
-    "group": "AS",
-    "id": "OP164_3",
-    "time": 12,
-    "ring_diameter": 130.0
+    }
 }

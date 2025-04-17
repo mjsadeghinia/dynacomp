@@ -1,14 +1,14 @@
 {
-    "path": "/home/shared/dynacomp/00_data/CineData/SHAM/12weeks/OP136_2",
-    "scan_type": "CINE",
-    "is_inverted": false,
-    "remove_coords": [
-        2
-    ],
-    "remove_slice": false,
-    "shift_slice_mask": false,
-    "close_apex": false,
-    "mask": [],
+    "id": "OP136_2",
+    "group": "SHAM",
+    "time": 12,
+    "ring_diameter": null,
+    "CINE": {
+        "is_inverted": false,
+        "remove_coords": [
+            2
+        ]
+    },
     "mesh": {
         "coarse": {
             "seed_num_base_epi": 100,
@@ -103,9 +103,5 @@
         "Occlusion_data_index_f": null,
         "Occlusion_recording_num": 6,
         "Occlusion_data_skip_index": 1
-    },
-    "group": "SHAM",
-    "id": "OP136_2",
-    "time": 12,
-    "ring_diameter": null
+    }
 }

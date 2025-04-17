@@ -277,6 +277,73 @@ def _process_single_file_add_groups(json_file_path: Path):
     except Exception as e:
         logger.error("Failed to write to JSON file", path=str(json_file_path), error=str(e))
 
+def restructure_json_file(json_file_path: Path, overwrite: bool = True) -> dict:
+    """
+    Load a JSON file, reshape its structure, and optionally overwrite it:
+    - Moves id, group, time, ring_diameter to top
+    - Creates a section named after scan_type (e.g. "CINE")
+      containing only is_inverted and remove_coords
+    - Keeps mesh, matparams, fiber_angles, PV unchanged
+
+    :param json_file_path: Path to the JSON file
+    :param overwrite: If True, write the transformed data back to the file
+    :return: The transformed dictionary
+    """
+    json_file_path = Path(json_file_path)
+    try:
+        data = json.loads(json_file_path.read_text())
+        logger.info("Loaded JSON file", path=str(json_file_path))
+    except Exception as e:
+        logger.error("Failed to load JSON file", path=str(json_file_path), error=str(e))
+        return {}
+
+    # Identify section name and extract keys
+    section_name = data.get("scan_type", "CINE")
+    cine_section = {
+        "is_inverted": data.get("is_inverted"),
+        "remove_coords": data.get("remove_coords", [])
+    }
+
+    # Build new structure
+    transformed = {
+        "id": data.get("id"),
+        "group": data.get("group"),
+        "time": data.get("time"),
+        "ring_diameter": data.get("ring_diameter"),
+        section_name: cine_section,
+        "mesh": data.get("mesh", {}),
+        "matparams": data.get("matparams", {}),
+        "fiber_angles": data.get("fiber_angles", {}),
+        "PV": data.get("PV", {})
+    }
+
+    # Write back if requested
+    if overwrite:
+        try:
+            json_file_path.write_text(json.dumps(transformed, indent=4))
+            logger.info("Overwrote JSON file with transformed structure", path=str(json_file_path))
+        except Exception as e:
+            logger.error("Failed to write transformed JSON file", path=str(json_file_path), error=str(e))
+    return transformed
+
+
+def process_directory_restructure(directory: Path, overwrite: bool = True):
+    """
+    Apply restructure_json_file() to all .json files in a directory or a single file path.
+
+    :param directory: Directory or file path
+    :param overwrite: Whether to overwrite files
+    """
+    directory = Path(directory)
+    if directory.is_file():
+        restructure_json_file(directory, overwrite=overwrite)
+        return
+    if not directory.is_dir():
+        logger.error("Directory not found", directory=str(directory))
+        return
+    for json_path in directory.glob("*.json"):
+        logger.info("Processing file", filename=json_path.name)
+        restructure_json_file(json_path, overwrite=overwrite)
 
 updated_field_values_very_fine = {
     "seed_num_base_epi": 100,
@@ -338,4 +405,5 @@ updated_field_values = {"process_occlusion_flag": True,
                         "Occlusion_data_index_f": None,
                         "Occlusion_recording_num": None,
                         "Occlusion_data_skip_index": 1}
-process_all_json_files('/home/shared/dynacomp/settings/', 'PV', '', updated_field_values, overwrite=False)
+# process_all_json_files('/home/shared/dynacomp/settings/', 'PV', '', updated_field_values, overwrite=False)
+process_directory_restructure(Path('/home/shared/dynacomp/settings/'), overwrite=True)
