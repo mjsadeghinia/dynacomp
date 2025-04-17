@@ -15,7 +15,7 @@ logger = get_logger()
 
 # %%
 def create_mesh(
-    directory_path, scan_type, mesh_settings, h5_file, plot_flag=True, results_folder="00_Results", fname_prefix = "0"
+    directory_path, scan_type, mesh_settings, h5_file, plot_flag=True, output_dir="00_Results", fname_prefix = "0"
 ):
     if scan_type == "TPM":
         mask, T_array, slice_thickness, resolution, I = mesh_utils.read_data_h5_TPM(h5_file)
@@ -42,7 +42,7 @@ def create_mesh(
     )
     K = len(tck_epi)
     if plot_flag:
-        outdir = results_folder / "02_ShaxBSpline"
+        outdir = output_dir / "02_ShaxBSpline"
         outdir.mkdir(exist_ok=True)
         K_endo = len(tck_endo)
         for k in range(K):
@@ -78,7 +78,7 @@ def create_mesh(
         LAX_points_endo, mesh_settings["lax_smooth_level_endo"]
     )
     if plot_flag:
-        outdir = results_folder / "03_LaxBSpline"
+        outdir = output_dir / "03_LaxBSpline"
         outdir.mkdir(exist_ok=True)
         fig = go.Figure()
         mu.plotly_3d_LAX(
@@ -102,7 +102,7 @@ def create_mesh(
         mesh_settings["z_sections_flag_endo"],
     )
     if plot_flag:
-        outdir = results_folder / "04_Contours"
+        outdir = output_dir / "04_Contours"
         outdir.mkdir(exist_ok=True)
         fig = go.Figure()
         fig = mu.plotly_3d_contours(
@@ -123,7 +123,7 @@ def create_mesh(
         seed_num_threshold=mesh_settings["seed_num_threshold_endo"],
     )
     if plot_flag:
-        outdir = results_folder / "05_Point Cloud"
+        outdir = output_dir / "05_Point Cloud"
         outdir.mkdir(exist_ok=True)
         fig = go.Figure()
         for points in points_cloud_epi:
@@ -143,7 +143,7 @@ def create_mesh(
     if directory_path.stem =='OP138_3':
         normals_list_epi = mu.calculate_normals(points_cloud_epi, k_apex_epi, base_ind=7)
     
-    outdir = results_folder / "06_Mesh"
+    outdir = output_dir / "06_Mesh"
     outdir.mkdir(exist_ok=True)
     mesh_epi_filename, mesh_endo_filename, mesh_base_filename = mu.VentricMesh_poisson(
         points_cloud_epi,
@@ -165,14 +165,15 @@ def create_mesh(
         fig.write_html(fname)
         
     # Generate the voxelated mesh and save as VTK
-    vertices, cells = mesh_utils.generate_voxel_mesh_meshio(array_3d, resolution, slice_thickness)
-    vtk_filename = outdir / "Mesh_3d_MRI.vtk"
-    # Use meshio to save the mesh
-    meshio.write_points_cells(
-        vtk_filename.as_posix(),
-        vertices,
-        cells
-    )
+    if scan_type == "TPM":
+        vertices, cells = mesh_utils.generate_voxel_mesh_meshio(array_3d, resolution, slice_thickness)
+        vtk_filename = outdir / "Mesh_3d_MRI.vtk"
+        # Use meshio to save the mesh
+        meshio.write_points_cells(
+            vtk_filename.as_posix(),
+            vertices,
+            cells
+        )
         
     # making error report 
     errors_epi = ventric_utils.calculate_error_between_coords_and_mesh(coords_epi, mesh_epi_filename)

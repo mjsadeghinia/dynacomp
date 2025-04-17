@@ -91,7 +91,7 @@ def parse_arguments_pre(args=None):
     parser.add_argument(
         "-t",
         "--time_mesh",
-        default=None,
+        default=0,
         type=int,
         help="The time fram to create the mesh from, if specified would overwrite the settings json file",
     )

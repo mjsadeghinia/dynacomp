@@ -41,14 +41,10 @@ def main(args=None) -> int:
     settings = load_settings(setting_dir, sample_num)
     sample_name = settings["id"]
     logger.info(f"Loaded settings from {sample_name}")
-    # #TODO check if the time_mesh is needed
-    # if time_mesh is not None:
-    #     output_folder = f"{output_folder}_{time_mesh+1}"
-    #     settings["mesh"][mesh_quality]['t_mesh'] = time_mesh
-
+    
     sample_dir = data_dir / sample_name / scan_type
     # creating the output folder
-    output_dir = Path(results_dir) / sample_name / scan_type / output_folder
+    output_dir = Path(results_dir) / sample_name / scan_type / output_folder / "00_Meshes" / f"time_{time_mesh}"
     output_dir = arg_parser.prepare_outdir(output_dir)
     # Creating the mesh settings
     h5_file = mesh_utils.compile_h5(
@@ -66,15 +62,15 @@ def main(args=None) -> int:
     mesh_settings = settings["mesh"][mesh_quality]
     mesh_fname = meshing.create_mesh(
         data_dir,
-        settings["scan_type"],
+        scan_type,
         mesh_settings,
         h5_file,
         plot_flag=True,
-        results_folder=outdir,
+        output_dir=output_dir,
     )
     geometry = create_geometry.create_geometry(mesh_fname, fiber_angles=settings["fiber_angles"], plot_flag=True)
 
-    geo_outdir = outdir / "Geometry"
+    geo_outdir = output_dir / "Geometry"
     geo_fname = geo_outdir / "geometry"
     geometry.save(geo_fname.as_posix(), overwrite_file=True)
 
