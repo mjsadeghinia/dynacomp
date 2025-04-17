@@ -5,11 +5,27 @@ from pathlib import Path
 import pulse
 import dolfin
 import h5py
+import json
 
 
 from structlog import get_logger
 
 logger = get_logger()
+
+
+# %%
+def load_settings(setting_dir, sample_name):
+    settings_fname = setting_dir / f"{sample_name}.json"
+    with open(settings_fname, "r") as file:
+        settings = json.load(file)
+    return settings
+
+
+def get_sample_name(sample_num, setting_dir):
+    # Get the list of .json files in the directory and sort them by name
+    sorted_files = sorted([file for file in setting_dir.iterdir() if file.is_file() and file.suffix == ".json"])
+    sample_name = sorted_files[sample_num - 1].with_suffix("").name
+    return sample_name
 
 
 def calculate_cavity_volume_sliced(geometry):
@@ -78,116 +94,198 @@ def slice_cfun(geometry):
         infile.write(cfun)
     return geometry
 
+
 def load_mr_cardiac_cycle_duration(h5_dir):
     # Finding the h5 file:
-    h5_files = list(h5_dir.glob('*.h5'))
+    h5_files = list(h5_dir.glob("*.h5"))
     if len(h5_files) > 1:
         logger.error("There are multiple h5 files!")
         return
-    
+
     with h5py.File(h5_files[0], "r") as f:
         CC_duration = f.attrs["cardiac_cycle_duration"]
-        
+
     return CC_duration
 
+
+def load_pressure_volumes(data_dir, sample_name):
+    PV_data_fname = [fname for fname in data_dir.iterdir() if "PV_data" in fname.stem][0]
+    PV_data = np.loadtxt(PV_data_fname.as_posix(), delimiter=",")
+    time = PV_data[:, 0] * 1000
+    pressures = PV_data[:, 1]
+    volumes = PV_data[:, 2]
+    return time, pressures, volumes
+
+
+def find_best_mri_shift(mri_time, mri_volumes, pv_time, pv_volumes, N=5):
+    """
+    Find the best roll (shift) for mri_volumes so that its path aligns best with pv_volumes.
+    Returns:
+      best_shift   : int
+                     The shift value (between 0 and N) that gives the highest correlation.
+      best_corr    : float
+                     The Pearson correlation coefficient at the best shift.
+    """
+    best_shift = 0
+    best_corr = -np.inf
+    for shift in range(N + 1):
+        rolled_volumes = np.roll(mri_volumes, shift)
+        # Interpolate the rolled mri_volumes onto the pv_time scale.
+        aligned_volumes = np.interp(pv_time, mri_time, rolled_volumes)
+        # Calculate the Pearson correlation coefficient between the aligned mri volumes and pv_volumes.
+        corr = np.corrcoef(aligned_volumes, pv_volumes)[0, 1]
+        # Update the best_shift if this shift gives a higher correlation.
+        if corr > best_corr:
+            best_corr = corr
+            best_shift = shift
+
+    return best_shift, best_corr
+
+
+def calibrate_pv_to_mri(mri_time, mri_volumes, pv_time, pv_volumes, weights=None):
+    pv_interp = np.interp(mri_time, pv_time, pv_volumes)
+    if weights is None:
+        weights = np.ones_like(mri_time)
+    mean_pv = np.average(pv_interp, weights=weights)
+    mean_mri = np.average(mri_volumes, weights=weights)
+    a = np.sum(weights * (pv_interp - mean_pv) * (mri_volumes - mean_mri)) / np.sum(
+        weights * (pv_interp - mean_pv) ** 2
+    )
+    b = mean_mri - a * mean_pv
+
+    calibrated_pv_volumes = a * pv_volumes + b
+    return a, b, calibrated_pv_volumes
+
+
+# %%
 def main(args=None) -> int:
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "--mri",
-        default='/home/shared/dynacomp/00_data/TPMData/AS/6weeks/130/OP129_1/coarse_mesh_full',
-        # default="/home/shared/dynacomp/00_data/TPMData/SHAM/6weeks/OP130_2/coarse_mesh_full",
-        type=str,
-        help="The directory to mri results, where the meshes are generated and stored in folders",
+        "-n",
+        "--number",
+        type=int,
+        help="The sample number(s), will process all the sample if not indicated",
     )
-
     parser.add_argument(
-        "--pv",
-        default="/home/shared/dynacomp/00_data/CineData/AS/6weeks/130/OP129_1/PV Data/PV Data",
-        # default="/home/shared/dynacomp/00_data/CineData/SHAM/6weeks/OP130_2/PV Data/PV Data",
+        "-f",
+        "--data_folder",
+        default="coarse_mesh",
         type=str,
-        help="The directory to pv results",
+        help="The data folder where the time series mesh are stored",
     )
-    
+    parser.add_argument(
+        "--settings_dir",
+        default="/home/shared/dynacomp/settings",
+        type=Path,
+        help="The settings directory where json files are stored.",
+    )
+    parser.add_argument(
+        "--settings_tpm_dir",
+        default="/home/shared/dynacomp/settings_tpm",
+        type=Path,
+        help="The settings directory where json files are stored.",
+    )
     args = parser.parse_args()
 
-    mri = Path(args.mri)
-    pv = Path(args.pv)
-    
-    h5_dir = mri.parent
-    cc_duration = load_mr_cardiac_cycle_duration(h5_dir)
-    time_tot_mean = np.mean(cc_duration)*1000
-    time_tot_std = np.std(cc_duration)*1000
-    if time_tot_std/time_tot_mean>0.05:
-        logger.warning(f"The cardiac cyclee duration between stacks have a STD/AVE > 5%, Ave: {time_tot_mean}ms and STD: {time_tot_std}ms")
+    sample_num = args.number
+    folder = args.data_folder
+    setting_dir = args.settings_dir
+    setting_tpm_dir = args.settings_tpm_dir
+    sample_name = get_sample_name(sample_num, setting_tpm_dir)
+    settings = load_settings(setting_dir, sample_name)
+    settings_tpm = load_settings(setting_tpm_dir, sample_name)
 
-    mri_time_series = [file for file in mri.iterdir() if file.is_dir()]
+    mri_folder = Path(settings_tpm["path"]) / folder
+    pv_folder = Path(settings["path"]) / "PV Data" / "PV Data"
+    pv_time, pv_pressures, pv_volumes = load_pressure_volumes(pv_folder, sample_name)
+
+    h5_dir = mri_folder.parent
+    cc_duration = load_mr_cardiac_cycle_duration(h5_dir)
+    mri_time_total = np.mean(cc_duration) * 1000
+    mri_time_total_std = np.std(cc_duration) * 1000
+    if mri_time_total_std / mri_time_total > 0.05:
+        logger.warning(
+            f"The cardiac cyclee duration between stacks have a STD/AVE > 5%, Ave: {mri_time_total}ms and STD: {mri_time_total_std}ms"
+        )
+
+    mri_time_series = [file for file in mri_folder.iterdir() if file.is_dir()]
     # Sorting numerically based on the number in 'time_X'
     mri_time_series = sorted(
         mri_time_series,
         key=lambda p: int(p.name.split("_")[-1]),  # Extract and convert the number
     )
 
-    volumes = []
-    tissues = []
-
-    tissues_tot = []
-    volumes_tot = []
+    mri_volumes = []
 
     for folder in mri_time_series:
         mesh_fname = folder / "geometry/Geometry.h5"
         geo = pulse.HeartGeometry.from_file(mesh_fname.as_posix())
-        volumes_tot.append(geo.cavity_volume())
-        tissues_tot.append(dolfin.assemble(dolfin.Constant(1) * dolfin.dx(domain=geo.mesh)))
-        volume_t = calculate_cavity_volume_sliced(geo)
-        volumes.append(volume_t)
-        tissue_t = calculate_tissue_volume_sliced(geo)
-        tissues.append(tissue_t)
-    
-    fig, ax = plt.subplots(figsize=(8, 6))
-    ax.scatter(np.linspace(0, time_tot_mean, len(volumes)), volumes, s=20, label="Data Points")
-    ax.plot(np.linspace(0, time_tot_mean, len(volumes)), volumes, color="b")
+        mri_volumes.append(geo.cavity_volume())
+    mri_time = np.linspace(0, mri_time_total, len(mri_volumes))
+    best_shift, _ = find_best_mri_shift(mri_time, mri_volumes, pv_time, pv_volumes, N=5)
+    mri_volumes = np.roll(mri_volumes, best_shift)
+    if best_shift > 0:
+        logger.warning(f"MRI data has been shifted by {best_shift} in time")
 
-    plt.xlabel("time [ms]")
-    plt.ylabel("Volume [micro Liter]")
-    plt.legend()
-    fname = mri / f"MRI_Volumes.png"
+    regirstered_pressures = np.interp(mri_time, pv_time, pv_pressures)
+    # Triming the mri_volumes based on EDV
+    ind = np.where(mri_volumes[-10:] > mri_volumes[0])[0]
+    if ind.shape[0] > 0:
+        ind = ind[-1]
+        mri_time = mri_time[:-ind]
+        mri_volumes = mri_volumes[:-ind]
+        regirstered_pressures = regirstered_pressures[:-ind]
+
+    N = len(mri_time)
+    weights = np.ones(len(mri_time))
+    weights[: int(0.25 * N)] = 3
+    a, b, calibrated_pv_volumes = calibrate_pv_to_mri(mri_time, mri_volumes, pv_time, pv_volumes, weights=weights)
+
+    fig, ax1 = plt.subplots(figsize=(8, 6))
+    # MRI volumes in black and calibrated PV volumes in tab:blue on the left y-axis.
+    ax1.scatter(mri_time, mri_volumes, s=15, label="MRI Volumes", color="black")
+    ax1.plot(mri_time, mri_volumes, color="black")
+    ax1.plot(pv_time, calibrated_pv_volumes, color="tab:blue", linewidth=1)
+    ax1.scatter(pv_time, calibrated_pv_volumes, label="Calibrated PV Volumes", s=15, color="tab:blue")
+    ax1.set_xlabel("Time [ms]")
+    ax1.set_ylabel("MRI / Calibrated PV Volume", color="black")
+    ax1.tick_params(axis="y", labelcolor="black")
+    # Original PV volumes in tab:orange on the right y-axis.
+    ax2 = ax1.twinx()
+    ax2.scatter(pv_time, pv_volumes, s=15, label="PV Volumes", color="tab:orange")
+    ax2.plot(pv_time, pv_volumes, color="tab:orange")
+    ax2.set_ylabel("PV Volume [RVU]", color="tab:orange")
+    ax2.tick_params(axis="y", labelcolor="tab:orange")
+    # Combine legends from both axes
+    lines_1, labels_1 = ax1.get_legend_handles_labels()
+    lines_2, labels_2 = ax2.get_legend_handles_labels()
+    ax1.legend(lines_1 + lines_2, labels_1 + labels_2, loc="lower right")
+    plt.tight_layout()
+    fname = mri_folder.parent / f"Volumes.png"
     plt.savefig(fname, dpi=300)
     plt.close()
 
     fig, ax = plt.subplots(figsize=(8, 6))
-    ax.scatter(np.linspace(0, time_tot_mean, len(tissues)), tissues, s=20, label="Data Points")
-    ax.plot(np.linspace(0, time_tot_mean, len(tissues)), tissues, color="b")
+    ax.plot(mri_volumes, regirstered_pressures, "k", linewidth=1)
+    ax.scatter(mri_volumes, regirstered_pressures, s=15, c="k")
+    ax.scatter(mri_volumes[0], regirstered_pressures[0], c="r", s=20)
+    plt.xlabel("Volume [micro Liter]")
+    plt.ylabel("LV Pressure [mmHg]")
 
-    plt.xlabel("time [ms]")
-    plt.ylabel("Tissue Volume [micro Liter]")
-    plt.legend()
-    fname = mri / f"MRI_Tissue_Volumes.png"
+    # Add a second y-axis for LV Pressure in kPa
+    ax2 = ax.twinx()
+    mmHg_to_kPa = 0.133322
+    ymin, ymax = ax.get_ylim()
+    ax2.set_ylim(ymin * mmHg_to_kPa, ymax * mmHg_to_kPa)
+    ax2.set_ylabel("LV Pressure [kPa]")
+
+    fname = mri_folder.parent / f"Registered_PV.png"
     plt.savefig(fname, dpi=300)
     plt.close()
 
-    fig, ax = plt.subplots(figsize=(8, 6))
-    ax.scatter(np.linspace(0, time_tot_mean, len(tissues_tot)), tissues_tot, s=20, label="Data Points")
-    ax.plot(np.linspace(0, time_tot_mean, len(tissues_tot)), tissues_tot, color="b")
 
-    plt.xlabel("time [ms]")
-    plt.ylabel("Tissue Volume [micro Liter]")
-    plt.legend()
-    fname = mri / f"MRI_Tissue_Volumes_total.png"
-    plt.savefig(fname, dpi=300)
-    plt.close()
-
-    fig, ax = plt.subplots(figsize=(8, 6))
-    ax.scatter(np.linspace(0, time_tot_mean, len(volumes_tot)), volumes_tot, s=20, label="Data Points")
-    ax.plot(np.linspace(0, time_tot_mean, len(volumes_tot)), volumes_tot, color="b")
-
-    plt.xlabel("time [ms]")
-    plt.ylabel("Volume [micro Liter]")
-    plt.legend()
-    fname = mri / f"MRI_Volumes_total.png"
-    plt.savefig(fname, dpi=300)
-    plt.close()
-
+# TODO dumping the calibrationn coeficients to the settings jsom files
 
 if __name__ == "__main__":
     main()
