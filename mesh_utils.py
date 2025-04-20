@@ -744,6 +744,12 @@ def read_data_h5_CINE(file_dir):
         I = metadata["image_matrix_size"]
     return coords_endo,coords_epi,slice_thickness,resolution, I 
 
+def prepare_h5_files(scan_type, h5_file, output_dir, settings):
+    if scan_type == "TPM":
+        h5_file = prepare_mask(h5_file, output_dir, settings["TPM"])
+    if scan_type == "CINE":
+        h5_file = prepare_coords(h5_file, settings["CINE"])
+    return h5_file
 
 def prepare_mask(h5_file, outdir, settings):
     mask_settings = settings["mask"]

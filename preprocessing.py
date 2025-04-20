@@ -40,7 +40,7 @@ def main(args=None) -> int:
     settings = load_settings(setting_dir, sample_num)
     sample_name = settings["id"]
     logger.info(f"Loaded settings from {sample_name}")
-    
+
     sample_dir = data_dir / sample_name / scan_type
     # creating the output folder
     output_dir = Path(results_dir) / sample_name / scan_type / "00_Meshes" / f"time_{time_mesh}"
@@ -52,13 +52,9 @@ def main(args=None) -> int:
         overwrite=h5_overwrite,
         is_inverted=settings["CINE"]["is_inverted"],
     )
+    h5_file = mesh_utils.prepare_h5_files(scan_type, h5_file, output_dir, settings)
 
-    if scan_type == "TPM":
-        h5_file = mesh_utils.prepare_mask(h5_file, output_dir, settings["TPM"])
-    if scan_type == "CINE":
-        h5_file = mesh_utils.prepare_coords(h5_file, settings["CINE"])
-
-    mesh_settings = settings["mesh"][mesh_quality]
+    mesh_settings = settings[scan_type]["mesh"][mesh_quality]
     mesh_fname = meshing.create_mesh(
         data_dir,
         scan_type,
