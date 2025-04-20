@@ -32,7 +32,6 @@ def main(args=None) -> int:
     setting_dir = args.settings_dir
     data_dir = args.data_dir
     results_dir = args.results_dir
-    output_folder = args.output_folder
     time_mesh = args.time_mesh
     scan_type = args.scan_type
     mesh_quality = args.mesh_quality
@@ -44,7 +43,7 @@ def main(args=None) -> int:
     
     sample_dir = data_dir / sample_name / scan_type
     # creating the output folder
-    output_dir = Path(results_dir) / sample_name / scan_type / output_folder / "00_Meshes" / f"time_{time_mesh}"
+    output_dir = Path(results_dir) / sample_name / scan_type / "00_Meshes" / f"time_{time_mesh}"
     output_dir = arg_parser.prepare_outdir(output_dir)
     # Creating the mesh settings
     h5_file = mesh_utils.compile_h5(

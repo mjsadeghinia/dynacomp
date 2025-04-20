@@ -59,19 +59,11 @@ def parse_arguments_pre(args=None):
     parser.add_argument(
         "-r",
         "--results_dir",
-        default="/home/shared/dynacomp/00_results",
+        default="/home/shared/dynacomp/01_results_coarse_mesh",
         type=str,
         help="The results folder where the processed data should be saved.",
     )
-        
-    parser.add_argument(
-        "-o",
-        "--output_folder",
-        default="coarse_mesh",
-        type=str,
-        help="The results folder where the processed data should be saved.",
-    )
-    
+
     parser.add_argument(
         "-m",
         "--mesh_quality",
