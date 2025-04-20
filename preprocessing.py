@@ -50,7 +50,7 @@ def main(args=None) -> int:
         sample_dir,
         scan_type,
         overwrite=h5_overwrite,
-        is_inverted=settings["CINE"]["is_inverted"],
+        is_inverted=settings[scan_type]["is_inverted"],
     )
     h5_file = mesh_utils.prepare_h5_files(scan_type, h5_file, output_dir, settings)
 
