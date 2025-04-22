@@ -215,27 +215,29 @@ def parse_arguments(args=None):
         type=Path,
         help="The settings directory where json files are stored.",
     )
-
+    
     parser.add_argument(
-        "-o",
-        "--output_folder",
-        default="PV Data",
-        type=str,
-        help="The result folder name that would be created in the directory of the sample.",
+        "-d",
+       "--data_dir",
+        default="/home/shared/00_data",
+        type=Path,
+        help="The settings directory where data files are stored.",
     )
-
+    
     parser.add_argument(
-        "--output_edpvr",
-        default="EDPVR_all_data",
+        "-r",
+        "--results_dir",
+        default="/home/shared/01_results_coarse_mesh",
         type=str,
-        help="The result folder for all EDPVR data that would be created in the root directory.",
+        help="The results folder where the processed data should be saved.",
     )
 
     return parser.parse_args(args)
 
 
-def load_settings(setting_dir, sample_name):
-    settings_fname = setting_dir / f"{sample_name}.json"
+def load_settings(settings_dir, sample_num):
+    sorted_files = sorted([file for file in settings_dir.iterdir() if file.is_file() and file.suffix == ".json"])
+    settings_fname = sorted_files[sample_num - 1]
     with open(settings_fname, "r") as file:
         settings = json.load(file)
     return settings
@@ -255,35 +257,31 @@ def main(args=None) -> int:
         args = argparse.Namespace(**default_args)
 
     sample_nums = args.number
-    setting_dir = args.settings_dir
-    output_folder = args.output_folder
-    output_edpvr = Path('EDPVR_all_data')
-    output_edpvr.mkdir(exist_ok=True)
-
+    settings_dir = args.settings_dir
+    data_dir = args.data_dir
+    results_dir = args.results_dir
     # Get the list of .json files in the directory and sort them by name
     sorted_files = sorted(
         [
             file
-            for file in setting_dir.iterdir()
+            for file in settings_dir.iterdir()
             if file.is_file() and file.suffix == ".json"
         ]
     )
-    
+
     if sample_nums is None:
-        sample_nums = range(1,57)
+        sample_nums = range(1,len(sorted_files)+1)
         
     for sample_num in sample_nums:
-        sample_name = sorted_files[sample_num - 1].with_suffix("").name
+        settings = load_settings(settings_dir, sample_num)
+        sample_name = settings["id"]
+        pv_data_dir = data_dir / sample_name / "PV Data"
+        output_dir = Path(results_dir) / sample_name / "PV Data"
+        output_dir.mkdir(exist_ok=True, parents=True)
 
         logger.info(f"Sample {sample_name} is being processed...")
 
-        settings = load_settings(setting_dir, sample_name)
         recording_num = settings["PV"]["recording_num"]
-        data_dir = Path(settings["path"])
-        pv_data_dir = data_dir / "PV Data"
-        output_dir = pv_data_dir / output_folder
-        output_dir.mkdir(exist_ok=True)
-
         data = load_pv_data(pv_data_dir, recording_num=recording_num)
         vols, pres = data["volumes"], data["pressures"]
 
@@ -413,8 +411,6 @@ def main(args=None) -> int:
             plt.grid()
             fname = output_dir / f"{sample_name}_EDPVR_max_Pressure.png"
             plt.savefig(fname, dpi=300)
-            fname = output_edpvr / f"{sample_name}_EDPVR_max_Pressure.png"
-            plt.savefig(fname, dpi=300)
             plt.close()
             
             # Processing data to cacluate EDPVR
@@ -454,8 +450,6 @@ def main(args=None) -> int:
             plt.ylabel("LV Pressure [mmHg]")
             ax.axhline(y=0, color='gray', linestyle='--')
             fname = output_dir / f"{sample_name}_EDPVR.png"
-            plt.savefig(fname, dpi=300)
-            fname = output_edpvr / f"{sample_name}_EDPVR.png"
             plt.savefig(fname, dpi=300)
             plt.close()
 
