@@ -14,8 +14,9 @@ logger = get_logger()
 
 
 # %%
-def load_settings(setting_dir, sample_name):
-    settings_fname = setting_dir / f"{sample_name}.json"
+def load_settings(settings_dir, sample_num):
+    sorted_files = sorted([file for file in settings_dir.iterdir() if file.is_file() and file.suffix == ".json"])
+    settings_fname = sorted_files[sample_num - 1]
     with open(settings_fname, "r") as file:
         settings = json.load(file)
     return settings
@@ -159,130 +160,149 @@ def calibrate_pv_to_mri(mri_time, mri_volumes, pv_time, pv_volumes, weights=None
 
 # %%
 def main(args=None) -> int:
+    """
+    Parse the command-line arguments.
+    """
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
         "-n",
         "--number",
+        nargs="+",
         type=int,
         help="The sample number(s), will process all the sample if not indicated",
     )
-    parser.add_argument(
-        "-f",
-        "--data_folder",
-        default="coarse_mesh",
-        type=str,
-        help="The data folder where the time series mesh are stored",
-    )
+
     parser.add_argument(
         "--settings_dir",
         default="/home/shared/dynacomp/settings",
         type=Path,
         help="The settings directory where json files are stored.",
     )
+
     parser.add_argument(
-        "--settings_tpm_dir",
-        default="/home/shared/dynacomp/settings_tpm",
+        "-d",
+        "--data_dir",
+        default="/home/shared/00_data",
         type=Path,
-        help="The settings directory where json files are stored.",
+        help="The settings directory where data files are stored.",
     )
-    args = parser.parse_args()
 
-    sample_num = args.number
-    folder = args.data_folder
-    setting_dir = args.settings_dir
-    setting_tpm_dir = args.settings_tpm_dir
-    sample_name = get_sample_name(sample_num, setting_tpm_dir)
-    settings = load_settings(setting_dir, sample_name)
-    settings_tpm = load_settings(setting_tpm_dir, sample_name)
+    parser.add_argument(
+        "-r",
+        "--results_dir",
+        default="/home/shared/01_results_coarse_mesh",
+        type=Path,
+        help="The results folder where the processed data should be saved.",
+    )
+    args = parser.parse_args(args)
 
-    mri_folder = Path(settings_tpm["path"]) / folder
-    pv_folder = Path(settings["path"]) / "PV Data" / "PV Data"
-    pv_time, pv_pressures, pv_volumes = load_pressure_volumes(pv_folder, sample_name)
+    sample_nums = args.number
+    settings_dir = args.settings_dir
+    data_dir = args.data_dir
+    results_dir = args.results_dir
+    # Get the list of .json files in the directory and sort them by name
+    sorted_files = sorted([file for file in settings_dir.iterdir() if file.is_file() and file.suffix == ".json"])
 
-    h5_dir = mri_folder.parent
-    cc_duration = load_mr_cardiac_cycle_duration(h5_dir)
-    mri_time_total = np.mean(cc_duration) * 1000
-    mri_time_total_std = np.std(cc_duration) * 1000
-    if mri_time_total_std / mri_time_total > 0.05:
-        logger.warning(
-            f"The cardiac cyclee duration between stacks have a STD/AVE > 5%, Ave: {mri_time_total}ms and STD: {mri_time_total_std}ms"
+    sample_nums = range(1, len(sorted_files) + 1)
+
+    for sample_num in sample_nums:
+        settings = load_settings(settings_dir, sample_num)
+        sample_name = settings["id"]
+        if "TPM" not in settings:
+            logger.warning(f"TPM not found in settings for {sample_name}")
+            continue
+        pv_data_dir = results_dir / sample_name / "PV Data"
+        tpm_data_dir = results_dir / sample_name / "TPM"
+        meshes_data_dir = tpm_data_dir / "00_Meshes"
+        h5_dir = data_dir / sample_name / "TPM"
+        output_dir = results_dir / sample_name / "TPM" / "PV Calibration"
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        pv_time, pv_pressures, pv_volumes = load_pressure_volumes(pv_data_dir, sample_name)
+
+        cc_duration = load_mr_cardiac_cycle_duration(h5_dir)
+        mri_time_total = np.mean(cc_duration) * 1000
+        mri_time_total_std = np.std(cc_duration) * 1000
+        if mri_time_total_std / mri_time_total > 0.05:
+            logger.warning(
+                f"The cardiac cyclee duration between stacks have a STD/AVE > 5%, Ave: {mri_time_total}ms and STD: {mri_time_total_std}ms"
+            )
+
+        mri_time_series = [file for file in meshes_data_dir.iterdir() if file.is_dir()]
+        # Sorting numerically based on the number in 'time_X'
+        mri_time_series = sorted(
+            mri_time_series,
+            key=lambda p: int(p.name.split("_")[-1]),  # Extract and convert the number
         )
 
-    mri_time_series = [file for file in mri_folder.iterdir() if file.is_dir()]
-    # Sorting numerically based on the number in 'time_X'
-    mri_time_series = sorted(
-        mri_time_series,
-        key=lambda p: int(p.name.split("_")[-1]),  # Extract and convert the number
-    )
+        mri_volumes = []
 
-    mri_volumes = []
+        for folder in mri_time_series:
+            mesh_fname = folder / "geometry/Geometry.h5"
+            geo = pulse.HeartGeometry.from_file(mesh_fname.as_posix())
+            mri_volumes.append(geo.cavity_volume())
+        mri_time = np.linspace(0, mri_time_total, len(mri_volumes))
+        best_shift, _ = find_best_mri_shift(mri_time, mri_volumes, pv_time, pv_volumes, N=5)
+        mri_volumes = np.roll(mri_volumes, best_shift)
+        if best_shift > 0:
+            logger.warning(f"MRI data has been shifted by {best_shift} in time")
 
-    for folder in mri_time_series:
-        mesh_fname = folder / "geometry/Geometry.h5"
-        geo = pulse.HeartGeometry.from_file(mesh_fname.as_posix())
-        mri_volumes.append(geo.cavity_volume())
-    mri_time = np.linspace(0, mri_time_total, len(mri_volumes))
-    best_shift, _ = find_best_mri_shift(mri_time, mri_volumes, pv_time, pv_volumes, N=5)
-    mri_volumes = np.roll(mri_volumes, best_shift)
-    if best_shift > 0:
-        logger.warning(f"MRI data has been shifted by {best_shift} in time")
+        regirstered_pressures = np.interp(mri_time, pv_time, pv_pressures)
+        # Triming the mri_volumes based on EDV
+        ind = np.where(mri_volumes[-10:] > mri_volumes[0])[0]
+        if ind.shape[0] > 0:
+            ind = ind[-1]
+            mri_time = mri_time[:-ind]
+            mri_volumes = mri_volumes[:-ind]
+            regirstered_pressures = regirstered_pressures[:-ind]
 
-    regirstered_pressures = np.interp(mri_time, pv_time, pv_pressures)
-    # Triming the mri_volumes based on EDV
-    ind = np.where(mri_volumes[-10:] > mri_volumes[0])[0]
-    if ind.shape[0] > 0:
-        ind = ind[-1]
-        mri_time = mri_time[:-ind]
-        mri_volumes = mri_volumes[:-ind]
-        regirstered_pressures = regirstered_pressures[:-ind]
+        N = len(mri_time)
+        weights = np.ones(len(mri_time))
+        weights[: int(0.25 * N)] = 3
+        a, b, calibrated_pv_volumes = calibrate_pv_to_mri(mri_time, mri_volumes, pv_time, pv_volumes, weights=weights)
 
-    N = len(mri_time)
-    weights = np.ones(len(mri_time))
-    weights[: int(0.25 * N)] = 3
-    a, b, calibrated_pv_volumes = calibrate_pv_to_mri(mri_time, mri_volumes, pv_time, pv_volumes, weights=weights)
+        fig, ax1 = plt.subplots(figsize=(8, 6))
+        # MRI volumes in black and calibrated PV volumes in tab:blue on the left y-axis.
+        ax1.scatter(mri_time, mri_volumes, s=15, label="MRI Volumes", color="black")
+        ax1.plot(mri_time, mri_volumes, color="black")
+        ax1.plot(pv_time, calibrated_pv_volumes, color="tab:blue", linewidth=1)
+        ax1.scatter(pv_time, calibrated_pv_volumes, label="Calibrated PV Volumes", s=15, color="tab:blue")
+        ax1.set_xlabel("Time [ms]")
+        ax1.set_ylabel("MRI / Calibrated PV Volume", color="black")
+        ax1.tick_params(axis="y", labelcolor="black")
+        # Original PV volumes in tab:orange on the right y-axis.
+        ax2 = ax1.twinx()
+        ax2.scatter(pv_time, pv_volumes, s=15, label="PV Volumes", color="tab:orange")
+        ax2.plot(pv_time, pv_volumes, color="tab:orange")
+        ax2.set_ylabel("PV Volume [RVU]", color="tab:orange")
+        ax2.tick_params(axis="y", labelcolor="tab:orange")
+        # Combine legends from both axes
+        lines_1, labels_1 = ax1.get_legend_handles_labels()
+        lines_2, labels_2 = ax2.get_legend_handles_labels()
+        ax1.legend(lines_1 + lines_2, labels_1 + labels_2, loc="lower right")
+        plt.tight_layout()
+        fname = output_dir / f"Volumes.png"
+        plt.savefig(fname, dpi=300)
+        plt.close()
 
-    fig, ax1 = plt.subplots(figsize=(8, 6))
-    # MRI volumes in black and calibrated PV volumes in tab:blue on the left y-axis.
-    ax1.scatter(mri_time, mri_volumes, s=15, label="MRI Volumes", color="black")
-    ax1.plot(mri_time, mri_volumes, color="black")
-    ax1.plot(pv_time, calibrated_pv_volumes, color="tab:blue", linewidth=1)
-    ax1.scatter(pv_time, calibrated_pv_volumes, label="Calibrated PV Volumes", s=15, color="tab:blue")
-    ax1.set_xlabel("Time [ms]")
-    ax1.set_ylabel("MRI / Calibrated PV Volume", color="black")
-    ax1.tick_params(axis="y", labelcolor="black")
-    # Original PV volumes in tab:orange on the right y-axis.
-    ax2 = ax1.twinx()
-    ax2.scatter(pv_time, pv_volumes, s=15, label="PV Volumes", color="tab:orange")
-    ax2.plot(pv_time, pv_volumes, color="tab:orange")
-    ax2.set_ylabel("PV Volume [RVU]", color="tab:orange")
-    ax2.tick_params(axis="y", labelcolor="tab:orange")
-    # Combine legends from both axes
-    lines_1, labels_1 = ax1.get_legend_handles_labels()
-    lines_2, labels_2 = ax2.get_legend_handles_labels()
-    ax1.legend(lines_1 + lines_2, labels_1 + labels_2, loc="lower right")
-    plt.tight_layout()
-    fname = mri_folder.parent / f"Volumes.png"
-    plt.savefig(fname, dpi=300)
-    plt.close()
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.plot(mri_volumes, regirstered_pressures, "k", linewidth=1)
+        ax.scatter(mri_volumes, regirstered_pressures, s=15, c="k")
+        ax.scatter(mri_volumes[0], regirstered_pressures[0], c="r", s=20)
+        plt.xlabel("Volume [micro Liter]")
+        plt.ylabel("LV Pressure [mmHg]")
 
-    fig, ax = plt.subplots(figsize=(8, 6))
-    ax.plot(mri_volumes, regirstered_pressures, "k", linewidth=1)
-    ax.scatter(mri_volumes, regirstered_pressures, s=15, c="k")
-    ax.scatter(mri_volumes[0], regirstered_pressures[0], c="r", s=20)
-    plt.xlabel("Volume [micro Liter]")
-    plt.ylabel("LV Pressure [mmHg]")
+        # Add a second y-axis for LV Pressure in kPa
+        ax2 = ax.twinx()
+        mmHg_to_kPa = 0.133322
+        ymin, ymax = ax.get_ylim()
+        ax2.set_ylim(ymin * mmHg_to_kPa, ymax * mmHg_to_kPa)
+        ax2.set_ylabel("LV Pressure [kPa]")
 
-    # Add a second y-axis for LV Pressure in kPa
-    ax2 = ax.twinx()
-    mmHg_to_kPa = 0.133322
-    ymin, ymax = ax.get_ylim()
-    ax2.set_ylim(ymin * mmHg_to_kPa, ymax * mmHg_to_kPa)
-    ax2.set_ylabel("LV Pressure [kPa]")
-
-    fname = mri_folder.parent / f"Registered_PV.png"
-    plt.savefig(fname, dpi=300)
-    plt.close()
+        fname = output_dir / f"Registered_PV.png"
+        plt.savefig(fname, dpi=300)
+        plt.close()
 
 
 # TODO dumping the calibrationn coeficients to the settings jsom files
