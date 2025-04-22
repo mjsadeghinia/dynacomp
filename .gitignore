@@ -1,6 +1,4 @@
 # folder to ignore
-00_data/
-01_results/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 .DS_Store

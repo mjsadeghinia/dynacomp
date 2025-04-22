@@ -43,7 +43,7 @@ def parse_arguments_pre(args=None):
     parser.add_argument(
         "-d",
        "--data_dir",
-        default="/home/shared/dynacomp/00_data",
+        default="/home/shared/00_data",
         type=Path,
         help="The settings directory where data files are stored.",
     )
@@ -59,7 +59,7 @@ def parse_arguments_pre(args=None):
     parser.add_argument(
         "-r",
         "--results_dir",
-        default="/home/shared/dynacomp/01_results_coarse_mesh",
+        default="/home/shared/01_results_coarse_mesh",
         type=str,
         help="The results folder where the processed data should be saved.",
     )
