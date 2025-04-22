@@ -40,11 +40,18 @@ def main(args=None) -> int:
     settings = load_settings(setting_dir, sample_num)
     sample_name = settings["id"]
     logger.info(f"Loaded settings from {sample_name}")
+    mesh_settings = settings[scan_type]["mesh"][mesh_quality]
+
 
     sample_dir = data_dir / sample_name / scan_type
     # creating the output folder
-    output_dir = Path(results_dir) / sample_name / scan_type / "00_Meshes" / f"time_{time_mesh}"
-    output_dir = arg_parser.prepare_outdir(output_dir)
+    if time_mesh is not None:
+        output_dir = Path(results_dir) / sample_name / scan_type / "00_Meshes" / f"time_{time_mesh}"
+        output_dir = arg_parser.prepare_outdir(output_dir)
+        mesh_settings["t_mesh"] = time_mesh
+    else:
+        output_dir = Path(results_dir) / sample_name / scan_type / "00_Meshes"
+        output_dir = arg_parser.prepare_outdir(output_dir)
     # Creating the mesh settings
     h5_file = mesh_utils.compile_h5(
         sample_dir,
@@ -54,7 +61,6 @@ def main(args=None) -> int:
     )
     h5_file = mesh_utils.prepare_h5_files(scan_type, h5_file, output_dir, settings)
 
-    mesh_settings = settings[scan_type]["mesh"][mesh_quality]
     mesh_fname = meshing.create_mesh(
         data_dir,
         scan_type,
