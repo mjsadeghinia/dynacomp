@@ -228,7 +228,7 @@ def parse_arguments(args=None):
         "-r",
         "--results_dir",
         default="/home/shared/01_results_coarse_mesh",
-        type=str,
+        type=Path,
         help="The results folder where the processed data should be saved.",
     )
 
@@ -276,7 +276,7 @@ def main(args=None) -> int:
         settings = load_settings(settings_dir, sample_num)
         sample_name = settings["id"]
         pv_data_dir = data_dir / sample_name / "PV Data"
-        output_dir = Path(results_dir) / sample_name / "PV Data"
+        output_dir = results_dir / sample_name / "PV Data"
         output_dir.mkdir(exist_ok=True, parents=True)
 
         logger.info(f"Sample {sample_name} is being processed...")
