@@ -238,7 +238,7 @@ def main(args=None) -> int:
         tpm_data_dir = results_dir / sample_name / "TPM"
         meshes_data_dir = tpm_data_dir / "00_Meshes"
         h5_dir = data_dir / sample_name / "TPM"
-        output_dir = results_dir / sample_name / "TPM" / "PVCalibration"
+        output_dir = results_dir / sample_name / "TPM" / "01_PVCalibration"
         output_dir.mkdir(parents=True, exist_ok=True)
 
         pv_time, pv_pressures, pv_volumes = load_pressure_volumes(pv_data_dir, sample_name)
@@ -360,7 +360,7 @@ def main(args=None) -> int:
         np.loadtxt(fname, delimiter=",")
 
         # updating the geometries by adjusting based on best shift
-        geo_outdir = output_dir / "geometry"
+        geo_outdir = output_dir / "Geometries"
         geo_outdir.mkdir(parents=True, exist_ok=True)
         indices = [np.argmin(np.abs(mri_volumes_original - v)) for v in mri_volumes]
         for i in indices:
