@@ -457,5 +457,16 @@ def main(args=None) -> int:
             np.savetxt(fname, np.vstack((edpvr_p, edpvr_v)).T, delimiter=",")
             logger.info("------------------")
 
+            # write the EDPVR_pv_data data to a file
+            fname = output_dir / f"{sample_name}_EDPVR_pressure_data.csv"
+            pres_occlusion_divided_all_lists = [arr.tolist() for arr in pres_occlusion_divided_all]
+            with open(fname, 'w') as f:
+                json.dump(pres_occlusion_divided_all_lists, f)
+
+            fname = output_dir / f"{sample_name}_EDPVR_volume_data.csv"
+            vols_occlusion_divided_all_lists = [arr.tolist() for arr in vols_occlusion_divided_all]
+            with open(fname, 'w') as f:
+                json.dump(vols_occlusion_divided_all_lists, f)
+
 if __name__ == "__main__":
     main()
