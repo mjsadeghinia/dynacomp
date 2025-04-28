@@ -267,6 +267,26 @@ def main(args=None) -> int:
         if best_shift > 0:
             logger.warning(f"MRI data has been shifted by {best_shift} in time")
 
+        fig, ax1 = plt.subplots(figsize=(8, 6))
+        ax1.plot(mri_time, mri_volumes, color="black", linewidth=1)
+        ax1.scatter(mri_time, mri_volumes, color="black", s=15, label="Shifted MRI Volumes")
+        ax1.plot(mri_time, np.roll(mri_volumes, -best_shift), color="gray", linewidth=1)
+        ax1.scatter(mri_time, np.roll(mri_volumes, -best_shift), color="gray", s=15, label="Original MRI Volumes")
+        # Original PV volumes in tab:orange on the right y-axis.
+        ax2 = ax1.twinx()
+        ax2.scatter(pv_time, pv_volumes, s=15, label="PV Volumes", color="tab:orange")
+        ax2.plot(pv_time, pv_volumes, color="tab:orange")
+        ax2.set_ylabel("PV Volume [RVU]", color="tab:orange")
+        ax2.tick_params(axis="y", labelcolor="tab:orange")
+        # Combine legends from both axes
+        lines_1, labels_1 = ax1.get_legend_handles_labels()
+        lines_2, labels_2 = ax2.get_legend_handles_labels()
+        ax1.legend(lines_1 + lines_2, labels_1 + labels_2, loc="lower right")
+        plt.tight_layout()
+        plt.title(f"MRI data has been shifted by {best_shift} in time")
+        plt.savefig(output_dir / "shifted_mri.png", dpi=300)
+        plt.close()
+
         regirstered_pressures = np.interp(mri_time, pv_time, pv_pressures)
         # Triming the mri_volumes based on EDV
         ind = np.where(mri_volumes[-10:] > mri_volumes[0])[0]
