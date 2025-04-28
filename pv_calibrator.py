@@ -158,6 +158,7 @@ def calibrate_pv_to_mri(mri_time, mri_volumes, pv_time, pv_volumes, weights=None
     calibrated_pv_volumes = a * pv_volumes + b
     return a, b, calibrated_pv_volumes
 
+
 def update_settings(settings, a, b):
     """
     Update the settings dictionary with the calibration coefficients.
@@ -168,6 +169,7 @@ def update_settings(settings, a, b):
     }
     return settings
 
+
 def save_settings(settings, settings_dir, sample_name):
     """
     Save the updated settings dictionary to a JSON file.
@@ -176,7 +178,7 @@ def save_settings(settings, settings_dir, sample_name):
     with open(settings_fname, "w") as file:
         json.dump(settings, file, indent=4)
     return settings_fname
-    
+
 
 # %%
 def main(args=None) -> int:
@@ -301,7 +303,7 @@ def main(args=None) -> int:
         N = len(mri_time)
         weights = np.ones(len(mri_time))
         weights[: int(0.25 * N)] = 5
-        weights[-int(0.25 * N):] = 5
+        weights[-int(0.25 * N) :] = 5
         a, b, calibrated_pv_volumes = calibrate_pv_to_mri(mri_time, mri_volumes, pv_time, pv_volumes, weights=weights)
 
         fig, ax1 = plt.subplots(figsize=(8, 6))
@@ -348,16 +350,14 @@ def main(args=None) -> int:
 
         fname = output_dir / "calibrated_pv_data.csv"
         np.savetxt(fname, np.vstack((regirstered_pressures, mri_volumes)).T, delimiter=",")
-        
+
         settings = update_settings(settings, a, b)
         settings_fname = save_settings(settings, settings_dir, sample_name)
         logger.info(f"Updated settings saved to {settings_fname}")
 
-
         # Calibrate EDPVR data
         fname = pv_data_dir / f"{sample_name}_EDPVR.csv"
         np.loadtxt(fname, delimiter=",")
-
 
         # updating the geometries by adjusting based on best shift
         geo_outdir = output_dir / "geometry"
@@ -367,7 +367,7 @@ def main(args=None) -> int:
             geo_fname = meshes_data_dir / f"time_{i}/Geometry/geometry.h5"
             geo_outname = geo_outdir / f"geometry_{i}.h5"
             shutil.copy(geo_fname, geo_outname)
-        
-        
+
+
 if __name__ == "__main__":
     main()
