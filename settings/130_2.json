@@ -75,17 +75,50 @@
             }
         }
     },
-    "TPM":{
+    "TPM": {
         "is_inverted": false,
         "remove_slice": false,
         "shift_slice_mask": true,
         "shift_slice_mask_num": 2,
         "close_apex": false,
         "mask": {
-            "default": [2,2,1,1,1,1,1,1,1,1],
-            "26": [3,3,1,1,1,1,1,1,1,1],
-            "27": [3,3,1,1,1,1,1,1,1,1]
-            },
+            "default": [
+                2,
+                2,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1
+            ],
+            "26": [
+                3,
+                3,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1
+            ],
+            "27": [
+                3,
+                3,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1
+            ]
+        },
         "mesh": {
             "coarse": {
                 "seed_num_base_epi": 100,
@@ -180,6 +213,10 @@
         "Occlusion_data_index_i": null,
         "Occlusion_data_index_f": null,
         "Occlusion_recording_num": null,
-        "Occlusion_data_skip_index": 1
+        "Occlusion_data_skip_index": 1,
+        "calibration": {
+            "a": 837789.3873487705,
+            "b": -1719.9979465500278
+        }
     }
 }

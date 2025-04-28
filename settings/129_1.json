@@ -83,8 +83,19 @@
         "shift_slice_mask": false,
         "close_apex": true,
         "mask": {
-            "default": [2,2,1,1,1,1,1,1,1,1]
-            },
+            "default": [
+                2,
+                2,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1
+            ]
+        },
         "mesh": {
             "coarse": {
                 "seed_num_base_epi": 100,
@@ -179,6 +190,10 @@
         "Occlusion_data_index_i": null,
         "Occlusion_data_index_f": null,
         "Occlusion_recording_num": 6,
-        "Occlusion_data_skip_index": 1
+        "Occlusion_data_skip_index": 1,
+        "calibration": {
+            "a": 529891.9983785878,
+            "b": -335.71961800383235
+        }
     }
 }
