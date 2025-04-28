@@ -8,7 +8,7 @@ import h5py
 import json
 import shutil
 
-
+import arg_parser
 from structlog import get_logger
 
 logger = get_logger()
@@ -239,7 +239,7 @@ def main(args=None) -> int:
         meshes_data_dir = tpm_data_dir / "00_Meshes"
         h5_dir = data_dir / sample_name / "TPM"
         output_dir = results_dir / sample_name / "TPM" / "01_PVCalibration"
-        output_dir.mkdir(parents=True, exist_ok=True)
+        output_dir = arg_parser.prepare_outdir(output_dir)
 
         pv_time, pv_pressures, pv_volumes = load_pressure_volumes(pv_data_dir, sample_name)
 
@@ -326,7 +326,7 @@ def main(args=None) -> int:
         lines_2, labels_2 = ax2.get_legend_handles_labels()
         ax1.legend(lines_1 + lines_2, labels_1 + labels_2, loc="lower right")
         plt.tight_layout()
-        fname = output_dir / f"Volumes.png"
+        fname = output_dir / f"calibrated_volumes.png"
         plt.savefig(fname, dpi=300)
         plt.close()
 
@@ -344,11 +344,11 @@ def main(args=None) -> int:
         ax2.set_ylim(ymin * mmHg_to_kPa, ymax * mmHg_to_kPa)
         ax2.set_ylabel("LV Pressure [kPa]")
 
-        fname = output_dir / f"Registered_PV.png"
+        fname = output_dir / f"registered_pv.png"
         plt.savefig(fname, dpi=300)
         plt.close()
 
-        fname = output_dir / "calibrated_pv_data.csv"
+        fname = output_dir / "registered_pv_data.csv"
         np.savetxt(fname, np.vstack((regirstered_pressures, mri_volumes)).T, delimiter=",")
 
         settings = update_settings(settings, a, b)
