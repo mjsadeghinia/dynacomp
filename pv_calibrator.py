@@ -6,6 +6,7 @@ import pulse
 import dolfin
 import h5py
 import json
+import shutil
 
 
 from structlog import get_logger
@@ -255,14 +256,15 @@ def main(args=None) -> int:
             key=lambda p: int(p.name.split("_")[-1]),  # Extract and convert the number
         )
 
-        mri_volumes = []
+        mri_volumes_original = []
 
         for folder in mri_time_series:
             mesh_fname = folder / "geometry/Geometry.h5"
             geo = pulse.HeartGeometry.from_file(mesh_fname.as_posix())
-            mri_volumes.append(geo.cavity_volume())
-        mri_time = np.linspace(0, mri_time_total, len(mri_volumes))
-        best_shift, _ = find_best_mri_shift(mri_time, mri_volumes, pv_time, pv_volumes, N=5)
+            mri_volumes_original.append(geo.cavity_volume())
+        mri_time = np.linspace(0, mri_time_total, len(mri_volumes_original))
+        best_shift, _ = find_best_mri_shift(mri_time, mri_volumes_original, pv_time, pv_volumes, N=5)
+        mri_volumes = mri_volumes_original.copy()
         mri_volumes = np.roll(mri_volumes, best_shift)
         if best_shift > 0:
             logger.warning(f"MRI data has been shifted by {best_shift} in time")
@@ -270,8 +272,8 @@ def main(args=None) -> int:
         fig, ax1 = plt.subplots(figsize=(8, 6))
         ax1.plot(mri_time, mri_volumes, color="black", linewidth=1)
         ax1.scatter(mri_time, mri_volumes, color="black", s=15, label="Shifted MRI Volumes")
-        ax1.plot(mri_time, np.roll(mri_volumes, -best_shift), color="gray", linewidth=1)
-        ax1.scatter(mri_time, np.roll(mri_volumes, -best_shift), color="gray", s=15, label="Original MRI Volumes")
+        ax1.plot(mri_time, mri_volumes_original, color="gray", linewidth=1)
+        ax1.scatter(mri_time, mri_volumes_original, color="gray", s=15, label="Original MRI Volumes")
         # Original PV volumes in tab:orange on the right y-axis.
         ax2 = ax1.twinx()
         ax2.scatter(pv_time, pv_volumes, s=15, label="PV Volumes", color="tab:orange")
@@ -355,9 +357,17 @@ def main(args=None) -> int:
         # Calibrate EDPVR data
         fname = pv_data_dir / f"{sample_name}_EDPVR.csv"
         np.loadtxt(fname, delimiter=",")
-        
-        
-# TODO dumping the calibrationn coeficients to the settings jsom files
 
+
+        # updating the geometries by adjusting based on best shift
+        geo_outdir = output_dir / "geometry"
+        geo_outdir.mkdir(parents=True, exist_ok=True)
+        indices = [np.argmin(np.abs(mri_volumes_original - v)) for v in mri_volumes]
+        for i in indices:
+            geo_fname = meshes_data_dir / f"time_{i}/Geometry/geometry.h5"
+            geo_outname = geo_outdir / f"geometry_{i}.h5"
+            shutil.copy(geo_fname, geo_outname)
+        
+        
 if __name__ == "__main__":
     main()
