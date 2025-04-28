@@ -157,6 +157,25 @@ def calibrate_pv_to_mri(mri_time, mri_volumes, pv_time, pv_volumes, weights=None
     calibrated_pv_volumes = a * pv_volumes + b
     return a, b, calibrated_pv_volumes
 
+def update_settings(settings, a, b):
+    """
+    Update the settings dictionary with the calibration coefficients.
+    """
+    settings["PV"]["calibration"] = {
+        "a": a,
+        "b": b,
+    }
+    return settings
+
+def save_settings(settings, settings_dir, sample_name):
+    """
+    Save the updated settings dictionary to a JSON file.
+    """
+    settings_fname = settings_dir / f"{sample_name[2:]}.json"
+    with open(settings_fname, "w") as file:
+        json.dump(settings, file, indent=4)
+    return settings_fname
+    
 
 # %%
 def main(args=None) -> int:
@@ -216,7 +235,7 @@ def main(args=None) -> int:
         tpm_data_dir = results_dir / sample_name / "TPM"
         meshes_data_dir = tpm_data_dir / "00_Meshes"
         h5_dir = data_dir / sample_name / "TPM"
-        output_dir = results_dir / sample_name / "TPM" / "PV Calibration"
+        output_dir = results_dir / sample_name / "TPM" / "PVCalibration"
         output_dir.mkdir(parents=True, exist_ok=True)
 
         pv_time, pv_pressures, pv_volumes = load_pressure_volumes(pv_data_dir, sample_name)
@@ -259,7 +278,8 @@ def main(args=None) -> int:
 
         N = len(mri_time)
         weights = np.ones(len(mri_time))
-        weights[: int(0.25 * N)] = 3
+        weights[: int(0.25 * N)] = 5
+        weights[-int(0.25 * N):] = 5
         a, b, calibrated_pv_volumes = calibrate_pv_to_mri(mri_time, mri_volumes, pv_time, pv_volumes, weights=weights)
 
         fig, ax1 = plt.subplots(figsize=(8, 6))
@@ -304,7 +324,19 @@ def main(args=None) -> int:
         plt.savefig(fname, dpi=300)
         plt.close()
 
+        fname = output_dir / "calibrated_pv_data.csv"
+        np.savetxt(fname, np.vstack((regirstered_pressures, mri_volumes)).T, delimiter=",")
+        
+        settings = update_settings(settings, a, b)
+        settings_fname = save_settings(settings, settings_dir, sample_name)
+        logger.info(f"Updated settings saved to {settings_fname}")
 
+
+        # Calibrate EDPVR data
+        fname = pv_data_dir / f"{sample_name}_EDPVR.csv"
+        np.loadtxt(fname, delimiter=",")
+        
+        
 # TODO dumping the calibrationn coeficients to the settings jsom files
 
 if __name__ == "__main__":
