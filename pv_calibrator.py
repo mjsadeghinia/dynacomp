@@ -363,8 +363,8 @@ def main(args=None) -> int:
         geo_outdir = output_dir / "Geometries"
         geo_outdir.mkdir(parents=True, exist_ok=True)
         indices = [np.argmin(np.abs(mri_volumes_original - v)) for v in mri_volumes]
-        for i in indices:
-            geo_fname = meshes_data_dir / f"time_{i}/Geometry/geometry.h5"
+        for i, n in enumerate(indices):
+            geo_fname = meshes_data_dir / f"time_{n}/Geometry/geometry.h5"
             geo_outname = geo_outdir / f"geometry_{i}.h5"
             shutil.copy(geo_fname, geo_outname)
 
