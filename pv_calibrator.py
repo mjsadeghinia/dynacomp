@@ -7,6 +7,8 @@ import dolfin
 import h5py
 import json
 import shutil
+import ast
+
 
 import arg_parser
 from structlog import get_logger
@@ -110,13 +112,20 @@ def load_mr_cardiac_cycle_duration(h5_dir):
     return CC_duration
 
 
-def load_pressure_volumes(data_dir, sample_name):
+def load_pressure_volumes(data_dir):
     PV_data_fname = [fname for fname in data_dir.iterdir() if "PV_data" in fname.stem][0]
     PV_data = np.loadtxt(PV_data_fname.as_posix(), delimiter=",")
     time = PV_data[:, 0] * 1000
     pressures = PV_data[:, 1]
     volumes = PV_data[:, 2]
     return time, pressures, volumes
+
+def load_edpvr(data_dir):
+    PV_data_fname = [fname for fname in data_dir.iterdir() if "EDPVR.csv" in fname.as_posix()][0]
+    PV_data = np.loadtxt(PV_data_fname.as_posix(), delimiter=",")
+    pressures = PV_data[:, 0]
+    volumes = PV_data[:, 1]
+    return pressures, volumes
 
 
 def find_best_mri_shift(mri_time, mri_volumes, pv_time, pv_volumes, N=5):
@@ -224,9 +233,9 @@ def main(args=None) -> int:
     data_dir = args.data_dir
     results_dir = args.results_dir
     # Get the list of .json files in the directory and sort them by name
-    sorted_files = sorted([file for file in settings_dir.iterdir() if file.is_file() and file.suffix == ".json"])
-
-    sample_nums = range(1, len(sorted_files) + 1)
+    if sample_nums is None:
+        sorted_files = sorted([file for file in settings_dir.iterdir() if file.is_file() and file.suffix == ".json"])
+        sample_nums = range(1, len(sorted_files) + 1)
 
     for sample_num in sample_nums:
         settings = load_settings(settings_dir, sample_num)
@@ -241,7 +250,7 @@ def main(args=None) -> int:
         output_dir = results_dir / sample_name / "TPM" / "01_PVCalibration"
         output_dir = arg_parser.prepare_outdir(output_dir)
 
-        pv_time, pv_pressures, pv_volumes = load_pressure_volumes(pv_data_dir, sample_name)
+        pv_time, pv_pressures, pv_volumes = load_pressure_volumes(pv_data_dir)
 
         cc_duration = load_mr_cardiac_cycle_duration(h5_dir)
         mri_time_total = np.mean(cc_duration) * 1000
@@ -367,6 +376,43 @@ def main(args=None) -> int:
             geo_fname = meshes_data_dir / f"time_{n}/Geometry/geometry.h5"
             geo_outname = geo_outdir / f"geometry_{i}.h5"
             shutil.copy(geo_fname, geo_outname)
+
+        # Calibrating the EDPVR data
+        # Load the EDPVR data
+        edpvr_pressures, edpvr_volumes = load_edpvr(pv_data_dir)
+        calibrated_edpvr_volumes = a * edpvr_volumes + b
+
+        # loaded the EDPVR PV data
+        fname = pv_data_dir / f"{sample_name}_EDPVR_pressure_data.csv"
+        with open(fname, 'r') as f:
+            text = f.read()
+            edpvr_pressures_all = ast.literal_eval(text)
+
+        fname = pv_data_dir / f"{sample_name}_EDPVR_volume_data.csv"
+        with open(fname, 'r') as f:
+            text = f.read()
+            edpvr_volumes_all = ast.literal_eval(text)
+
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.plot(mri_volumes, regirstered_pressures, "k", linewidth=1)
+        ax.scatter(mri_volumes, regirstered_pressures, s=15, c="k")
+        ax.scatter(calibrated_edpvr_volumes, edpvr_pressures, s=8, c="r")
+        for p,v in zip(edpvr_pressures_all, edpvr_volumes_all):
+            v_calibrated = a * np.array(v) + b
+            ax.plot(v_calibrated, p, c="k", linewidth=0.05)
+        plt.xlabel("Volume [micro Liter]")
+        plt.ylabel("LV Pressure [mmHg]")
+
+        # Add a second y-axis for LV Pressure in kPa
+        ax2 = ax.twinx()
+        mmHg_to_kPa = 0.133322
+        ymin, ymax = ax.get_ylim()
+        ax2.set_ylim(ymin * mmHg_to_kPa, ymax * mmHg_to_kPa)
+        ax2.set_ylabel("LV Pressure [kPa]")
+
+        fname = output_dir / f"registered_edpvr.png"
+        plt.savefig(fname, dpi=300)
+        plt.close()
 
 
 if __name__ == "__main__":
