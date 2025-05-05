@@ -123,6 +123,7 @@ def parse_arguments_unloading(args=None):
     )
     
     parser.add_argument(
+        "-st",
         "--settings_dir",
         default="/home/shared/dynacomp/settings",
         type=Path,
@@ -144,11 +145,35 @@ def parse_arguments_unloading(args=None):
     )
     
     parser.add_argument(
-        "-o",
-        "--output_folder",
-        default= "fine_mesh",
+        "-d",
+       "--data_dir",
+        default="/home/shared/00_data",
+        type=Path,
+        help="The settings directory where data files are stored.",
+    )
+    
+    parser.add_argument(
+        "-r",
+        "--results_dir",
+        default="/home/shared/01_results_coarse_mesh",
+        type=Path,
+        help="The results folder where the processed data should be saved.",
+    )
+
+    parser.add_argument(
+        "-m",
+        "--mesh_quality",
+        default='coarse',
         type=str,
-        help="The result folder name tha would be created in the directory of the sample.",
+        help="The mesh quality. Settings will be loaded accordingly from json file",
+    )
+    
+    parser.add_argument(
+        "-s",
+        "--scan_type",
+        default='TPM',
+        type=str,
+        help="The scan type. Settings will be loaded accordingly from json file",
     )
 
     return parser.parse_args(args)
@@ -236,8 +261,6 @@ def prepare_outdir(outdir):
     Prepare the output directory by removing all files and folders if it exists,
     and ensuring it is created again.
     """    
-    outdir.mkdir(parents=True, exist_ok=True)
-
     # If the directory exists, remove it and all its contents
     if outdir.exists():
         shutil.rmtree(outdir)
