@@ -127,10 +127,10 @@ def load_settings(setting_dir, sample_num):
 
 
 def load_atrium_pressure(pv_dir):
-    fname = pv_dir / "registered_pv_data.csv"
+    fname = pv_dir / "calibrated_pv_data.csv"
     PV_data = np.loadtxt(fname.as_posix(), delimiter=",")
     mmHg_to_kPa = 0.133322
-    atrium_pressure = PV_data[0, 0] * mmHg_to_kPa
+    atrium_pressure = PV_data[0, 1] * mmHg_to_kPa
     return atrium_pressure
 
 
@@ -190,6 +190,7 @@ def main(args=None) -> int:
             continue
         
         atrium_pressure = load_atrium_pressure(pv_dir)
+        logger.info(f"Sample {sample_name} atrium pressure: {atrium_pressure:.2f} kPa")
         geo_fname = geo_dir / "geometry_0.h5"
         shutil.copy(geo_fname, output_dir)
         unloaded_geometry = unloader(
