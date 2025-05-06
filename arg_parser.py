@@ -235,8 +235,8 @@ def create_bc_params(args):
 
 
 
-def prepare_oudir_processing(data_dir, output_folder, comm=None):
-    outdir = data_dir / f"{output_folder}/00_Modeling"
+def prepare_oudir_processing(outdir, comm=None):
+    # outdir = data_dir / f"{output_folder}/00_Modeling"
     
     if comm is None:
         import dolfin
