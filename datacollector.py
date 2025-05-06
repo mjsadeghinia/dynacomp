@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from structlog import get_logger
 import csv
 import numpy as np
+import dolfin
 
 logger = get_logger()
 
@@ -137,4 +138,97 @@ class DataCollector:
                 data["lv_pressure"].append(float(row["LV Pressure [kPa]"]))
                 data["aortic_pressure"].append(float(row["Aortic Pressure [kPa]"]))
                 data["outflow"].append(float(row["Outflow [ml/ms]"]))
+        return data
+
+class DataCollector_Inflator:
+    def __init__(self, outdir: Path, problem: Problem) -> None:
+        self.times = []
+        self.volumes = []
+        self.pressures = []
+        self.problem = problem
+        outdir.mkdir(exist_ok=True, parents=True)
+        self.outdir = outdir
+        if hasattr(problem, "comm"):
+            self.comm = problem.comm
+        else:
+            from dolfin import MPI
+
+            self.comm = MPI.comm_world
+
+    def collect(
+        self,
+        time: float,
+        volume: float,
+        pressure: float,
+    ) -> None:
+        if self.comm.rank == 0:
+            logger.info(
+                "Collecting data",
+                time=time,
+                volume=volume,
+                pressure=pressure,
+            )
+        # print('start collecting from ', self.comm.rank)
+        self.times.append(time)
+        self.volumes.append(volume)
+        self.pressures.append(pressure)
+        self.save(time)
+
+    @property
+    def csv_file(self):
+        return Path(self.outdir) / "results_data.csv"
+
+    @property
+    def figure(self):
+        return Path(self.outdir) / "results.png"
+
+    def _save_csv(self):
+        with open(self.csv_file, "w", newline="") as file:
+            writer = csv.writer(file)
+            writer.writerow(
+                [
+                    "Time [ms]",
+                    "Activation [kPa]",
+                    "Volume [microL]",
+                    "Target Volume [microL]",
+                    "LV Pressure [kPa]",
+                ]
+            )
+            for time, vol, pres_val in zip(
+                self.times,
+                self.volumes,
+                self.pressures,
+            ):
+                writer.writerow([time, vol, pres_val])
+
+    def _save_problem(self, t: float) -> None:
+        fname = Path(self.outdir)  / "displacement.xdmf"
+        results_u, _ = self.problem.problem.state.split(deepcopy=True)
+        results_u.t = t
+        with dolfin.XDMFFile(self.comm, fname.as_posix()) as xdmf:
+            xdmf.write_checkpoint(
+                results_u,
+                "Displacement",
+                float(t + 1),
+                dolfin.XDMFFile.Encoding.HDF5,
+                True,
+            )
+
+    def save(self, t: float) -> None:
+        self._save_problem(t)
+        if self.comm.rank == 0:
+            self._save_csv()
+
+    def read_csv(self):
+        data = {
+            "time": [],
+            "volume": [],
+            "lv_pressure": [],
+        }
+        with open(self.csv_file, mode="r") as file:
+            csv_reader = csv.DictReader(file)
+            for row in csv_reader:
+                data["time"].append(float(row["Time [ms]"]))
+                data["volume"].append(float(row["Volume [ml]"]))
+                data["lv_pressure"].append(float(row["LV Pressure [kPa]"]))
         return data
