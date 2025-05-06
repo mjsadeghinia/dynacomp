@@ -8,6 +8,7 @@ import h5py
 import json
 import shutil
 import ast
+import scipy.stats
 
 
 import arg_parser
@@ -381,7 +382,12 @@ def main(args=None) -> int:
         # Load the EDPVR data
         edpvr_pressures, edpvr_volumes = load_edpvr(pv_data_dir)
         calibrated_edpvr_volumes = a * edpvr_volumes + b
-
+        # Calculate the x value at which y = 0 using the regression line equation (avoid division by zero)
+        res = scipy.stats.linregress(calibrated_edpvr_volumes, edpvr_pressures)
+        v_0 = -res.intercept / res.slope if res.slope != 0 else float('nan')
+        # Calculate the standard error of the slope and intercept
+        tinv = lambda p, df: abs(scipy.stats.t.ppf(p/2, df))
+        ts = tinv(0.05, len(calibrated_edpvr_volumes)-2)
         # loaded the EDPVR PV data
         fname = pv_data_dir / f"{sample_name}_EDPVR_pressure_data.csv"
         with open(fname, 'r') as f:
@@ -402,7 +408,20 @@ def main(args=None) -> int:
             ax.plot(v_calibrated, p, c="k", linewidth=0.05)
         plt.xlabel("Volume [micro Liter]")
         plt.ylabel("LV Pressure [mmHg]")
-
+        # Add a title with the slope and intercept
+        textstr = (
+                f"slope (95%): {res.slope:.3f} $\pm$ {ts*res.stderr:.3f}\n"
+                f"$v_0$ (P=0): {v_0:.2f}"
+            )
+        ax.text(
+            0.05, 0.95, textstr,
+            transform=ax.transAxes,
+            fontsize=10,
+            verticalalignment='top',
+            # bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+        )
+        ax.plot(calibrated_edpvr_volumes, res.intercept + res.slope*calibrated_edpvr_volumes, 'b', label='EDVPR')
+        ax.axhline(y=0, color='gray', linestyle='--')
         # Add a second y-axis for LV Pressure in kPa
         ax2 = ax.twinx()
         mmHg_to_kPa = 0.133322
@@ -426,6 +445,21 @@ def main(args=None) -> int:
             ax.plot(v_calibrated, p, c="k", linewidth=0.05)
         plt.xlabel("Volume [micro Liter]")
         plt.ylabel("LV Pressure [mmHg]")
+
+        # Add a title with the slope and intercept
+        textstr = (
+                f"slope (95%): {res.slope:.3f} $\pm$ {ts*res.stderr:.3f}\n"
+                f"$v_0$ (P=0): {v_0:.2f}"
+            )
+        ax.text(
+            0.05, 0.95, textstr,
+            transform=ax.transAxes,
+            fontsize=10,
+            verticalalignment='top',
+            # bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+        )
+        ax.plot(calibrated_edpvr_volumes, res.intercept + res.slope*calibrated_edpvr_volumes, 'b', label='EDVPR')
+        ax.axhline(y=0, color='gray', linestyle='--')
 
         # Add a second y-axis for LV Pressure in kPa
         ax2 = ax.twinx()
