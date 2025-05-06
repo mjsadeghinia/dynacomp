@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 from structlog import get_logger
 import csv
 import numpy as np
-import dolfin
 
 logger = get_logger()
 
@@ -201,21 +200,8 @@ class DataCollector_Inflator:
             ):
                 writer.writerow([time, vol, pres_val])
 
-    def _save_problem(self, t: float) -> None:
-        fname = Path(self.outdir)  / "displacement.xdmf"
-        results_u, _ = self.problem.problem.state.split(deepcopy=True)
-        results_u.t = t
-        with dolfin.XDMFFile(self.comm, fname.as_posix()) as xdmf:
-            xdmf.write_checkpoint(
-                results_u,
-                "Displacement",
-                float(t + 1),
-                dolfin.XDMFFile.Encoding.HDF5,
-                True,
-            )
-
     def save(self, t: float) -> None:
-        self._save_problem(t)
+        self.problem.save(t, self.outdir, all=False)
         if self.comm.rank == 0:
             self._save_csv()
 
