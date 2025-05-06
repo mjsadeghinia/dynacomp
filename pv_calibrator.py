@@ -358,7 +358,7 @@ def main(args=None) -> int:
         plt.close()
 
         fname = output_dir / "registered_pv_data.csv"
-        np.savetxt(fname, np.vstack((regirstered_pressures, mri_volumes)).T, delimiter=",")
+        np.savetxt(fname, np.vstack((mri_time, regirstered_pressures, mri_volumes)).T, delimiter=",")
 
         settings = update_settings(settings, a, b)
         settings_fname = save_settings(settings, settings_dir, sample_name)
@@ -413,6 +413,33 @@ def main(args=None) -> int:
         fname = output_dir / f"registered_edpvr.png"
         plt.savefig(fname, dpi=300)
         plt.close()
+
+        pv_volumes_calibrated = a * pv_volumes + b
+        regirstered_calibrated_volumes = np.interp(mri_time, pv_time, pv_volumes_calibrated)
+
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.plot(regirstered_calibrated_volumes, regirstered_pressures, "k", linewidth=1)
+        ax.scatter(regirstered_calibrated_volumes, regirstered_pressures, s=15, c="k")
+        ax.scatter(calibrated_edpvr_volumes, edpvr_pressures, s=8, c="r")
+        for p,v in zip(edpvr_pressures_all, edpvr_volumes_all):
+            v_calibrated = a * np.array(v) + b
+            ax.plot(v_calibrated, p, c="k", linewidth=0.05)
+        plt.xlabel("Volume [micro Liter]")
+        plt.ylabel("LV Pressure [mmHg]")
+
+        # Add a second y-axis for LV Pressure in kPa
+        ax2 = ax.twinx()
+        mmHg_to_kPa = 0.133322
+        ymin, ymax = ax.get_ylim()
+        ax2.set_ylim(ymin * mmHg_to_kPa, ymax * mmHg_to_kPa)
+        ax2.set_ylabel("LV Pressure [kPa]")
+
+        fname = output_dir / f"registered_edpvr_with_calibrated_cather_volume.png"
+        plt.savefig(fname, dpi=300)
+        plt.close()
+        # Save the calibrated EDPVR data
+        fname = output_dir / "calibrated_pv_data.csv"
+        np.savetxt(fname, np.vstack((mri_time, regirstered_pressures, regirstered_calibrated_volumes)).T, delimiter=",")
 
 
 if __name__ == "__main__":
