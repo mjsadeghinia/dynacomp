@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
 import json
+import scipy.stats
 
 import arg_parser 
 import pulse
@@ -122,7 +123,8 @@ def main(args=None) -> int:
  
         
         time, pres, vols = load_pv_data(pvcalibration_data_dir)
-        edpvr_pres, edpvr_vols = load_edpvr(pv_data_dir)
+        edpvr_pres, edpvr_vols_uncalibrated = load_edpvr(pv_data_dir)
+        edpvr_vols = settings["PV"]["calibration"]["a"] * edpvr_vols_uncalibrated + settings["PV"]["calibration"]["b"]
 
 
         unloaded_geometry_fname = unloading_data_dir / "unloaded_geometry_0_with_fibers.h5"
@@ -150,6 +152,52 @@ def main(args=None) -> int:
                 pressure=p,
                 volume=v,
             )
+
+        # Calculate the x value at which y = 0 using the regression line equation (avoid division by zero)
+        res = scipy.stats.linregress(edpvr_vols, edpvr_pres)
+        v_0 = -res.intercept / res.slope if res.slope != 0 else float('nan')
+        # Calculate the standard error of the slope and intercept
+        tinv = lambda p, df: abs(scipy.stats.t.ppf(p/2, df))
+        ts = tinv(0.05, len(edpvr_vols)-2)
+        # Plotting the data
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.plot(vols, pres, "k", linewidth=1)
+        ax.scatter(vols, pres, s=15, c="k", label="PV Data")
+        ax.scatter(edpvr_vols, edpvr_pres, s=8, c="r", label="EDPVR")
+        ax.plot(collector.volumes, collector.pressures, "g", linewidth=1)
+        ax.scatter(collector.volumes, collector.pressures, "g", linewidth=1, label="Simulation")
+        
+        plt.xlabel("Volume [micro Liter]")
+        plt.ylabel("LV Pressure [mmHg]")
+
+        # Add a title with the slope and intercept
+        textstr = (
+                f"slope (95%): {res.slope:.3f} $\pm$ {ts*res.stderr:.3f}\n"
+                f"$v_0$ (P=0): {v_0:.2f}\n"
+                f"$v_0 estimated$ (P=0): {collector.volumes[0]:.2f}"
+
+            )
+        ax.text(
+            0.05, 0.95, textstr,
+            transform=ax.transAxes,
+            fontsize=10,
+            verticalalignment='top',
+            # bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+        )
+        ax.plot(edpvr_vols, res.intercept + res.slope*edpvr_vols, 'b', label='EDVPR')
+        ax.axhline(y=0, color='gray', linestyle='--')
+
+        # Add a second y-axis for LV Pressure in kPa
+        ax2 = ax.twinx()
+        mmHg_to_kPa = 0.133322
+        ymin, ymax = ax.get_ylim()
+        ax2.set_ylim(ymin * mmHg_to_kPa, ymax * mmHg_to_kPa)
+        ax2.set_ylabel("LV Pressure [kPa]")
+
+        plt.legend(loc="upper left")
+        fname = modeling_outdir / f"inflation_results.png"
+        plt.savefig(fname, dpi=300)
+        plt.close()
 
 if __name__ == "__main__":
     main()
