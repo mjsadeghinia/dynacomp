@@ -119,7 +119,7 @@ def main(args=None) -> int:
         pvcalibration_data_dir = results_dir / sample_name / "TPM" / "01_PVCalibration"
         unloading_data_dir = experiment_data_dir / "02_Unloading"
         modeling_outdir = experiment_data_dir / "03_Modeling"
-        modeling_outdir.mkdir(parents=True, exist_ok=True)
+        modeling_outdir = arg_parser.prepare_outdir(modeling_outdir)
  
         
         time, pres, vols = load_pv_data(pvcalibration_data_dir)
@@ -145,12 +145,15 @@ def main(args=None) -> int:
             pressure=0,
             volume=v,
         )
-        for p in np.linspace(0, pres[0] * 2, 10):
+        start_time = 1
+        for i, p in enumerate(np.linspace(0, pres[0] * 2, 10)):
             v = heart_model.compute_volume(activation_value=0, pressure_value=p)
+            p_current = heart_model.get_pressure()
+            v_current = heart_model.get_volume()
             collector.collect(
-                time=1,
-                pressure=p,
-                volume=v,
+                time=i + start_time,
+                pressure=p_current,
+                volume=v_current,
             )
 
         # Calculate the x value at which y = 0 using the regression line equation (avoid division by zero)
@@ -165,7 +168,7 @@ def main(args=None) -> int:
         ax.scatter(vols, pres, s=15, c="k", label="PV Data")
         ax.scatter(edpvr_vols, edpvr_pres, s=8, c="r", label="EDPVR")
         ax.plot(collector.volumes, collector.pressures, "g", linewidth=1)
-        ax.scatter(collector.volumes, collector.pressures, "g", linewidth=1, label="Simulation")
+        ax.scatter(collector.volumes, collector.pressures, color="g", s=8, label="Simulation")
         
         plt.xlabel("Volume [micro Liter]")
         plt.ylabel("LV Pressure [mmHg]")
@@ -194,7 +197,7 @@ def main(args=None) -> int:
         ax2.set_ylim(ymin * mmHg_to_kPa, ymax * mmHg_to_kPa)
         ax2.set_ylabel("LV Pressure [kPa]")
 
-        plt.legend(loc="upper left")
+        plt.legend(loc="lower left")
         fname = modeling_outdir / f"inflation_results.png"
         plt.savefig(fname, dpi=300)
         plt.close()
