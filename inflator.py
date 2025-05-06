@@ -119,7 +119,8 @@ def main(args=None) -> int:
         pvcalibration_data_dir = results_dir / sample_name / "TPM" / "01_PVCalibration"
         unloading_data_dir = experiment_data_dir / "02_Unloading"
         modeling_outdir = experiment_data_dir / "03_Modeling"
-        modeling_outdir = arg_parser.prepare_oudir_processing(modeling_outdir, comm)
+        if comm.rank == 0:
+            modeling_outdir = arg_parser.prepare_oudir_processing(modeling_outdir, comm)
         comm.Barrier()
         
         time, pres, vols = load_pv_data(pvcalibration_data_dir)
@@ -146,7 +147,7 @@ def main(args=None) -> int:
             volume=v,
         )
         start_time = 1
-        for i, p in enumerate(np.linspace(0, pres[0], 10)):
+        for i, p in enumerate(np.linspace(0, pres[0]*2, 20)):
             v = heart_model.compute_volume(activation_value=0, pressure_value=p)
             p_current = heart_model.get_pressure()
             v_current = heart_model.get_volume()
@@ -188,7 +189,7 @@ def main(args=None) -> int:
                 verticalalignment='top',
                 # bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5)
             )
-            ax.plot(edpvr_vols, res.intercept + res.slope*edpvr_vols, 'b', label='EDVPR')
+            ax.plot(edpvr_vols, res.intercept + res.slope*edpvr_vols, 'b')
             ax.axhline(y=0, color='gray', linestyle='--')
 
             # Add a second y-axis for LV Pressure in kPa
