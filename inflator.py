@@ -1,4 +1,3 @@
-# main.py
 import argparse
 import numpy as np
 from pathlib import Path
@@ -37,6 +36,7 @@ def run_inflator(
     pressure_steps: int = 20,
     pericardium_spring: float = 1e-4,
     base_spring: float = 1.0,
+    matparams: dict = None,
     live_plot: bool = True
 ) -> DataCollectorInflator:
     """
@@ -89,10 +89,20 @@ def run_inflator(
     geometry = pulse.HeartGeometry.from_file(
         (out_dirs['unload'] / 'unloaded_geometry_0_with_fibers.h5').as_posix(), comm=comm
     )
+
+    # Set material properties
+    if matparams is None:
+        matparams = settings['matparams']
+    else:
+        matparams_default = settings['matparams']
+        for key, value in matparams.items():
+            matparams_default[key] = value
+        matparams = matparams_default
+
     model = HeartModelDynaComp(
         geo=geometry,
         bc_params=bc_params,
-        matparams=settings['matparams'],
+        matparams=matparams,
         comm=comm,
     )
 
