@@ -5,7 +5,7 @@ from pathlib import Path
 import json
 import scipy.stats
 
-import arg_parser 
+import arg_parser
 import pulse
 import dolfin
 from heart_model import HeartModelDynaComp
@@ -16,6 +16,7 @@ from structlog import get_logger
 logger = get_logger()
 comm = dolfin.MPI.comm_world
 
+
 # %%
 def load_settings(settings_dir, sample_num):
     sorted_files = sorted([file for file in settings_dir.iterdir() if file.is_file() and file.suffix == ".json"])
@@ -23,6 +24,7 @@ def load_settings(settings_dir, sample_num):
     with open(settings_fname, "r") as file:
         settings = json.load(file)
     return settings
+
 
 def load_pv_data(pvcalibration_data_dir):
     # These are the paramters we are using: mri_time, regirstered_pressures, regirstered_calibrated_volumes
@@ -34,6 +36,7 @@ def load_pv_data(pvcalibration_data_dir):
     pres = pres_mmHg * mmHg_to_kPa
     return time, pres, vols
 
+
 def load_edpvr(data_dir):
     PV_data_fname = [fname for fname in data_dir.iterdir() if "EDPVR.csv" in fname.as_posix()][0]
     PV_data = np.loadtxt(PV_data_fname.as_posix(), delimiter=",")
@@ -41,6 +44,7 @@ def load_edpvr(data_dir):
     pressures = PV_data[:, 0] * mmHg_to_kPa
     volumes = PV_data[:, 1]
     return pressures, volumes
+
 
 # %%
 def main(args=None) -> int:
@@ -75,7 +79,7 @@ def main(args=None) -> int:
     parser.add_argument(
         "-s",
         "--scan_type",
-        default='TPM',
+        default="TPM",
         type=str,
         help="The scan type. Settings will be loaded accordingly from json file",
     )
@@ -138,16 +142,13 @@ def main(args=None) -> int:
         if comm.rank == 0:
             modeling_outdir = arg_parser.prepare_oudir_processing(modeling_outdir, comm)
         comm.Barrier()
-        
+
         time, pres, vols = load_pv_data(pvcalibration_data_dir)
         edpvr_pres, edpvr_vols_uncalibrated = load_edpvr(pv_data_dir)
         edpvr_vols = settings["PV"]["calibration"]["a"] * edpvr_vols_uncalibrated + settings["PV"]["calibration"]["b"]
 
-
         unloaded_geometry_fname = unloading_data_dir / "unloaded_geometry_0_with_fibers.h5"
-        unloaded_geometry = pulse.HeartGeometry.from_file(
-            unloaded_geometry_fname.as_posix(), comm=comm
-        )
+        unloaded_geometry = pulse.HeartGeometry.from_file(unloaded_geometry_fname.as_posix(), comm=comm)
         heart_model = HeartModelDynaComp(
             geo=unloaded_geometry,
             bc_params=bc_params,
@@ -164,7 +165,7 @@ def main(args=None) -> int:
         )
         start_time = 1
         # Set the pressure to be used in the inflation simulation
-        loading_pressures = np.linspace(0, pres[0]*pressure_multiplier, pressure_steps)
+        loading_pressures = np.linspace(0, pres[0] * pressure_multiplier, pressure_steps)
         for i, p in enumerate(loading_pressures):
             v = heart_model.compute_volume(activation_value=0, pressure_value=p)
             p_current = heart_model.get_pressure()
@@ -178,10 +179,10 @@ def main(args=None) -> int:
         if comm.rank == 0:
             # Calculate the x value at which y = 0 using the regression line equation (avoid division by zero)
             res = scipy.stats.linregress(edpvr_vols, edpvr_pres)
-            v_0 = -res.intercept / res.slope if res.slope != 0 else float('nan')
+            v_0 = -res.intercept / res.slope if res.slope != 0 else float("nan")
             # Calculate the standard error of the slope and intercept
-            tinv = lambda p, df: abs(scipy.stats.t.ppf(p/2, df))
-            ts = tinv(0.05, len(edpvr_vols)-2)
+            tinv = lambda p, df: abs(scipy.stats.t.ppf(p / 2, df))
+            ts = tinv(0.05, len(edpvr_vols) - 2)
             # Plotting the data
             fig, ax = plt.subplots(figsize=(8, 6))
             ax.plot(vols, pres, "k", linewidth=1)
@@ -189,26 +190,27 @@ def main(args=None) -> int:
             ax.scatter(edpvr_vols, edpvr_pres, s=8, c="r", label="EDPVR")
             ax.plot(collector.volumes, collector.pressures, "g", linewidth=1)
             ax.scatter(collector.volumes, collector.pressures, color="g", s=8, label="Simulation")
-            
+
             plt.xlabel("Volume [micro Liter]")
             plt.ylabel("LV Pressure [mmHg]")
 
             # Add a title with the slope and intercept
             textstr = (
-                    f"slope (95%): {res.slope:.3f} $\pm$ {ts*res.stderr:.3f}\n"
-                    f"$v_0$ (P=0): {v_0:.2f}\n"
-                    f"$v_0 estimated$ (P=0): {collector.volumes[0]:.2f}"
-
-                )
+                f"slope (95%): {res.slope:.3f} $\pm$ {ts*res.stderr:.3f}\n"
+                f"$v_0$ (P=0): {v_0:.2f}\n"
+                f"$v_0 estimated$ (P=0): {collector.volumes[0]:.2f}"
+            )
             ax.text(
-                0.05, 0.95, textstr,
+                0.05,
+                0.95,
+                textstr,
                 transform=ax.transAxes,
                 fontsize=10,
-                verticalalignment='top',
+                verticalalignment="top",
                 # bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5)
             )
-            ax.plot(edpvr_vols, res.intercept + res.slope*edpvr_vols, 'b')
-            ax.axhline(y=0, color='gray', linestyle='--')
+            ax.plot(edpvr_vols, res.intercept + res.slope * edpvr_vols, "b")
+            ax.axhline(y=0, color="gray", linestyle="--")
 
             # Add a second y-axis for LV Pressure in kPa
             ax2 = ax.twinx()
@@ -221,6 +223,7 @@ def main(args=None) -> int:
             fname = modeling_outdir / f"inflation_results.png"
             plt.savefig(fname, dpi=300)
             plt.close()
+
 
 if __name__ == "__main__":
     main()
