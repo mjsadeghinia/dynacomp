@@ -228,7 +228,7 @@ class HeartModelDynaComp:
                 tensor_proj, name, float(t + 1), dolfin.XDMFFile.Encoding.HDF5, True
             )
 
-    def save(self, t: float, outdir: Path = Path("results")):
+    def save(self, t: float, outdir: Path = Path("results"), all=True):
         """
         Saves the current state of the heart model at a given time to a specified file.
 
@@ -248,29 +248,29 @@ class HeartModelDynaComp:
                 dolfin.XDMFFile.Encoding.HDF5,
                 True,
             )
+        if all:
+            F = pulse.kinematics.DeformationGradient(results_u)
+            E = pulse.kinematics.GreenLagrangeStrain(F)
+            Cauchy = self.problem.material.CauchyStress(F)
+            S = self.problem.material.SecondPiolaStress(F)
+            MW = dolfin.inner(S, E)
 
-        F = pulse.kinematics.DeformationGradient(results_u)
-        E = pulse.kinematics.GreenLagrangeStrain(F)
-        Cauchy = self.problem.material.CauchyStress(F)
-        S = self.problem.material.SecondPiolaStress(F)
-        MW = dolfin.inner(S, E)
+            fname = outdir / "Deformation_Gradient.xdmf"
+            self.save_tensor(F, fname, t, name="Deformation Gradiant")
 
-        fname = outdir / "Deformation_Gradient.xdmf"
-        self.save_tensor(F, fname, t, name="Deformation Gradiant")
+            fname = outdir / "Cauchy_Stress.xdmf"
+            self.save_tensor(Cauchy, fname, t, name="Cauchy Stress")
 
-        fname = outdir / "Cauchy_Stress.xdmf"
-        self.save_tensor(Cauchy, fname, t, name="Cauchy Stress")
+            fname = outdir / "Myocardial_Work.xdmf"
+            self.save_scalar(MW, fname, t, name="Myocardium Work")
 
-        fname = outdir / "Myocardial_Work.xdmf"
-        self.save_scalar(MW, fname, t, name="Myocardium Work")
+            fname = outdir / "Activation_results.xdmf"
+            self.save_scalar(self.activation, fname, t, name="Activation")
 
-        fname = outdir / "Activation_results.xdmf"
-        self.save_scalar(self.activation, fname, t, name="Activation")
-
-        # fname = outdir / "Green_Lagrange_Strain.xdmf"
-        # self.save_tensor(E, fname, t, name = 'Green Lagrange Strain')
-        # fname = outdir / "Second_Piola_Stress.xdmf"
-        # self.save_tensor(S, fname, t, name = 'Second Piola Stress')
+            # fname = outdir / "Green_Lagrange_Strain.xdmf"
+            # self.save_tensor(E, fname, t, name = 'Green Lagrange Strain')
+            # fname = outdir / "Second_Piola_Stress.xdmf"
+            # self.save_tensor(S, fname, t, name = 'Second Piola Stress')
 
     def get_deformed_mesh(self):
         results_u, _ = self.problem.state.split(deepcopy=True)

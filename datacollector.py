@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from structlog import get_logger
 import csv
 import numpy as np
+import scipy.stats
 
 logger = get_logger()
 
@@ -137,4 +138,133 @@ class DataCollector:
                 data["lv_pressure"].append(float(row["LV Pressure [kPa]"]))
                 data["aortic_pressure"].append(float(row["Aortic Pressure [kPa]"]))
                 data["outflow"].append(float(row["Outflow [ml/ms]"]))
+        return data
+
+class DataCollectorInflator:
+    def __init__(
+        self,
+        outdir: Path,
+        problem,
+        pv_vols: np.ndarray = None,
+        pv_pres: np.ndarray = None,
+        edpvr_vols: np.ndarray = None,
+        edpvr_pres: np.ndarray = None,
+        live_plot: bool = False
+    ) -> None:
+        self.times = []
+        self.volumes = []
+        self.pressures = []
+        self.problem = problem
+        outdir.mkdir(exist_ok=True, parents=True)
+        self.outdir = outdir
+        self.comm = getattr(problem, 'comm', None) or __import__('dolfin').MPI.comm_world
+
+        # Reference data
+        self.pv_vols = pv_vols
+        self.pv_pres = pv_pres
+        self.edpvr_vols = edpvr_vols
+        self.edpvr_pres = edpvr_pres
+        self.live_plot = live_plot and self.comm.rank == 0
+
+        # Pre-compute regression and annotation
+        res = scipy.stats.linregress(self.edpvr_vols, self.edpvr_pres)
+        self.slope = res.slope
+        self.intercept = res.intercept
+        self.stderr = res.stderr
+        tinv = lambda p, df: abs(scipy.stats.t.ppf(p/2, df))
+        self.ts = tinv(0.05, len(self.edpvr_vols) - 2)
+        self.v0 = -self.intercept / self.slope if self.slope != 0 else float('nan')
+        self.v0_est = self.problem.compute_volume(activation_value=0, pressure_value=0)
+
+        if self.live_plot:
+            plt.ion()
+            self.fig, self.ax = plt.subplots(figsize=(8, 6))
+            # Plot static PV/EDPVR
+            self.ax.plot(self.pv_vols, self.pv_pres, 'k', linewidth=1)
+            self.ax.scatter(self.pv_vols, self.pv_pres, s=15, c='k', label='PV Data')
+            self.ax.scatter(self.edpvr_vols, self.edpvr_pres, s=8, c='r', label='EDPVR')
+            # Regression line
+            self.ax.plot(self.edpvr_vols, self.intercept + self.slope * self.edpvr_vols, 'b')
+            self.ax.axhline(0, color='gray', linestyle='--')
+            # Simulation placeholders
+            self.sim_line, = self.ax.plot([], [], 'g-', linewidth=1, label='Simulation')
+            self.sim_scatter = self.ax.scatter([], [], s=8, c='g')
+            # Annotate slope and intercept
+            textstr = (
+                f'slope (95%): {self.slope:.3f} ± {self.ts * self.stderr:.3f}\n'
+                f'v0 (P=0): {self.v0:.2f}\n'
+                f'v0 est (sim): {self.v0_est:.2f}'
+            )
+            self.ax.text(
+                0.05,
+                0.95,
+                textstr,
+                transform=self.ax.transAxes,
+                fontsize=10,
+                verticalalignment='top'
+            )
+            self.ax.set_xlabel('Volume [microL]')
+            self.ax.set_ylabel('LV Pressure [kPa]')
+            self.ax.legend(loc='lower left')
+            plt.show()
+
+    def collect(self, time: float, volume: float, pressure: float) -> None:
+        if self.comm.rank == 0:
+            logger.info('Collecting data', time=time, volume=volume, pressure=pressure)
+        self.times.append(time)
+        self.volumes.append(volume)
+        self.pressures.append(pressure)
+        self.save(time)
+
+        if self.live_plot:
+            # Update simulation curve
+            self.sim_line.set_data(self.volumes, self.pressures)
+            self.sim_scatter.set_offsets(np.column_stack([self.volumes, self.pressures]))
+            # Rescale axes
+            self.ax.relim()
+            self.ax.autoscale_view()
+            self.fig.canvas.draw()
+            # Add a second y-axis for LV Pressure in kPa
+            ax2 = self.ax.twinx()
+            kPa_to_mmHg = 1/0.133322
+            ymin, ymax = self.ax.get_ylim()
+            ax2.set_ylim(ymin * kPa_to_mmHg, ymax * kPa_to_mmHg)
+            ax2.set_ylabel("LV Pressure [mmHg]")
+            plt.pause(0.01)
+            # Overwrite same figure
+            self.fig.savefig(self.figure, dpi=300)
+
+    @property
+    def csv_file(self) -> Path:
+        return self.outdir / 'results_data.csv'
+
+    @property
+    def figure(self) -> Path:
+        return self.outdir / 'inflation_results.png'
+
+    def _save_csv(self) -> None:
+        with open(self.csv_file, 'w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(['Time [ms]', 'Volume [microL]', 'LV Pressure [kPa]'])
+            for t, v, p in zip(self.times, self.volumes, self.pressures):
+                writer.writerow([t, v, p])
+
+    def save(self, t: float) -> None:
+        self.problem.save(t, self.outdir, all=False)
+        if self.comm.rank == 0:
+            self._save_csv()
+
+    def finalize_plot(self) -> None:
+        # Save final static plot (already updated live)
+        plt.ioff()
+        plt.close(self.fig)
+
+    def read_csv(self) -> dict:
+        data = {'time': [], 'volume': [], 'lv_pressure': []}
+        with open(self.csv_file, 'r') as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                data['time'].append(float(row['Time [ms]']))
+                data['volume'].append(float(row['Volume [microL]']))
+                data['lv_pressure'].append(float(row['LV Pressure [kPa]']))
         return data
