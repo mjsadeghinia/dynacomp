@@ -88,6 +88,20 @@ def main(args=None) -> int:
         help="The results folder where the processed data should be saved.",
     )
 
+    parser.add_argument(
+        "--pressure_multiplier",
+        default=2,
+        type=float,
+        help="The multiplier for the pressure to be used in the inflation simulation.",
+    )
+
+    parser.add_argument(
+        "--pressure_steps",
+        default=20,
+        type=int,
+        help="The number of pressure steps to be used in the inflation simulation.",
+    )
+
     # Arguments for HeartModel boundary conditions
     parser.add_argument(
         "--pericardium_spring",
@@ -110,13 +124,15 @@ def main(args=None) -> int:
     results_dir = args.results_dir
     scan_type = args.scan_type
     bc_params = arg_parser.create_bc_params(args)
+    pressure_multiplier = args.pressure_multiplier
+    pressure_steps = args.pressure_steps
 
     for sample_num in sample_nums:
         settings = load_settings(settings_dir, sample_num)
         sample_name = settings["id"]
         pv_data_dir = results_dir / sample_name / "PV Data"
         experiment_data_dir = results_dir / sample_name / scan_type
-        pvcalibration_data_dir = results_dir / sample_name / "TPM" / "01_PVCalibration"
+        pvcalibration_data_dir = results_dir / sample_name / scan_type / "01_PVCalibration"
         unloading_data_dir = experiment_data_dir / "02_Unloading"
         modeling_outdir = experiment_data_dir / "03_Modeling"
         if comm.rank == 0:
@@ -147,7 +163,9 @@ def main(args=None) -> int:
             volume=v,
         )
         start_time = 1
-        for i, p in enumerate(np.linspace(0, pres[0]*2, 20)):
+        # Set the pressure to be used in the inflation simulation
+        loading_pressures = np.linspace(0, pres[0]*pressure_multiplier, pressure_steps)
+        for i, p in enumerate(loading_pressures):
             v = heart_model.compute_volume(activation_value=0, pressure_value=p)
             p_current = heart_model.get_pressure()
             v_current = heart_model.get_volume()
