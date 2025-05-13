@@ -145,7 +145,7 @@ def main():
             args=(sample, settings_dir, results_dir, scan_type),
             method='L-BFGS-B',
             bounds=bounds,
-            options={'ftol': ftol, 'maxiter': maxiter}
+            options={'ftol': ftol, 'maxiter': maxiter, 'epsilon': 0.1}
         )
 
         if res.success:

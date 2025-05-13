@@ -2,12 +2,16 @@ import argparse
 import numpy as np
 from pathlib import Path
 import json
+import structlog
+
 
 import arg_parser
 import pulse
 import dolfin
 from heart_model import HeartModelDynaComp
 from datacollector import DataCollectorInflator
+
+logger = structlog.get_logger()
 
 def load_settings(settings_dir: Path, sample_num: int) -> dict:
     files = sorted([f for f in settings_dir.iterdir() if f.suffix == ".json"])
@@ -32,8 +36,8 @@ def run_inflator(
     settings_dir: Path,
     results_dir: Path,
     scan_type: str = 'TPM',
-    pressure_multiplier: float = 2.0,
-    pressure_steps: int = 20,
+    pressure_multiplier: float = 1.0,
+    pressure_steps: int = 2,
     pericardium_spring: float = 1e-4,
     base_spring: float = 1.0,
     matparams: dict = None,
@@ -98,6 +102,8 @@ def run_inflator(
         for key, value in matparams.items():
             matparams_default[key] = value
         matparams = matparams_default
+
+    logger.info("Current material paramters", a=matparams['a'], a_f=matparams['a_f'])
 
     model = HeartModelDynaComp(
         geo=geometry,
