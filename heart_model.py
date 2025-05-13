@@ -117,7 +117,7 @@ class HeartModelDynaComp:
         # breakpoint()
 
 
-    def compute_volume(self, activation_value: float, pressure_value: float) -> float:
+    def compute_volume(self, activation_value: float, pressure_value: float, logging_flag:bool = True) -> float:
         """
         Computes the volume of the heart model based on activation and pressure values.
 
@@ -133,7 +133,7 @@ class HeartModelDynaComp:
         volume_current = self.problem.geometry.cavity_volume(
             u=self.problem.state.sub(0)
         )
-        if self.comm.rank == 0:
+        if self.comm.rank == 0 and logging_flag:
             logger.info("Computed volume", volume_current=volume_current)
         return volume_current
 

@@ -3,6 +3,8 @@ import numpy as np
 from pathlib import Path
 import json
 import structlog
+import gc
+
 
 
 import arg_parser
@@ -31,7 +33,7 @@ def load_edpvr(directory: Path):
     vols = data[:, 1]
     return pres, vols
 
-def run_inflator(
+def run_inflator_with_collector(
     sample: int,
     settings_dir: Path,
     results_dir: Path,
@@ -137,6 +139,47 @@ def run_inflator(
 
     return collector
 
+def run_inflator(
+    bc_params: dict,
+    matparams: dict,
+    geometry: pulse.HeartGeometry,
+    pressures: np.array,
+    comm: dolfin.MPI.comm_world
+) -> np.array:
+    """
+    Run an inflation simulation using explicit parameters.
+
+    Parameters:
+        bc_params: boundary condition parameters
+        matparams: material parameters
+        geometry: heart geometry
+        pressures: pressure values for inflation steps,
+
+    Returns:
+        pressure and volumes
+    """
+    # Initialize heart model
+    model = HeartModelDynaComp(
+        geo=geometry,
+        bc_params=bc_params,
+        matparams=matparams,
+    )
+    # Run inflation steps
+    res_pres = []
+    res_vols = []
+    for i, p in enumerate(pressures):
+        v = model.compute_volume(activation_value=0, pressure_value=p, logging_flag=False)
+        res_pres.append(p)
+        res_vols.append(v)
+        if comm.rank == 0:
+            logger.info(f"Inflation step {i}: ", pressure=round(p,3), volume=round(v,3))
+
+    # explicitly delete the model to free memory
+    del model
+    gc.collect()
+
+    return res_pres, res_vols
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -209,7 +252,7 @@ def main():
 
     # Run inflator for each sample with explicit params
     for sample in sample_list:
-        run_inflator(
+        run_inflator_with_collector(
             sample,
             settings_dir=args.settings_dir,
             results_dir=args.results_dir,
