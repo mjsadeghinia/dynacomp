@@ -105,7 +105,8 @@ def run_inflator_with_collector(
             matparams_default[key] = value
         matparams = matparams_default
 
-    logger.info("Current material paramters", a=matparams['a'], a_f=matparams['a_f'])
+    if comm.rank == 0:
+        logger.info("Current material paramters", a=matparams['a'], a_f=matparams['a_f'])
 
     model = HeartModelDynaComp(
         geo=geometry,
