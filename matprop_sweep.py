@@ -44,7 +44,7 @@ def sweep_parameters(
             # run the same inflation as in objective()
             pres_out, vol_out = run_inflator(model, pressures, comm=comm)
             slope_out = np.mean(np.diff(pres_out) / np.diff(vol_out))
-            error_grid[j, i] = np.abs(slope_out - edpvr_slope) / edpvr_slope * 100
+            error_grid[j, i] = np.round(np.abs(slope_out - edpvr_slope) / edpvr_slope * 100, 2)
             if comm.rank == 0:
                 logger.info("sweep_step", a=model.problem.material.a.values()[0], a_f=model.problem.material.a_f.values()[0], error=error_grid[j, i])
     return A, AF, error_grid
@@ -108,15 +108,33 @@ def main():
     parser.add_argument(
         "--grid_size", 
         type=int, 
-        default=2, 
+        default=4, 
         help="Number of points along each axis"
         )
     parser.add_argument(
-        "--range_factor", 
+        '--a_min',
+        default=.25,
         type=float,
-        default=2.0, 
-        help="Sweep ±factor around the initial guess"
-        )
+        help='Minimum a-value for the sweep grid.'
+    )
+    parser.add_argument(
+        '--a_max',
+        type=float,
+        default=2,
+        help='Maximum a-value for the sweep grid.'
+    )
+    parser.add_argument(
+        '--af_min',
+        type=float,
+        default=1,
+        help='Minimum a_f-value for the sweep grid.'
+    )
+    parser.add_argument(
+        '--af_max',
+        type=float,
+        default=8,
+        help='Maximum a_f-value for the sweep grid.'
+    )
     
     parser.add_argument(
         '--pericardium_spring',
@@ -139,9 +157,10 @@ def main():
     pressure_multiplier = args.pressure_multiplier
     pressure_steps = args.pressure_steps
     grid_size = args.grid_size
-    range_factor = args.range_factor
     pericardium_spring = args.pericardium_spring
     base_spring = args.base_spring
+    a_min, a_max = args.a_min, args.a_max
+    af_min, af_max = args.af_min, args.af_max
 
     if args.number:
         sample_list = args.number
@@ -190,8 +209,8 @@ def main():
         a0 = settings["matparams"]["a"]
         af0 = settings["matparams"]["a_f"]
         # sweep ranges
-        a_vals = np.linspace(a0 / range_factor, a0 * range_factor, grid_size)
-        af_vals = np.linspace(af0 / range_factor, af0 * range_factor, grid_size)
+        a_vals = np.round(np.linspace(a_min, a_max, grid_size), 2)
+        af_vals = np.round(np.linspace(af_min, af_max, grid_size), 2)
         A, AF, err = sweep_parameters(model, pressures, edpvr_slope, a_vals, af_vals, comm)
 
         # only rank 0 plots
