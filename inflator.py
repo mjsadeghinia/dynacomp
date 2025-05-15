@@ -105,15 +105,15 @@ def run_inflator_with_collector(
             matparams_default[key] = value
         matparams = matparams_default
 
-    if comm.rank == 0:
-        logger.info("Current material paramters", a=matparams['a'], a_f=matparams['a_f'])
-
     model = HeartModelDynaComp(
         geo=geometry,
         bc_params=bc_params,
         matparams=matparams,
         comm=comm,
     )
+
+    if comm.rank == 0:
+        logger.info("Current material paramters", a=model.material.parameters['a'], a_f=model.material.parameters['a_f'])
 
     # Set up data collector with live plotting
     collector = DataCollectorInflator(
