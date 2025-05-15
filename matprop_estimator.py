@@ -6,6 +6,7 @@ from scipy.optimize import minimize
 import scipy.stats
 import structlog
 import arg_parser
+from heart_model import HeartModelDynaComp
 
 import pulse
 import dolfin
@@ -50,17 +51,16 @@ def calculate_error(
 
 def objective(
     x: np.ndarray,
-    bc_params: dict,
-    matparams: dict,
-    geometry: pulse.HeartGeometry,
+    model: HeartModelDynaComp,
     pressures: np.array,
     edpvr_slope: float,
     comm: dolfin.MPI.comm_world
 ) -> float:
-    
-    matparams['a'] = x[0]
-    matparams['a_f'] = x[1]
-    res_pres, res_vols = run_inflator(bc_params, matparams, geometry, pressures, comm=comm) 
+    updated_matparams = {'a': x[0], 'a_f': x[1]}
+    # Update the material parameters in the model
+    model.update_matparams(updated_matparams)
+    # Run the inflation simulation
+    res_pres, res_vols = run_inflator(model, pressures, comm=comm) 
     res_slope = np.mean(np.diff(res_pres) / np.diff(res_vols))
     # Calculate the error as a percentage of the EDPVR slope
     error = np.abs(res_slope - edpvr_slope)/edpvr_slope*100
@@ -189,6 +189,15 @@ def main():
             (out_dirs['unload'] / 'unloaded_geometry_0_with_fibers.h5').as_posix(), comm=comm
         )
 
+        # Set material properties
+        matparams = settings['matparams']
+        # Initialize the heart model
+        model = HeartModelDynaComp(
+            geo=geometry,
+            bc_params=bc_params,
+            matparams=matparams,
+            comm=comm,
+        )
 
         a0 = settings['matparams']['a']
         af0 = settings['matparams']['a_f']
@@ -204,9 +213,7 @@ def main():
 
         fun = lambda x: objective(
             x,
-            bc_params,
-            settings['matparams'],
-            geometry,
+            model,
             pressures,
             edpvr_slope,
             comm

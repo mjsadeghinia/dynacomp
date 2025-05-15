@@ -3,7 +3,6 @@ import numpy as np
 from pathlib import Path
 import json
 import structlog
-import gc
 
 
 
@@ -141,9 +140,7 @@ def run_inflator_with_collector(
     return collector
 
 def run_inflator(
-    bc_params: dict,
-    matparams: dict,
-    geometry: pulse.HeartGeometry,
+    model: HeartModelDynaComp,
     pressures: np.array,
     comm: dolfin.MPI.comm_world
 ) -> np.array:
@@ -151,20 +148,14 @@ def run_inflator(
     Run an inflation simulation using explicit parameters.
 
     Parameters:
-        bc_params: boundary condition parameters
-        matparams: material parameters
-        geometry: heart geometry
+        model: HeartModelDynaComp instance,
         pressures: pressure values for inflation steps,
+        comm: MPI communicator
 
     Returns:
         pressure and volumes
     """
-    # Initialize heart model
-    model = HeartModelDynaComp(
-        geo=geometry,
-        bc_params=bc_params,
-        matparams=matparams,
-    )
+
     # Run inflation steps
     res_pres = []
     res_vols = []
@@ -174,10 +165,6 @@ def run_inflator(
         res_vols.append(v)
         if comm.rank == 0:
             logger.info(f"Inflation step {i}: ", pressure=round(p,3), volume=round(v,3))
-
-    # explicitly delete the model to free memory
-    del model
-    gc.collect()
 
     return res_pres, res_vols
 
