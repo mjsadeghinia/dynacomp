@@ -28,7 +28,7 @@ def load_settings(settings_dir: Path, sample_num: int) -> dict:
 
 
 def sweep_parameters(
-    model: HeartModelDynaComp, pressures: np.ndarray, edpvr_slope: float, a_vals: np.ndarray, af_vals: np.ndarray, comm
+    model: HeartModelDynaComp, pressures: np.ndarray, edpvr_slope: float, a_vals: np.ndarray, af_vals: np.ndarray, outdir, comm
 ):
     """
     Returns meshgrid (A, AF) and error_grid of shape (len(af_vals), len(a_vals))
@@ -47,6 +47,7 @@ def sweep_parameters(
             error_grid[j, i] = np.round(np.abs(slope_out - edpvr_slope) / edpvr_slope * 100, 2)
             if comm.rank == 0:
                 logger.info("sweep_step", a=model.problem.material.a.values()[0], a_f=model.problem.material.a_f.values()[0], error=error_grid[j, i])
+                export_results(A, AF, error_grid, out_path=outdir / "param_sweep_results.txt")
     return A, AF, error_grid
 
 
@@ -60,6 +61,18 @@ def plot_contours(A, AF, error_grid, out_path: Path):
     plt.tight_layout()
     plt.savefig(out_path, dpi=200)
     plt.close()
+
+def export_results(A: np.ndarray, AF: np.ndarray, error_grid: np.ndarray, out_path: Path):
+    """
+    Export the (a, a_f, error_pct) triplets to a tab-delimited text file.
+    """
+    with open(out_path, 'w') as f:
+        f.write("a\ta_f\terror_pct\n")
+        # AF.shape == (len(af_vals), len(a_vals))
+        for j in range(AF.shape[0]):
+            for i in range(A.shape[1]):
+                f.write(f"{A[j, i]}\t{AF[j, i]}\t{error_grid[j, i]}\n")
+
 
 
 # %%
@@ -96,43 +109,43 @@ def main():
     parser.add_argument(
         '--pressure_multiplier',
         type=float,
-        default=1.0,
+        default=0.5,
         help='Multiplier for the initial pressure step.'
     )
     parser.add_argument(
         '--pressure_steps',
         type=int,
-        default=3,
+        default=5,
         help='Number of pressure increments in the inflation simulation.'
     )
     parser.add_argument(
         "--grid_size", 
         type=int, 
-        default=4, 
+        default=8, 
         help="Number of points along each axis"
         )
     parser.add_argument(
         '--a_min',
-        default=.25,
+        default=0.25,
         type=float,
         help='Minimum a-value for the sweep grid.'
     )
     parser.add_argument(
         '--a_max',
         type=float,
-        default=2,
+        default=5,
         help='Maximum a-value for the sweep grid.'
     )
     parser.add_argument(
         '--af_min',
         type=float,
-        default=1,
+        default=0.5,
         help='Minimum a_f-value for the sweep grid.'
     )
     parser.add_argument(
         '--af_max',
         type=float,
-        default=8,
+        default=10,
         help='Maximum a_f-value for the sweep grid.'
     )
     
@@ -211,7 +224,7 @@ def main():
         # sweep ranges
         a_vals = np.round(np.linspace(a_min, a_max, grid_size), 2)
         af_vals = np.round(np.linspace(af_min, af_max, grid_size), 2)
-        A, AF, err = sweep_parameters(model, pressures, edpvr_slope, a_vals, af_vals, comm)
+        A, AF, err = sweep_parameters(model, pressures, edpvr_slope, a_vals, af_vals, out_dirs['model'],comm)
 
         # only rank 0 plots
         if comm.rank == 0:
