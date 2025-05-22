@@ -198,7 +198,7 @@ def main():
     scan_type = args.scan_type
     pressure_multiplier = args.pressure_multiplier
     pressure_steps = args.pressure_steps
-    matparams = arg_parser.prepare_matparams(args)
+    input_matparams = arg_parser.prepare_matparams(args)
     bc_params = arg_parser.create_bc_params(args)
     spline_smoothness = args.spline_smoothness
     plot_flag = args.plot_flag
@@ -237,7 +237,7 @@ def main():
         )
         # Set material properties
         matparams = settings['matparams']
-        for key, value in matparams.items():
+        for key, value in input_matparams.items():
             matparams[key] = value
         # Initialize heart model
         model = HeartModelDynaComp(
