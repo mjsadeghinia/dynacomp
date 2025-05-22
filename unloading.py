@@ -118,8 +118,8 @@ def recreate_geometry_with_fibers(geo, fiber_angles):
     )
 
 
-def load_settings(setting_dir, sample_num):
-    sorted_files = sorted([file for file in setting_dir.iterdir() if file.is_file() and file.suffix == ".json"])
+def load_settings(settings_dir, sample_num):
+    sorted_files = sorted([file for file in settings_dir.iterdir() if file.is_file() and file.suffix == ".json"])
     settings_fname = sorted_files[sample_num - 1]
     with open(settings_fname, "r") as file:
         settings = json.load(file)
@@ -155,7 +155,7 @@ def main(args=None) -> int:
 
     sample_nums = args.number
     bcs_parameters = arg_parser.create_bc_params(args)
-    setting_dir = args.settings_dir
+    settings_dir = args.settings_dir
     data_dir = args.data_dir
     results_dir = args.results_dir
     scan_type = args.scan_type
@@ -165,7 +165,7 @@ def main(args=None) -> int:
     sorted_files = sorted(
         [
             file
-            for file in setting_dir.iterdir()
+            for file in settings_dir.iterdir()
             if file.is_file() and file.suffix == ".json"
         ]
     )
@@ -174,7 +174,7 @@ def main(args=None) -> int:
         sample_nums = range(1,57)
         
     for sample_num in sample_nums:
-        settings = load_settings(setting_dir, sample_num)
+        settings = load_settings(settings_dir, sample_num)
         sample_name = settings["id"]
         sample_dir = results_dir / sample_name / scan_type
         output_dir = sample_dir / "02_Unloading"
