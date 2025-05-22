@@ -113,6 +113,7 @@ def plot_error_contours(data, outname,
     fig.tight_layout()
     fig.savefig(outname, dpi=300)
     plt.close(fig)
+    breakpoint()
 
 
 def main():

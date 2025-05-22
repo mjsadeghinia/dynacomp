@@ -3,7 +3,7 @@ import numpy as np
 from pathlib import Path
 import json
 import structlog
-
+import scipy.stats
 
 
 import arg_parser
@@ -139,7 +139,7 @@ def run_inflator_with_collector(
 
     return collector
 
-def run_inflator(
+def run_inflator_for_sweep(
     model: HeartModelDynaComp,
     pressures: np.array,
     comm: dolfin.MPI.comm_world
@@ -168,8 +168,111 @@ def run_inflator(
 
     return res_pres, res_vols
 
+def run_inflator(
+    sample: int,
+    settings_dir: Path,
+    results_dir: Path,
+    scan_type: str = 'TPM',
+    pressure_multiplier: float = 1.0,
+    pressure_steps: int = 2,
+    pericardium_spring: float = 1e-4,
+    base_spring: float = 1.0,
+    matparams: dict = None,
+):
+    """
+    Run an inflation simulation for a given sample index using explicit parameters.
+    """
+
+    # Load settings
+    settings = load_settings(settings_dir, sample)
+    sample_id = settings['id']
+
+    # Prepare directories
+    out_dirs = {
+        'pv': results_dir / sample_id / 'PV Data',
+        'calib': results_dir / sample_id / scan_type / '01_PVCalibration',
+        'unload': results_dir / sample_id / scan_type / '02_Unloading',
+        'model': results_dir / sample_id / scan_type / '03_Modeling'
+    }
+    comm = dolfin.MPI.comm_world
+    if comm.rank == 0:
+        arg_parser.prepare_oudir_processing(out_dirs['model'], comm)
+    comm.Barrier()
+
+    # Load PV and EDPVR data
+    _, pres, vols = load_pv_data(out_dirs['calib'])
+    edpvr_pres, edpvr_vols_unc = load_edpvr(out_dirs['pv'])
+    a = settings['PV']['calibration']['a']
+    b = settings['PV']['calibration']['b']
+    edpvr_vols = a * edpvr_vols_unc + b
+
+    res = scipy.stats.linregress(edpvr_vols, edpvr_pres)
+    edpvr_slope = res.slope
+
+    # Initialize heart model
+    bc_params = arg_parser.create_bc_params(
+        argparse.Namespace(
+            pericardium_spring=pericardium_spring,
+            base_spring=base_spring
+        )
+    )
+    geometry = pulse.HeartGeometry.from_file(
+        (out_dirs['unload'] / 'unloaded_geometry_0_with_fibers.h5').as_posix(), comm=comm
+    )
+
+    model = HeartModelDynaComp(
+        geo=geometry,
+        bc_params=bc_params,
+        matparams=matparams,
+        comm=comm,
+    )
+
+    # Set material properties
+    model.update_matparams(matparams)
+
+    if comm.rank == 0:
+        logger.info("Current material paramters", a=model.material.parameters['a'], a_f=model.material.parameters['a_f'])
+
+
+    # Run inflation steps
+    v0 = model.compute_volume(activation_value=0, pressure_value=0)
+
+    pressures = np.linspace(0, pres[0] * pressure_multiplier, pressure_steps)
+     # Run inflation steps
+    inflation_pres = []
+    inflation_vols = []
+
+
+    for i, p in enumerate(pressures):
+        v = model.compute_volume(activation_value=0, pressure_value=p, logging_flag=False)
+        inflation_pres.append(p)
+        inflation_vols.append(v)
+        if comm.rank == 0:
+            logger.info(f"Inflation step {i}: ", pressure=round(p,3), volume=round(v,3))
+
+    res_inflation = scipy.stats.linregress(inflation_vols, inflation_pres)
+    inflation_slope = res_inflation.slope
+    error = np.round((inflation_slope-edpvr_slope) / edpvr_slope * 100, 2)
+    out = out_dirs['model'].parent / f"EDPVR_parameter_sweeps.txt"
+    if comm.rank == 0:
+        if not out.exists():
+            header = "a,a_f,error\n"
+            out.write_text(header, encoding="utf-8")
+        # Always append the new line
+        with out.open("a", encoding="utf-8") as f:
+            f.write(f"{model.material.parameters['a']},"
+                    f"{model.material.parameters['a_f']},"
+                    f"{error}\n")
+    return error
+
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '-nc',
+        '--nocollector',
+        action='store_true',
+        help='Disable collection output'
+    )
     parser.add_argument(
         '-n',
         '--number',
@@ -208,13 +311,13 @@ def main():
     parser.add_argument(
         '--pressure_multiplier',
         type=float,
-        default=2.0,
+        default=1.0,
         help='Multiplier for the initial pressure step.'
     )
     parser.add_argument(
         '--pressure_steps',
         type=int,
-        default=20,
+        default=5,
         help='Number of pressure increments in the inflation simulation.'
     )
     parser.add_argument(
@@ -229,6 +332,20 @@ def main():
         default=1.0,
         help='Spring stiffness at the heart base boundary condition.'
     )
+
+    parser.add_argument(
+        '--a_matparam',
+        type=float,
+        default=1.0,
+        help='Material parameter a for the heart model.'
+    )
+    parser.add_argument(
+        '--af_matparam',
+        type=float,
+        default=7.0,
+        help='Material parameter a_f for the heart model.'
+    )
+
     args = parser.parse_args()
 
     # Determine sample list
@@ -238,19 +355,38 @@ def main():
         settings_files = sorted([f for f in args.settings_dir.iterdir() if f.suffix == ".json"])
         sample_list = list(range(1, len(settings_files) + 1))
 
+    matparams = {
+                'a': args.a_matparam,
+                'a_f': args.af_matparam
+            }
     # Run inflator for each sample with explicit params
     for sample in sample_list:
-        run_inflator_with_collector(
-            sample,
-            settings_dir=args.settings_dir,
-            results_dir=args.results_dir,
-            scan_type=args.scan_type,
-            pressure_multiplier=args.pressure_multiplier,
-            pressure_steps=args.pressure_steps,
-            pericardium_spring=args.pericardium_spring,
-            base_spring=args.base_spring,
-            live_plot=True
-        )
+        if args.nocollector:
+            # Run inflator without collector
+            error = run_inflator(
+                sample,
+                settings_dir=args.settings_dir,
+                results_dir=args.results_dir,
+                scan_type=args.scan_type,
+                pressure_multiplier=args.pressure_multiplier,
+                pressure_steps=args.pressure_steps,
+                pericardium_spring=args.pericardium_spring,
+                base_spring=args.base_spring,
+                matparams=matparams
+            )
+        else:
+            run_inflator_with_collector(
+                sample,
+                settings_dir=args.settings_dir,
+                results_dir=args.results_dir,
+                scan_type=args.scan_type,
+                pressure_multiplier=args.pressure_multiplier,
+                pressure_steps=args.pressure_steps,
+                pericardium_spring=args.pericardium_spring,
+                base_spring=args.base_spring,
+                matparams=matparams,
+                live_plot=True
+            )
 
 if __name__ == '__main__':
     main()
