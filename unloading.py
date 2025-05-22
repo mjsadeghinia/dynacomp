@@ -180,8 +180,7 @@ def main(args=None) -> int:
         output_dir = sample_dir / "02_Unloading"
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        if "TPM" not in settings:
-            # logger.warning(f"TPM not found in settings for {sample_name}")
+        if not sample_dir.exists():
             continue
         pv_dir = sample_dir / "01_PVCalibration/"
         geo_dir = pv_dir / "Geometries"
