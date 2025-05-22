@@ -3,6 +3,7 @@ import json
 import numpy as np
 from pathlib import Path
 import matplotlib.pyplot as plt
+from matplotlib.colors import TwoSlopeNorm
 
 
 def load_settings(settings_dir: Path, sample_num: int) -> dict:
@@ -69,7 +70,7 @@ def plot_error_contours(data, outname,
 
     # Create meshgrid for plotting
     A, AF = np.meshgrid(a_vals, af_vals)
-    breakpoint()
+
     # Determine error range
     err_min, err_max = np.nanmin(error_grid), np.nanmax(error_grid)
 
@@ -77,22 +78,40 @@ def plot_error_contours(data, outname,
     if isinstance(levels, int):
         levels = np.linspace(err_min, err_max, levels)
 
+    # Center at zero, treat ±20 as our “in‑range” extrema
+    norm = TwoSlopeNorm(vmin=-20, vcenter=0, vmax=20)
+
+    # Clamp values for visualization so anything < -20 or > 20 sits at the ends of the colormap
+    plot_grid = np.clip(error_grid, -20, 20)
+
     # Plot contours
     fig, ax = plt.subplots(figsize=(6, 5))
-    cs = ax.contourf(A, AF, error_grid,
-                     levels=levels,
-                     cmap=cmap,
-                     vmin=err_min,
-                     vmax=err_max)
+    pcm = ax.pcolormesh(
+        A, AF, plot_grid,
+        shading='auto',
+        cmap=cmap,
+        norm=norm
+    )
+
     ax.set_xlabel('a')
     ax.set_ylabel('af')
-    ax.set_title('Parameter Sweep Error Contours')
+    ax.set_title('Parameter Sweep Error (no interpolation)')
 
-    # Add colorbar
-    fig.colorbar(cs, ax=ax, label='Error (%)')
+    # extend='both' draws arrows for values outside ±20
+    fig.colorbar(pcm, ax=ax, label='Error (%)', extend='both')
 
+    # Highlight the global minimum error on the plot:
+    min_val = np.nanmin(abs(error_grid))
+    jj, ii = np.where(abs(error_grid)== min_val)
+    min_a_coords = a_vals[ii]
+    min_af_coords = af_vals[jj]
+    ax.scatter(min_a_coords, min_af_coords,
+               marker='*', s=100,
+               edgecolor='k', facecolor='white',
+               label=f'Min error = {min_val:.2f}')
+    ax.legend(loc='upper right')
     fig.tight_layout()
-    fig.savefig(outname, dpi=200)
+    fig.savefig(outname, dpi=300)
     plt.close(fig)
 
 
