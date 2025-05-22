@@ -59,13 +59,22 @@ def plot_results(fname, error, matparams, inflation_pres, inflation_vols, edpvr_
     ax.axhline(0, color='gray', linestyle='--')
     # Simulation placeholders
     ax.plot(inflation_vols, inflation_pres, 'g-', linewidth=1, label='Simulation')
-    ax.scatter(inflation_vols, inflation_pres, 'g', s=8)
+    ax.scatter(inflation_vols, inflation_pres, c='g', s=8)
     # Annotate slope and intercept
-    mat_text = "\n".join(f"{key}: {value}" for key, value in matparams.items())
     textstr = (
-        f'error: {error:.2f}\n'
-        f'{mat_text}\n'
+        f'error: {error:.2f}kPa \n'
+        f"a = {round(matparams['a'], 3)}\n"
+        f"a_f = {round(matparams['a_f'], 3)}\n"
+        f"b = {round(matparams['b'], 3)}\n"
+        f"b_f = {round(matparams['b_f'], 3)}\n"
     )
+    ax.text(
+                0.05,
+                0.95,
+                textstr,
+                fontsize=10,
+                verticalalignment='top'
+            )
     ax.set_xlabel('Volume [microL]')
     ax.set_ylabel('LV Pressure [kPa]')
     ax.legend(loc='lower left')
@@ -237,8 +246,6 @@ def main():
             matparams=matparams,
             comm=comm,
         )
-        # Initial solve for the model
-        v0 = model.compute_volume(activation_value=0, pressure_value=0, logging_flag=False)
 
         # Setup pressure for inflation
         pressures = np.linspace(0, pv_pres[0] * pressure_multiplier, pressure_steps)
@@ -261,23 +268,20 @@ def main():
         if comm.rank == 0:
             logger.info(f"Inflation RMS error: {error:.3f} kPa")
             if plot_flag:
-                mat_text = "\n".join(f"{key}: {value}" for key, value in matparams.items())
-                fname = output_dir / f"inflation_results_{mat_text}.png"
+                fname = output_dir / f"inflation_results.png"
                 plot_results(fname, error, matparams, inflation_pres, inflation_vols, edpvr_pres, edpvr_vols, edpvr_spline, pv_vols, pv_pres)
             if logging_flag:
                 # Save results to a file
-                fname = output_dir / f"inflation_results.txt"
-                with open(fname, 'a') as f:
-                    # If file doesn't exist, create and write header
-                    if not fname.exists():
-                        header = "a,a_f,b,b_f,error\n"
-                        fname.write_text(header, encoding="utf-8")
-                    with fname.open("a", encoding="utf-8") as f:
-                        f.write(f"{model.material.parameters['a']},"
-                                f"{model.material.parameters['a_f']},"
-                                f"{model.material.parameters['b']},"
-                                f"{model.material.parameters['b_f']},"
-                                f"{error}\n")
+                fname = output_dir.parent / f"inflation_results.txt"
+                if not fname.exists():
+                    header = "a,a_f,b,b_f,error\n"
+                    fname.write_text(header, encoding="utf-8")
+                with fname.open("a", encoding="utf-8") as f:
+                    f.write(f"{model.material.parameters['a']},"
+                            f"{model.material.parameters['a_f']},"
+                            f"{model.material.parameters['b']},"
+                            f"{model.material.parameters['b_f']},"
+                            f"{round(error,3)}\n")
 
 if __name__ == '__main__':
     main()
