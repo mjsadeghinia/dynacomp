@@ -56,6 +56,8 @@ def plot_results(fname, error, matparams, inflation_pres, inflation_vols, edpvr_
     edpvr_vols_spline = np.linspace(min(edpvr_vols), max(edpvr_vols), 100)
     edpvr_pres_spline = edpvr_spline(edpvr_vols_spline)
     ax.plot(edpvr_vols_spline, edpvr_pres_spline, 'b')
+    res = scipy.stats.linregress(edpvr_vols_spline, edpvr_pres_spline)
+    v_0 = -res.intercept / res.slope if res.slope != 0 else float('nan')
     ax.axhline(0, color='gray', linestyle='--')
     # Simulation placeholders
     ax.plot(inflation_vols, inflation_pres, 'g-', linewidth=1, label='Simulation')
@@ -63,21 +65,25 @@ def plot_results(fname, error, matparams, inflation_pres, inflation_vols, edpvr_
     # Annotate slope and intercept
     textstr = (
         f'error: {error:.2f}kPa \n'
+        f'V0 (EDPVR): {round(v_0)} \n'
+        f'V0 (Simulation): {round(inflation_vols[0])}\n'
         f"a = {round(matparams['a'], 3)}\n"
         f"a_f = {round(matparams['a_f'], 3)}\n"
-        f"b = {round(matparams['b'], 3)}\n"
-        f"b_f = {round(matparams['b_f'], 3)}\n"
     )
     ax.text(
-                0.05,
-                0.95,
-                textstr,
-                fontsize=10,
-                verticalalignment='top'
-            )
+        0.03,       # x-position in axes fraction (1.0 is right edge)
+        0.8,        # y-position in axes raction (1.0 is top edge)
+        textstr,
+        fontsize=10,
+        ha='left',
+        va='top',
+        transform=ax.transAxes
+    )
     ax.set_xlabel('Volume [microL]')
     ax.set_ylabel('LV Pressure [kPa]')
-    ax.legend(loc='lower left')
+    ax.set_xlim(100, 700)
+    ax.set_ylim(-0.5, 18)
+    ax.legend(loc='upper left')
     fig.savefig(fname, dpi=300)
 
 #%%
@@ -120,15 +126,22 @@ def main():
         help='Directory where results will be saved.'
     )
     parser.add_argument(
+        '-o',
+        "--output_folder",
+        default="02_Unloading",
+        type=str,
+        help="The result folder name tha would be created in the directory of the sample.",
+    )
+    parser.add_argument(
         '--pressure_multiplier',
         type=float,
-        default=1.0,
+        default=1.5,
         help='Multiplier for the initial pressure step.'
     )
     parser.add_argument(
         '--pressure_steps',
         type=int,
-        default=10,
+        default=15,
         help='Number of pressure increments in the inflation simulation.'
     )
     parser.add_argument(
@@ -195,6 +208,7 @@ def main():
     number = args.number
     settings_dir = args.settings_dir
     results_dir = args.results_dir
+    output_folder = args.output_folder
     scan_type = args.scan_type
     pressure_multiplier = args.pressure_multiplier
     pressure_steps = args.pressure_steps
@@ -220,10 +234,10 @@ def main():
             continue
 
         # Prepare output directory
-        output_dir = sample_dir / "03_Inflation"
-        if comm.rank == 0:
-            arg_parser.prepare_oudir_processing(output_dir, comm)
-        comm.Barrier()
+        output_dir = sample_dir / output_folder
+        # if comm.rank == 0:
+        #     arg_parser.prepare_oudir_processing(output_dir, comm)
+        # comm.Barrier()
 
         # Load PV and EDPVR data
         _, pv_pres, pv_vols = load_pv_data(sample_dir / "01_PVCalibration")
@@ -233,7 +247,7 @@ def main():
         edpvr_spline = scipy.interpolate.UnivariateSpline(edpvr_vols, edpvr_pres, s=spline_smoothness, k=2)
         # Creating FE model
         geometry = pulse.HeartGeometry.from_file(
-        (sample_dir / '02_Unloading/unloaded_geometry_0_with_fibers.h5').as_posix(), comm=comm
+        (output_dir / 'unloaded_geometry_0_with_fibers.h5').as_posix(), comm=comm
         )
         # Set material properties
         matparams = settings['matparams']
@@ -257,9 +271,10 @@ def main():
             v = model.compute_volume(activation_value=0, pressure_value=p, logging_flag=False)
             inflation_pres.append(p)
             inflation_vols.append(v)
-            if v>EDV:
+            if v>EDV*3:
                 # If the volume exceeds EDV, break the loop
-                logger.info(f"Volume exceeded EDV at pressure {p:.2f} kPa. Stopping inflation.")
+                if comm.rank == 0:
+                    logger.warning(f"Volume exceeded three times of EDV at pressure {p:.2f} kPa. Stopping inflation.")
                 break
             if comm.rank == 0:
                 logger.info(f"Inflation step {i}: ", pressure=round(p,3), volume=round(v,3))
