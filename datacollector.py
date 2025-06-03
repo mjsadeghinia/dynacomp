@@ -210,7 +210,7 @@ class DataCollectorInflator:
 
     def collect(self, time: float, volume: float, pressure: float) -> None:
         if self.comm.rank == 0:
-            logger.info('Collecting data', time=time, volume=volume, pressure=pressure)
+            logger.info(f"Inflation step {time}: ", pressure=round(pressure,3), volume=round(volume,3))
         self.times.append(time)
         self.volumes.append(volume)
         self.pressures.append(pressure)
