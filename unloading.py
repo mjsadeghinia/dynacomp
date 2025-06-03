@@ -57,8 +57,8 @@ def unloader(outdir, atrium_pressure, matparams, bcs_parameters,  plot_flag=Fals
     # Suppose geometry is loaded with a pressure of 1.776 mmHg (0.24kPa) based on PV loop of D3-2
     # and create the unloader
     unloading_params = {
-        "maxiter": 10,
-        "tol": 1e-1,
+        "maxiter": 25,
+        "tol": 5e-2,
         "lb": 0.5,
         "ub": 2.0,
         "regen_fibers": False,
