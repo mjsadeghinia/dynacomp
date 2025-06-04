@@ -80,6 +80,8 @@
         "remove_slice": false,
         "shift_slice_mask": false,
         "close_apex": true,
+        "close_apex_itr_dilation": 3,
+        "close_apex_itr_erosion": 2,    
         "mask": {
             "default": [
                 2,
