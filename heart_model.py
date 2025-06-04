@@ -117,7 +117,7 @@ class HeartModelDynaComp:
         # breakpoint()
 
 
-    def compute_volume(self, activation_value: float, pressure_value: float) -> float:
+    def compute_volume(self, activation_value: float, pressure_value: float, logging_flag:bool = True) -> float:
         """
         Computes the volume of the heart model based on activation and pressure values.
 
@@ -133,7 +133,7 @@ class HeartModelDynaComp:
         volume_current = self.problem.geometry.cavity_volume(
             u=self.problem.state.sub(0)
         )
-        if self.comm.rank == 0:
+        if self.comm.rank == 0 and logging_flag:
             logger.info("Computed volume", volume_current=volume_current)
         return volume_current
 
@@ -435,6 +435,24 @@ class HeartModelDynaComp:
             s0=self.geometry.s0,
             n0=self.geometry.n0,
         )
+    
+    def update_matparams(self, matparams):
+        """
+        Updates the material parameters of the heart model.
+        Parameters:
+        matparams (dict): Dictionary of material parameters to be updated.
+        """
+        # Use provided fiber_angles or default ones if not provided
+        for name, val in matparams.items():
+            if not hasattr(self.material, name):
+                raise ValueError(f"Invalid material parameter: {name}")
+            # Update the material parameters
+            getattr(self.material, name).assign(val)
+            getattr(self.problem.material, name).assign(val)
+
+        # Update the material parameters in the problem
+        self.material = self.get_material_model(matparams)
+        self.problem.material = self.get_material_model(matparams)
 
     def get_matparams(self, matparams: dict = dict()):
         # Use provided fiber_angles or default ones if not provided

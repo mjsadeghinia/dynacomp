@@ -176,6 +176,38 @@ def parse_arguments_unloading(args=None):
         help="The scan type. Settings will be loaded accordingly from json file",
     )
 
+    parser.add_argument(
+        '--a_matparam',
+        type=float,
+        default=None,
+        help='Material parameter a for the heart model.'
+    )
+    parser.add_argument(
+        '--af_matparam',
+        type=float,
+        default=None,
+        help='Material parameter a_f for the heart model.'
+    )
+    parser.add_argument(
+        '--b_matparam',
+        type=float,
+        default=None,
+        help='Material parameter a for the heart model.'
+    )
+    parser.add_argument(
+        '--bf_matparam',
+        type=float,
+        default=None,
+        help='Material parameter a_f for the heart model.'
+    )
+
+    parser.add_argument(
+        '-o',
+        "--output_folder",
+        default="02_Unloading",
+        type=str,
+        help="The result folder name tha would be created in the directory of the sample.",
+    )
     return parser.parse_args(args)
 
 
@@ -268,3 +300,14 @@ def prepare_outdir(outdir):
     # Create the directory again
     outdir.mkdir(exist_ok=True, parents=True)
     return outdir
+
+def prepare_matparams(args):
+    matparams = {
+        'a': args.a_matparam,
+        'a_f': args.af_matparam,
+        'b': args.b_matparam,
+        'b_f': args.bf_matparam
+    }
+    # keep only those entries where the value is not None
+    matparams = {k: v for k, v in matparams.items() if v is not None}
+    return matparams
