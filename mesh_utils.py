@@ -769,7 +769,7 @@ def prepare_mask(h5_file, outdir, settings):
         h5_file = shift_slice_mask(h5_file,slice_num,slice_num_ref,save_flag = True, results_folder=outdir)    
 
     if settings["close_apex"]:
-        h5_file = close_apex(h5_file, itr=2, itr_dilation = 3 ,save_flag = True, results_folder=outdir)    
+        h5_file = close_apex(h5_file, itr=settings["close_apex_itr_erosion"], itr_dilation = settings["close_apex_itr_dilation"], save_flag = True, results_folder=outdir)    
     return h5_file
 
 def prepare_coords(h5_file, settings):
