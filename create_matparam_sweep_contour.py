@@ -3,8 +3,7 @@ import json
 import numpy as np
 from pathlib import Path
 import matplotlib.pyplot as plt
-from matplotlib.colors import TwoSlopeNorm
-
+import matplotlib.tri as mtri
 
 def load_settings(settings_dir: Path, sample_num: int) -> dict:
     """
@@ -15,106 +14,71 @@ def load_settings(settings_dir: Path, sample_num: int) -> dict:
         return json.load(f)
 
 
-def plot_error_contours(data, outname,
-                        a_min, a_max, a_steps,
-                        af_min, af_max, af_steps,
-                        levels=10,
-                        cmap=None):
+def plot_error_contour(data, output_dir, filename='error_contour.png', contour_levels=20, interpolation='cubic'):
     """
-    Plot error contours from raw (a, af, error) data by reconstructing the grid
-    based on explicitly provided parameter ranges.
+    Creates an interpolated contour plot of error over (a_f, a) from the provided data,
+    marks the minimum-error point with a red cross, and saves the figure in output_dir/filename.
 
     Parameters:
-    -----------
-    data : array-like, shape (n, 3)
-        Columns correspond to [a, af, error] from a full parameter sweep.
-        Must form a complete grid: a_steps * af_steps == n.
-    outname : str
-        File path (including filename) where the plot will be saved.
-    a_min : float
-        Minimum value of parameter 'a'.
-    a_max : float
-        Maximum value of parameter 'a'.
-    a_steps : int
-        Number of points along the 'a' axis.
-    af_min : float
-        Minimum value of parameter 'af'.
-    af_max : float
-        Maximum value of parameter 'af'.
-    af_steps : int
-        Number of points along the 'af' axis.
-    levels : int or sequence, optional
-        If int, number of contour levels between min and max error.
-        If sequence, explicit contour level values.
-    cmap : str or Colormap, optional
-        Colormap to use (e.g., 'viridis').
+    - data: numpy array with columns [a, a_f, b, b_f, error].
+    - output_dir: directory path (string) where the plot will be saved.
+    - filename: name of the output file (string), default 'error_contour.png'.
+
+    Returns:
+    - output_path: full path to the saved file.
     """
-    data = np.asarray(data)
-    # Generate the parameter grids
-    a_vals = np.linspace(a_min, a_max, a_steps)
-    af_vals = np.linspace(af_min, af_max, af_steps)
+    a = data[:, 0]
+    a_f = data[:, 1]
+    error = data[:, 4]
 
-    n, m = len(a_vals), len(af_vals)
-    expected = n * m
-    if data.shape[0] != expected:
-        raise ValueError(f"Data size mismatch: expected {expected} points ({n}x{m} grid), got {data.shape[0]}")
+    # Triangulate and create linear interpolator
+    triang = mtri.Triangulation(a_f, a)
+    if interpolation == 'cubic':
+        # Use cubic interpolation if specified
+        interp = mtri.CubicTriInterpolator(triang, error)
+    else:
+        # Default to linear interpolation
+        interp = mtri.LinearTriInterpolator(triang, error)
 
-    # Build error grid
-    error_grid = np.empty((m, n))
-    for i, a in enumerate(a_vals):
-        for j, af in enumerate(af_vals):
-            mask = (np.isclose(data[:, 0], a) & np.isclose(data[:, 1], af))
-            if not np.any(mask):
-                raise ValueError(f"Missing error value for a={a}, af={af}")
-            error_grid[j, i] = data[mask, 2]
+    # Build regular grid for interpolation
+    a_f_lin = np.linspace(np.min(a_f), np.max(a_f), 200)
+    a_lin = np.linspace(np.min(a), np.max(a), 200)
+    a_f_grid, a_grid = np.meshgrid(a_f_lin, a_lin)
+    error_grid = interp(a_f_grid, a_grid)
 
-    # Create meshgrid for plotting
-    A, AF = np.meshgrid(a_vals, af_vals)
+    min_idx = np.argmin(error)
+    best_a = a[min_idx]
+    best_a_f = a_f[min_idx]
+    best_error = error[min_idx]
 
-    # Determine error range
-    err_min, err_max = np.nanmin(error_grid), np.nanmax(error_grid)
+    fig, ax = plt.subplots(figsize=(8, 6))
+    levels = np.linspace(np.nanmin(error), np.nanmax(error), contour_levels)
 
-    # Define contour levels
-    if isinstance(levels, int):
-        levels = np.linspace(err_min, err_max, levels)
+    cs = ax.contour(a_f_grid, a_grid, error_grid, levels=levels, colors='black', linewidths=0.25)
+    # Label only the first 5 (lowest) contour lines
+    lowest_levels = cs.levels[:5]
+    ax.clabel(cs, levels=lowest_levels, fmt="%.2f", fontsize=8)
+    # Draw filled contours
+    cf = ax.contourf(a_f_grid, a_grid, error_grid, levels=levels, cmap='viridis', alpha=0.7)
 
-    # Center at zero, treat ±20 as our “in‑range” extrema
-    norm = TwoSlopeNorm(vmin=-20, vcenter=0, vmax=20)
+    ax.scatter(a_f, a, c='white', edgecolor='black', s=40, label='Data points')
+    ax.scatter(best_a_f, best_a, c='red', edgecolor='black', s=40, label='Best Fit')  
 
-    # Clamp values for visualization so anything < -20 or > 20 sits at the ends of the colormap
-    plot_grid = np.clip(error_grid, -20, 20)
-
-    # Plot contours
-    fig, ax = plt.subplots(figsize=(6, 5))
-    pcm = ax.pcolormesh(
-        A, AF, plot_grid,
-        shading='auto',
-        cmap=cmap,
-        norm=norm
-    )
-
-    ax.set_xlabel('a')
-    ax.set_ylabel('af')
-    ax.set_title('Parameter Sweep Error (no interpolation)')
-
-    # extend='both' draws arrows for values outside ±20
-    fig.colorbar(pcm, ax=ax, label='Error (%)', extend='both')
-
-    # Highlight the global minimum error on the plot:
-    min_val = np.nanmin(abs(error_grid))
-    jj, ii = np.where(abs(error_grid)== min_val)
-    min_a_coords = a_vals[ii]
-    min_af_coords = af_vals[jj]
-    ax.scatter(min_a_coords, min_af_coords,
-               marker='*', s=100,
-               edgecolor='k', facecolor='white',
-               label=f'Min error = {min_val:.2f}')
+    # Labels, title, grid, legend
+    ax.set_xlabel('a_f')
+    ax.set_ylabel('a')
+    ax.set_xlim(0,np.max(a_f) + 1)
+    ax.set_ylim(0,np.max(a) + 1)
     ax.legend(loc='upper right')
-    fig.tight_layout()
-    fig.savefig(outname, dpi=300)
-    plt.close(fig)
-    breakpoint()
 
+    # Colorbar
+    cbar = fig.colorbar(cf, ax=ax)
+    cbar.set_label('RMS Error (kPa)')
+
+    # Save and close
+    fname = output_dir / filename
+    fig.savefig(fname, dpi=300)
+    plt.close(fig)
 
 def main():
     parser = argparse.ArgumentParser(
@@ -145,37 +109,14 @@ def main():
         default=Path('/home/shared/01_results_coarse_mesh'),
         help='Directory where results will be saved.'
     )
-    parser.add_argument(
-        '--grid_size',
-        type=int,
-        default=8,
-        help='Number of points along each axis'
-    )
-    parser.add_argument(
-        '--a_min',
-        type=float,
-        default=0.25,
-        help='Minimum a-value for the sweep grid.'
-    )
-    parser.add_argument(
-        '--a_max',
-        type=float,
-        default=5.5,
-        help='Maximum a-value for the sweep grid.'
-    )
-    parser.add_argument(
-        '--af_min',
-        type=float,
-        default=0.5,
-        help='Minimum a_f-value for the sweep grid.'
-    )
-    parser.add_argument(
-        '--af_max',
-        type=float,
-        default=10.5,
-        help='Maximum a_f-value for the sweep grid.'
-    )
 
+    parser.add_argument(
+        '-c', '--contour_levels',
+        type=int,
+        default=20,
+        help='The number of contour lines.'
+    )
+    
     args = parser.parse_args()
 
     # Determine samples to process
@@ -191,19 +132,12 @@ def main():
 
         # Prepare directories and file paths
         out_dir = args.results_dir / sample_id / args.scan_type
-        data_file = out_dir / f"EDPVR_parameter_sweeps.txt"
-        out_path = out_dir / "ParameterSweep_contours.png"
-
+        data_dir = out_dir / "02_EDPVR_Modeling"
+        fname = data_dir / "inflation_results.txt"
         # Load sweep data
-        data = np.loadtxt(data_file, skiprows=1, delimiter=',')
-
-        # Plot and save contours
-        plot_error_contours(
-            data, out_path,
-            a_min=args.a_min, a_max=args.a_max, a_steps=args.grid_size,
-            af_min=args.af_min, af_max=args.af_max, af_steps=args.grid_size,
-            levels=42, cmap='viridis'
-        )
+        data = np.loadtxt(fname, skiprows=1, delimiter=',')
+        plot_error_contour(data, data_dir, filename=f'error_contour_sample_{sample_id}.png', contour_levels=args.contour_levels)
+        
 
 if __name__ == "__main__":
     main()
