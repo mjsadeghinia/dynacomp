@@ -7,8 +7,11 @@ import dolfin
 import h5py
 import json
 import shutil
+import ast
+import scipy.stats
 
 
+import arg_parser
 from structlog import get_logger
 
 logger = get_logger()
@@ -110,13 +113,20 @@ def load_mr_cardiac_cycle_duration(h5_dir):
     return CC_duration
 
 
-def load_pressure_volumes(data_dir, sample_name):
+def load_pressure_volumes(data_dir):
     PV_data_fname = [fname for fname in data_dir.iterdir() if "PV_data" in fname.stem][0]
     PV_data = np.loadtxt(PV_data_fname.as_posix(), delimiter=",")
     time = PV_data[:, 0] * 1000
     pressures = PV_data[:, 1]
     volumes = PV_data[:, 2]
     return time, pressures, volumes
+
+def load_edpvr(data_dir):
+    PV_data_fname = [fname for fname in data_dir.iterdir() if "EDPVR.csv" in fname.as_posix()][0]
+    PV_data = np.loadtxt(PV_data_fname.as_posix(), delimiter=",")
+    pressures = PV_data[:, 0]
+    volumes = PV_data[:, 1]
+    return pressures, volumes
 
 
 def find_best_mri_shift(mri_time, mri_volumes, pv_time, pv_volumes, N=5):
@@ -224,9 +234,9 @@ def main(args=None) -> int:
     data_dir = args.data_dir
     results_dir = args.results_dir
     # Get the list of .json files in the directory and sort them by name
-    sorted_files = sorted([file for file in settings_dir.iterdir() if file.is_file() and file.suffix == ".json"])
-
-    sample_nums = range(1, len(sorted_files) + 1)
+    if sample_nums is None:
+        sorted_files = sorted([file for file in settings_dir.iterdir() if file.is_file() and file.suffix == ".json"])
+        sample_nums = range(1, len(sorted_files) + 1)
 
     for sample_num in sample_nums:
         settings = load_settings(settings_dir, sample_num)
@@ -238,10 +248,10 @@ def main(args=None) -> int:
         tpm_data_dir = results_dir / sample_name / "TPM"
         meshes_data_dir = tpm_data_dir / "00_Meshes"
         h5_dir = data_dir / sample_name / "TPM"
-        output_dir = results_dir / sample_name / "TPM" / "PVCalibration"
-        output_dir.mkdir(parents=True, exist_ok=True)
+        output_dir = results_dir / sample_name / "TPM" / "01_PVCalibration"
+        output_dir = arg_parser.prepare_outdir(output_dir)
 
-        pv_time, pv_pressures, pv_volumes = load_pressure_volumes(pv_data_dir, sample_name)
+        pv_time, pv_pressures, pv_volumes = load_pressure_volumes(pv_data_dir)
 
         cc_duration = load_mr_cardiac_cycle_duration(h5_dir)
         mri_time_total = np.mean(cc_duration) * 1000
@@ -326,7 +336,7 @@ def main(args=None) -> int:
         lines_2, labels_2 = ax2.get_legend_handles_labels()
         ax1.legend(lines_1 + lines_2, labels_1 + labels_2, loc="lower right")
         plt.tight_layout()
-        fname = output_dir / f"Volumes.png"
+        fname = output_dir / f"calibrated_volumes.png"
         plt.savefig(fname, dpi=300)
         plt.close()
 
@@ -344,12 +354,12 @@ def main(args=None) -> int:
         ax2.set_ylim(ymin * mmHg_to_kPa, ymax * mmHg_to_kPa)
         ax2.set_ylabel("LV Pressure [kPa]")
 
-        fname = output_dir / f"Registered_PV.png"
+        fname = output_dir / f"registered_pv.png"
         plt.savefig(fname, dpi=300)
         plt.close()
 
-        fname = output_dir / "calibrated_pv_data.csv"
-        np.savetxt(fname, np.vstack((regirstered_pressures, mri_volumes)).T, delimiter=",")
+        fname = output_dir / "registered_pv_data.csv"
+        np.savetxt(fname, np.vstack((mri_time, regirstered_pressures, mri_volumes)).T, delimiter=",")
 
         settings = update_settings(settings, a, b)
         settings_fname = save_settings(settings, settings_dir, sample_name)
@@ -360,13 +370,110 @@ def main(args=None) -> int:
         np.loadtxt(fname, delimiter=",")
 
         # updating the geometries by adjusting based on best shift
-        geo_outdir = output_dir / "geometry"
+        geo_outdir = output_dir / "Geometries"
         geo_outdir.mkdir(parents=True, exist_ok=True)
         indices = [np.argmin(np.abs(mri_volumes_original - v)) for v in mri_volumes]
-        for i in indices:
-            geo_fname = meshes_data_dir / f"time_{i}/Geometry/geometry.h5"
+        for i, n in enumerate(indices):
+            geo_fname = meshes_data_dir / f"time_{n}/Geometry/geometry.h5"
             geo_outname = geo_outdir / f"geometry_{i}.h5"
             shutil.copy(geo_fname, geo_outname)
+
+        # Calibrating the EDPVR data
+        # Load the EDPVR data
+        edpvr_pressures, edpvr_volumes = load_edpvr(pv_data_dir)
+        calibrated_edpvr_volumes = a * edpvr_volumes + b
+        # Calculate the x value at which y = 0 using the regression line equation (avoid division by zero)
+        res = scipy.stats.linregress(calibrated_edpvr_volumes, edpvr_pressures)
+        v_0 = -res.intercept / res.slope if res.slope != 0 else float('nan')
+        # Calculate the standard error of the slope and intercept
+        tinv = lambda p, df: abs(scipy.stats.t.ppf(p/2, df))
+        ts = tinv(0.05, len(calibrated_edpvr_volumes)-2)
+        # loaded the EDPVR PV data
+        fname = pv_data_dir / f"{sample_name}_EDPVR_pressure_data.csv"
+        with open(fname, 'r') as f:
+            text = f.read()
+            edpvr_pressures_all = ast.literal_eval(text)
+
+        fname = pv_data_dir / f"{sample_name}_EDPVR_volume_data.csv"
+        with open(fname, 'r') as f:
+            text = f.read()
+            edpvr_volumes_all = ast.literal_eval(text)
+
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.plot(mri_volumes, regirstered_pressures, "k", linewidth=1)
+        ax.scatter(mri_volumes, regirstered_pressures, s=15, c="k")
+        ax.scatter(calibrated_edpvr_volumes, edpvr_pressures, s=8, c="r")
+        for p,v in zip(edpvr_pressures_all, edpvr_volumes_all):
+            v_calibrated = a * np.array(v) + b
+            ax.plot(v_calibrated, p, c="k", linewidth=0.05)
+        plt.xlabel("Volume [micro Liter]")
+        plt.ylabel("LV Pressure [mmHg]")
+        # Add a title with the slope and intercept
+        textstr = (
+                f"slope (95%): {res.slope:.3f} $\pm$ {ts*res.stderr:.3f}\n"
+                f"$v_0$ (P=0): {v_0:.2f}"
+            )
+        ax.text(
+            0.05, 0.95, textstr,
+            transform=ax.transAxes,
+            fontsize=10,
+            verticalalignment='top',
+            # bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+        )
+        ax.plot(calibrated_edpvr_volumes, res.intercept + res.slope*calibrated_edpvr_volumes, 'b', label='EDVPR')
+        ax.axhline(y=0, color='gray', linestyle='--')
+        # Add a second y-axis for LV Pressure in kPa
+        ax2 = ax.twinx()
+        mmHg_to_kPa = 0.133322
+        ymin, ymax = ax.get_ylim()
+        ax2.set_ylim(ymin * mmHg_to_kPa, ymax * mmHg_to_kPa)
+        ax2.set_ylabel("LV Pressure [kPa]")
+
+        fname = output_dir / f"registered_edpvr.png"
+        plt.savefig(fname, dpi=300)
+        plt.close()
+
+        pv_volumes_calibrated = a * pv_volumes + b
+        regirstered_calibrated_volumes = np.interp(mri_time, pv_time, pv_volumes_calibrated)
+
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.plot(regirstered_calibrated_volumes, regirstered_pressures, "k", linewidth=1)
+        ax.scatter(regirstered_calibrated_volumes, regirstered_pressures, s=15, c="k")
+        ax.scatter(calibrated_edpvr_volumes, edpvr_pressures, s=8, c="r")
+        for p,v in zip(edpvr_pressures_all, edpvr_volumes_all):
+            v_calibrated = a * np.array(v) + b
+            ax.plot(v_calibrated, p, c="k", linewidth=0.05)
+        plt.xlabel("Volume [micro Liter]")
+        plt.ylabel("LV Pressure [mmHg]")
+
+        # Add a title with the slope and intercept
+        textstr = (
+                f"slope (95%): {res.slope:.3f} $\pm$ {ts*res.stderr:.3f}\n"
+                f"$v_0$ (P=0): {v_0:.2f}"
+            )
+        ax.text(
+            0.05, 0.95, textstr,
+            transform=ax.transAxes,
+            fontsize=10,
+            verticalalignment='top',
+            # bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+        )
+        ax.plot(calibrated_edpvr_volumes, res.intercept + res.slope*calibrated_edpvr_volumes, 'b', label='EDVPR')
+        ax.axhline(y=0, color='gray', linestyle='--')
+
+        # Add a second y-axis for LV Pressure in kPa
+        ax2 = ax.twinx()
+        mmHg_to_kPa = 0.133322
+        ymin, ymax = ax.get_ylim()
+        ax2.set_ylim(ymin * mmHg_to_kPa, ymax * mmHg_to_kPa)
+        ax2.set_ylabel("LV Pressure [kPa]")
+
+        fname = output_dir / f"registered_edpvr_with_calibrated_cather_volume.png"
+        plt.savefig(fname, dpi=300)
+        plt.close()
+        # Save the calibrated EDPVR data
+        fname = output_dir / "calibrated_pv_data.csv"
+        np.savetxt(fname, np.vstack((mri_time, regirstered_pressures, regirstered_calibrated_volumes)).T, delimiter=",")
 
 
 if __name__ == "__main__":
