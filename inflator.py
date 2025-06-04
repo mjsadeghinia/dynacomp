@@ -42,12 +42,16 @@ def calibration_edpvr_vols(edpvr_vols_unc, settings):
     edpvr_vols = a * edpvr_vols_unc + b
     return edpvr_vols
 
-def calculate_error(edpvr_spline, inflation_pres, inflation_vols):
+def calculate_error(edpvr_spline, inflation_spline, edpvr_vols):
+    min_vol = min(edpvr_vols)
+    max_vol = max(edpvr_vols)
+    inflation_vols = np.linspace(min_vol, max_vol, 20)
     edpvr_pres_interp = edpvr_spline(inflation_vols)
+    inflation_pres = inflation_spline(inflation_vols)
     error = np.sqrt(np.mean((edpvr_pres_interp - inflation_pres)**2))
     return error
 
-def plot_results(fname, error, matparams, inflation_pres, inflation_vols, edpvr_pres, edpvr_vols, edpvr_spline, pv_vols, pv_pres):
+def plot_results(fname, error, matparams, inflation_pres, inflation_vols, edpvr_pres, edpvr_vols, edpvr_spline, inflation_spline, pv_vols, pv_pres):
     fig, ax = plt.subplots(figsize=(8, 6))
     ax.plot(pv_vols, pv_pres, 'k', linewidth=1)
     ax.scatter(pv_vols, pv_pres, s=15, c='k', label='PV Data')
@@ -278,13 +282,14 @@ def main():
                 break
             if comm.rank == 0:
                 logger.info(f"Inflation step {i}: ", pressure=round(p,3), volume=round(v,3))
-        
-        error = calculate_error(edpvr_spline, inflation_pres, inflation_vols)
+
+        inflation_spline = scipy.interpolate.UnivariateSpline(inflation_vols, inflation_pres, s=spline_smoothness, k=3)
+        error = calculate_error(edpvr_spline, inflation_spline, edpvr_vols)
         if comm.rank == 0:
             logger.info(f"Inflation RMS error: {error:.3f} kPa")
             if plot_flag:
                 fname = output_dir / f"inflation_results.png"
-                plot_results(fname, error, matparams, inflation_pres, inflation_vols, edpvr_pres, edpvr_vols, edpvr_spline, pv_vols, pv_pres)
+                plot_results(fname, error, matparams, inflation_pres, inflation_vols, edpvr_pres, edpvr_vols, edpvr_spline, inflation_spline, pv_vols, pv_pres)
             if logging_flag:
                 # Save results to a file
                 fname = output_dir.parent / f"inflation_results.txt"
