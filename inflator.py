@@ -69,10 +69,12 @@ def plot_results(fname, error, matparams, inflation_pres, inflation_vols, edpvr_
     # Annotate slope and intercept
     textstr = (
         f'error: {error:.2f}kPa \n'
-        f'V0 (EDPVR): {round(v_0)} \n'
-        f'V0 (Simulation): {round(inflation_vols[0])}\n'
-        f"a = {round(matparams['a'], 3)}\n"
+        f'V0 (EDPVR): {round(v_0)}muL \n'
+        f'V0 (Simulation): {round(inflation_vols[0])}muL\n'
+        f"a = {round(matparams['a'], 3)}kPa\n"
         f"a_f = {round(matparams['a_f'], 3)}\n"
+        f"b = {round(matparams['b'], 3)}kPa\n"
+        f"b_f = {round(matparams['b_f'], 3)}\n"
     )
     ax.text(
         0.03,       # x-position in axes fraction (1.0 is right edge)
