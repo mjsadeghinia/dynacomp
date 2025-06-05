@@ -4,6 +4,9 @@ import numpy as np
 from pathlib import Path
 import matplotlib.pyplot as plt
 import matplotlib.tri as mtri
+import plotly.graph_objects as go
+from scipy.interpolate import griddata
+
 
 def load_settings(settings_dir: Path, sample_num: int) -> dict:
     """
@@ -13,62 +16,54 @@ def load_settings(settings_dir: Path, sample_num: int) -> dict:
     with open(files[sample_num - 1], 'r') as f:
         return json.load(f)
 
-
-def plot_error_contour(data, output_dir, filename='error_contour.png', contour_levels=20, interpolation='cubic'):
+def _plot_contour_slice(a, a_f, error, output_path, contour_levels, interpolation):
     """
-    Creates an interpolated contour plot of error over (a_f, a) from the provided data,
-    marks the minimum-error point with a red cross, and saves the figure in output_dir/filename.
-
-    Parameters:
-    - data: numpy array with columns [a, a_f, b, b_f, error].
-    - output_dir: directory path (string) where the plot will be saved.
-    - filename: name of the output file (string), default 'error_contour.png'.
-
-    Returns:
-    - output_path: full path to the saved file.
+    Helper to plot and save a single (a_f, a) vs. error contour slice.
     """
-    a = data[:, 0]
-    a_f = data[:, 1]
-    error = data[:, 4]
-
-    # Triangulate and create linear interpolator
+    # Build triangulation and interpolator
     triang = mtri.Triangulation(a_f, a)
     if interpolation == 'cubic':
-        # Use cubic interpolation if specified
         interp = mtri.CubicTriInterpolator(triang, error)
     else:
-        # Default to linear interpolation
         interp = mtri.LinearTriInterpolator(triang, error)
 
-    # Build regular grid for interpolation
+    # Create regular grid
     a_f_lin = np.linspace(np.min(a_f), np.max(a_f), 200)
     a_lin = np.linspace(np.min(a), np.max(a), 200)
     a_f_grid, a_grid = np.meshgrid(a_f_lin, a_lin)
     error_grid = interp(a_f_grid, a_grid)
 
+    # Find minimum‐error point in this slice
     min_idx = np.argmin(error)
     best_a = a[min_idx]
     best_a_f = a_f[min_idx]
-    best_error = error[min_idx]
 
+    # Start plotting
     fig, ax = plt.subplots(figsize=(8, 6))
     levels = np.linspace(np.nanmin(error), np.nanmax(error), contour_levels)
 
-    cs = ax.contour(a_f_grid, a_grid, error_grid, levels=levels, colors='black', linewidths=0.25)
-    # Label only the first 5 (lowest) contour lines
+    # Contour lines (only lowest 5 labeled)
+    cs = ax.contour(a_f_grid, a_grid, error_grid,
+                    levels=levels, colors='black', linewidths=0.25)
     lowest_levels = cs.levels[:5]
     ax.clabel(cs, levels=lowest_levels, fmt="%.2f", fontsize=8)
-    # Draw filled contours
-    cf = ax.contourf(a_f_grid, a_grid, error_grid, levels=levels, cmap='viridis', alpha=0.7)
 
+    # Filled contour
+    cf = ax.contourf(a_f_grid, a_grid, error_grid,
+                     levels=levels, cmap='viridis', alpha=0.7)
+
+    # Raw data points
     ax.scatter(a_f, a, c='white', edgecolor='black', s=40, label='Data points')
-    ax.scatter(best_a_f, best_a, c='red', edgecolor='black', s=40, label='Best Fit')  
 
-    # Labels, title, grid, legend
+    # Mark best fit
+    ax.scatter(best_a_f, best_a, c='red', edgecolor='black',
+               s=40, label='Best Fit')
+
+    # Labels and limits
     ax.set_xlabel('a_f')
     ax.set_ylabel('a')
-    ax.set_xlim(0,np.max(a_f) + 1)
-    ax.set_ylim(0,np.max(a) + 1)
+    ax.set_xlim(0, np.max(a_f) + 1)
+    ax.set_ylim(0, np.max(a) + 1)
     ax.legend(loc='upper right')
 
     # Colorbar
@@ -76,9 +71,61 @@ def plot_error_contour(data, output_dir, filename='error_contour.png', contour_l
     cbar.set_label('RMS Error (kPa)')
 
     # Save and close
-    fname = output_dir / filename
-    fig.savefig(fname, dpi=300)
+    fig.savefig(output_path, dpi=300)
     plt.close(fig)
+
+
+def plot_error_contour(data, output_dir: Path, filename='error_contour.png',
+                       contour_levels=20, interpolation='cubic', bf_flag=False):
+    """
+    Creates interpolated contour plot(s) of error over (a_f, a).
+    If bf_flag is False (default), produces a single plot using all data.
+    If bf_flag is True, creates one plot per unique b_f value.
+    Saves files in output_dir with names based on filename.
+    """
+    # Ensure output directory exists
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Columns in data: [a, a_f, b, b_f, error]
+    a     = data[:, 0]
+    a_f   = data[:, 1]
+    b_f   = data[:, 3]
+    error = data[:, 4]
+
+    if bf_flag:
+        # Generate one plot for each unique b_f
+        for bf in np.unique(b_f):
+            mask = np.isclose(b_f, bf)
+            a_slice     = a[mask]
+            a_f_slice   = a_f[mask]
+            error_slice = error[mask]
+
+            # Build a filename that includes the b_f value
+            stem, ext = Path(filename).stem, Path(filename).suffix
+            safe_bf = str(bf).replace('.', '_')
+            out_name = f"{stem}_bf_{safe_bf}{ext}"
+            out_path = output_dir / out_name
+
+            _plot_contour_slice(
+                a_slice,
+                a_f_slice,
+                error_slice,
+                out_path,
+                contour_levels,
+                interpolation
+            )
+    else:
+        # Single plot using all data
+        out_path = output_dir / filename
+        _plot_contour_slice(
+            a,
+            a_f,
+            error,
+            out_path,
+            contour_levels,
+            interpolation
+        )
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -109,14 +156,25 @@ def main():
         default=Path('/home/shared/01_results_coarse_mesh'),
         help='Directory where results will be saved.'
     )
-
     parser.add_argument(
         '-c', '--contour_levels',
         type=int,
         default=20,
         help='The number of contour lines.'
     )
-    
+    parser.add_argument(
+        '--interpolation',
+        type=str,
+        choices=['linear', 'cubic'],
+        default='cubic',
+        help='Interpolation method for contours.'
+    )
+    parser.add_argument(
+        '--bf_flag',
+        action='store_true',
+        help='If set, create and save one plot per unique b_f value.'
+    )
+
     args = parser.parse_args()
 
     # Determine samples to process
@@ -131,13 +189,22 @@ def main():
         sample_id = settings['id']
 
         # Prepare directories and file paths
-        out_dir = args.results_dir / sample_id / args.scan_type
-        data_dir = out_dir / "02_EDPVR_Modeling"
-        fname = data_dir / "inflation_results.txt"
+        out_dir  = args.results_dir / sample_id / args.scan_type / "02_EDPVR_Modeling"
+        data_dir = out_dir
+        fname    = data_dir / "inflation_results.txt"
+
         # Load sweep data
         data = np.loadtxt(fname, skiprows=1, delimiter=',')
-        plot_error_contour(data, data_dir, filename=f'error_contour_sample_{sample_id}.png', contour_levels=args.contour_levels)
-        
+
+        # Plot and save contours (single or small multiples)
+        plot_error_contour(
+            data,
+            data_dir,
+            filename=f'error_contour_sample_{sample_id}.png',
+            contour_levels=args.contour_levels,
+            interpolation=args.interpolation,
+            bf_flag=args.bf_flag
+        )
 
 if __name__ == "__main__":
     main()
