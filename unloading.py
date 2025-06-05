@@ -20,14 +20,12 @@ comm = dolfin.MPI.comm_world
 
 
 # %%
-def unloader(outdir, atrium_pressure, matparams, bcs_parameters,  plot_flag=False, comm=None):
+def unloader(outdir, geo_fname, atrium_pressure, matparams, bcs_parameters,  plot_flag=False, comm=None):
     if comm is None:
         comm = dolfin.MPI.comm_world
-    geo_fname = 'geometry_0'
-    h5_fname = outdir / f"{geo_fname}.h5"
+    geo = pulse.HeartGeometry.from_file(geo_fname, comm=comm)
     if comm.Get_rank() == 0:
-        logger.info(f"Original geometry loaded {h5_fname} ...")
-    geo = pulse.HeartGeometry.from_file(h5_fname, comm=comm)
+        logger.info(f"Original geometry loaded {geo_fname} ...")
     microstructure = pulse.Microstructure(f0=geo.f0, s0=geo.s0, n0=geo.n0)
     marker_functions = pulse.MarkerFunctions(ffun=geo.ffun)
     geometry = pulse.HeartGeometry(
@@ -57,8 +55,8 @@ def unloader(outdir, atrium_pressure, matparams, bcs_parameters,  plot_flag=Fals
     # Suppose geometry is loaded with a pressure of 1.776 mmHg (0.24kPa) based on PV loop of D3-2
     # and create the unloader
     unloading_params = {
-        "maxiter": 25,
-        "tol": 5e-2,
+        "maxiter": 10,
+        "tol": 1e-2,
         "lb": 0.5,
         "ub": 2.0,
         "regen_fibers": False,
@@ -196,12 +194,9 @@ def main(args=None) -> int:
         for key, value in input_matparams.items():
             matparams[key] = value
 
-        if comm.Get_rank() == 0:
-            shutil.copy(geo_fname, output_dir)
-            logger.info(f"Copied geometry file to {output_dir}")
-        comm.barrier()
         unloaded_geometry = unloader(
             output_dir,
+            geo_fname,
             atrium_pressure,
             matparams=matparams,
             bcs_parameters=bcs_parameters,
