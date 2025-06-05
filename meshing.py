@@ -45,6 +45,10 @@ def create_mesh(
         outdir = output_dir / "02_ShaxBSpline"
         outdir.mkdir(exist_ok=True)
         K_endo = len(tck_endo)
+        xmax = int(max([max(x[:,0]) for x in coords_epi]))+5
+        xmin = int(min([min(x[:,0]) for x in coords_epi]))-5
+        ymax = int(max([max(x[:,1]) for x in coords_epi]))+5
+        ymin = int(min([min(x[:,1]) for x in coords_epi]))-5
         for k in range(K):
             mu.plot_shax_with_coords(
                 coords_epi, tck_epi, k, new_plot=True
@@ -53,6 +57,8 @@ def create_mesh(
                 mu.plot_shax_with_coords(
                     coords_endo, tck_endo, k, color="b"
                 )
+            mu.plot_shax_with_coords.ax.set_xlim(xmin, xmax)
+            mu.plot_shax_with_coords.ax.set_ylim(ymin, ymax)
             fnmae = outdir.as_posix() + "/" + fname_prefix + "_" + str(k) + ".png"
             plt.savefig(fnmae)
             plt.close()
