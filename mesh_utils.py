@@ -764,16 +764,15 @@ def prepare_mask(h5_file, outdir, settings):
         h5_file = remove_slice(h5_file, slice_num=0, save_flag=True, results_folder=outdir)  
         
     if settings["shift_slice_mask"]:
-        if "shift_slice_mask_refnum" in settings:
-            slice_num_ref = settings["shift_slice_mask_refnum"]
-        else:
-            slice_num_ref = slice_num - 1
         if type(settings["shift_slice_mask_num"]) is list:
             for slice_num in settings["shift_slice_mask_num"]:
-                h5_file = shift_slice_mask(h5_file, slice_num, slice_num_ref, save_flag=True, results_folder=outdir)
+                if "shift_slice_mask_refnum" in settings:
+                    h5_file = shift_slice_mask(h5_file, slice_num, settings["shift_slice_mask_refnum"], save_flag=True, results_folder=outdir)
+                else:
+                    h5_file = shift_slice_mask(h5_file, slice_num, slice_num - 1, save_flag=True, results_folder=outdir)
         else:
             slice_num = settings["shift_slice_mask_num"]
-            h5_file = shift_slice_mask(h5_file,slice_num,slice_num_ref,save_flag = True, results_folder=outdir)    
+            h5_file = shift_slice_mask(h5_file,slice_num,slice_num-1,save_flag = True, results_folder=outdir)    
 
     if settings["close_apex"]:
         h5_file = close_apex(h5_file, itr=settings["close_apex_itr_erosion"], itr_dilation = settings["close_apex_itr_dilation"], save_flag = True, results_folder=outdir)    
