@@ -55,7 +55,7 @@ def unloader(outdir, geo_fname, atrium_pressure, matparams, bcs_parameters,  plo
     # Suppose geometry is loaded with a pressure of 1.776 mmHg (0.24kPa) based on PV loop of D3-2
     # and create the unloader
     unloading_params = {
-        "maxiter": 10,
+        "maxiter": 30,
         "tol": 1e-2,
         "lb": 0.5,
         "ub": 2.0,
