@@ -40,7 +40,7 @@ def _plot_contour_slice(a, a_f, error, output_path, contour_levels, interpolatio
 
     # Start plotting
     fig, ax = plt.subplots(figsize=(8, 6))
-    levels = np.linspace(np.nanmin(error), np.nanmax(error), contour_levels)
+    levels = np.linspace(0, np.nanmax(error), contour_levels)
 
     # Contour lines (only lowest 5 labeled)
     cs = ax.contour(a_f_grid, a_grid, error_grid,
@@ -52,12 +52,9 @@ def _plot_contour_slice(a, a_f, error, output_path, contour_levels, interpolatio
     cf = ax.contourf(a_f_grid, a_grid, error_grid,
                      levels=levels, cmap='viridis', alpha=0.7)
 
-    # Raw data points
-    ax.scatter(a_f, a, c='white', edgecolor='black', s=40, label='Data points')
-
+    ax.scatter(a_f, a, c='white', edgecolor='black', s=10, linewidth=0.5, label='Data points')
     # Mark best fit
-    ax.scatter(best_a_f, best_a, c='red', edgecolor='black',
-               s=40, label='Best Fit')
+    ax.scatter(best_a_f, best_a, c='red', edgecolor='black', s=10, linewidth=0.5, label='Best Fit')
 
     # Labels and limits
     ax.set_xlabel('a_f')
