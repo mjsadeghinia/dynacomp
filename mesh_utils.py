@@ -761,7 +761,7 @@ def prepare_mask(h5_file, outdir, settings):
         results_folder=outdir,
     )
     if settings["remove_slice"]:
-        h5_file = remove_slice(h5_file, slice_num=0, save_flag=True, results_folder=outdir)  
+        h5_file = remove_slice(h5_file, slice_num=settings["remove_slice_num"], save_flag=True, results_folder=outdir)  
         
     if settings["shift_slice_mask"]:
         if type(settings["shift_slice_mask_num"]) is list:

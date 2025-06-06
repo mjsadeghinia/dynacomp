@@ -80,6 +80,7 @@
     "TPM": {
         "is_inverted": true,
         "remove_slice": true,
+        "remove_slice_num" : [0],
         "shift_slice_mask": false,
         "close_apex": true,
         "close_apex_itr_dilation": 3,

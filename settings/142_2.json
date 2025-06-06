@@ -78,6 +78,7 @@
     "TPM": {
         "is_inverted": false,
         "remove_slice": false,
+        "remove_slice_num" : [0],
         "shift_slice_mask": false,
         "close_apex": false,
         "mask": {
