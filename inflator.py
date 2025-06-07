@@ -87,7 +87,7 @@ def plot_results(fname, error, matparams, inflation_pres, inflation_vols, edpvr_
     )
     ax.set_xlabel('Volume [microL]')
     ax.set_ylabel('LV Pressure [kPa]')
-    ax.set_xlim(100, 700)
+    ax.set_xlim(0, np.max(pv_vols) * 1.1)
     ax.set_ylim(-0.5, 18)
     ax.legend(loc='upper left')
     fig.savefig(fname, dpi=300)
