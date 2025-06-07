@@ -35,6 +35,31 @@ def grid_triangle(N=30, amin=0.05, amax=5, afmin=0.05, afmax=5):
 
     return a_af_list
 
+def biased_linspace(start, stop, N, bias_power=2):
+    """Return N points from start to stop, biased toward start."""
+    t = np.linspace(0, 1, N)
+    t_biased = t**bias_power
+    return start + (stop - start) * t_biased
+
+def grid_triangle_biased(N, amin=0.05, amax=5, afmin=0.05, afmax=5, bias_power=1.3):
+    # Vertical and horizontal edges
+    a_edge = biased_linspace(amin, amax, N, bias_power)
+    af_edge = np.full(N, afmin)
+    af_edge_h = biased_linspace(afmin, afmax, N, bias_power)
+    a_edge_h = np.full(N, amin)
+
+    a_af_list = []
+    for i in range(N):
+        n_div = i + 2  # Number of points along this line
+        for j in range(n_div):
+            t = j / (n_div - 1) if n_div > 1 else 0
+            a_val = a_edge_h[i] + t * (a_edge[i] - a_edge_h[i])
+            af_val = af_edge_h[i] + t * (af_edge[i] - af_edge_h[i])
+            a_af = [round(a_val,3) , round(af_val,3)]
+            a_af_list.append(a_af)
+
+    return a_af_list
+
 def plot_triangle(a_af_lists, colors=None, labels=None):
     """
     Plot the triangle defined by the vertices (amin, afmin), (amax, afmin) and (amin, afmax)
@@ -44,8 +69,7 @@ def plot_triangle(a_af_lists, colors=None, labels=None):
     import matplotlib.pyplot as plt
 
     fig, ax = plt.subplots(figsize=(6, 6))
-    if isinstance(a_af_lists, np.ndarray):
-        a_af_lists = [a_af_lists]
+    a_af_lists = [a_af_lists]
     if colors is None:
         colors = ['blue', 'red', 'green', 'orange']
     if labels is None:
@@ -65,23 +89,20 @@ def plot_triangle(a_af_lists, colors=None, labels=None):
     return fig, ax
 
 #%%
-sample_nums = [13]
+sample_nums = [44, 21, 37, 48, 29, 9]
 results_folder = f"02_EDPVR_Modeling"
 cpu_num = 8
 
-a_af_list = grid_triangle(N=50, amin=0.25, amax=5, afmin=0.25, afmax=5)
-a_af_list_2 = grid_triangle(N=30, amin=0.05, amax=2, afmin=0.05, afmax=2)
-
-fig, ax = plot_triangle([a_af_list, a_af_list_2],)
+a_af_list = grid_triangle_biased(N=10, amin=0.05, amax=5, afmin=0.05, afmax=5, bias_power=1.4)
+fig, ax = plot_triangle(a_af_list,)
 fig.savefig("triangle_grid_points.png", dpi=300)
 
 a_af_list = a_af_list[::-1]  # Reverse the list to start from the largest a and af
-a_af_list_2 = a_af_list_2[::-1]  # Reverse the list to start from the largest a and af
-bf_list = [0.001]
+bf_list = [0.001, 1, 2, 5]
 
-for sample_num in sample_nums:
-    for bf in bf_list:
-        for n, (a, af) in enumerate(a_af_list_2):
+for bf in bf_list:
+    for sample_num in sample_nums:
+        for n, (a, af) in enumerate(a_af_list):
             logger.info(f"Running unloading and inflator for a={a}, af={af}, bf={bf}")
             output_folder = f"{results_folder}/a_{a}_af_{af}_bf_{bf}"
             try:
