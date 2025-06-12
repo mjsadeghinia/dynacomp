@@ -5,6 +5,7 @@ import h5py
 from scipy.interpolate import splprep
 from ventric_mesh.mesh_utils import interpolate_splines, equally_spaced_points_on_spline
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 from pathlib import Path
 import pymatreader
@@ -145,7 +146,7 @@ def compile_h5_TPM(directory_path, overwrite, is_inverted):
     TED = [int(val) for val in data["TimePointEndDiastole"]]
     TES = [int(val) for val in data["TimePointEndSystole"]]
     S = len(data["WallThickness"][0][0])  # Number of segments
-
+    export_mri_images(data["Magn"], data["Mask"], K, T_end, directory_path, overwrite=False)
     # Interpolate T_array
     T_array = interpolate_T_array(TES, TED)
 
@@ -179,6 +180,32 @@ def compile_h5_TPM(directory_path, overwrite, is_inverted):
     save_to_h5(h5_file_address, datasets, attrs)
     logger.info(f"{mat_file.with_suffix('.h5').name} is created.")
     return h5_file_address
+
+def export_mri_images(mri, mask, K, T_end, directory_path, overwrite=False):
+    """
+    Export MRI images and masks for PNG files in the data directory.
+    Args:
+        mri (list): List of MRI images for each slice, and all the time I*I*T.
+        mask (list): List of masks for each slice, and all the time I*I*T.
+        K (int): Number of slices.
+        T_end (int): End time point for acquisition.
+        directory_path (Path): Directory to save the images.
+        overwrite (bool): Whether to overwrite existing files.
+    """
+    output_dir = directory_path / "MRI_Images"
+    if not output_dir.exists() or overwrite:
+        output_dir.mkdir(exist_ok=True)
+        for t in tqdm(range(T_end), desc="Saving MRI images ...", ncols=100):
+            for k in range(K):
+                plt.figure(figsize=(10, 10))
+                plt.imshow(mri[k][:,:,t], cmap='bone')
+                plt.imshow(mask[k][:,:,t], cmap='Greens', alpha=0.2)
+                plt.title(f"Slice {k+1}, Time {t+1}")
+                plt.axis('off')
+                plt.savefig(output_dir / f"slice_{k+1}_time_{t+1}.png")
+                plt.close()
+    else:
+        logger.warning(f"MRI mages already exist in {output_dir}. Set overwrite=True to overwrite them.")
 
 def combine_mat_files(mat_files):
     data = pymatreader.read_mat(mat_files[0])
