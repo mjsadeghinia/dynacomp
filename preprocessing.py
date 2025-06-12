@@ -42,39 +42,41 @@ def main(args=None) -> int:
     logger.info(f"Loaded settings from {sample_name}")
     mesh_settings = settings[scan_type]["mesh"][mesh_quality]
 
-
     sample_dir = data_dir / sample_name / scan_type
     # creating the output folder
-    if time_mesh is not None:
-        output_dir = Path(results_dir) / sample_name / scan_type / "00_Meshes" / f"time_{time_mesh}"
+    if time_mesh is None:
+        time_mesh = range(0, 100)
+
+    for t in time_mesh:
+        output_dir = Path(results_dir) / sample_name / scan_type / "00_Meshes" / f"time_{t}"
         output_dir = arg_parser.prepare_outdir(output_dir)
-        mesh_settings["t_mesh"] = time_mesh
-    else:
-        output_dir = Path(results_dir) / sample_name / scan_type / "00_Meshes"
-        output_dir = arg_parser.prepare_outdir(output_dir)
-    # Creating the mesh settings
-    h5_file = mesh_utils.compile_h5(
-        sample_dir,
-        scan_type,
-        overwrite=h5_overwrite,
-        is_inverted=settings[scan_type]["is_inverted"],
-    )
-    h5_file = mesh_utils.prepare_h5_files(scan_type, h5_file, output_dir, settings)
+        mesh_settings["t_mesh"] = t
 
-    mesh_fname = meshing.create_mesh(
-        data_dir,
-        scan_type,
-        mesh_settings,
-        h5_file,
-        plot_flag=True,
-        output_dir=output_dir,
-    )
-    geometry = create_geometry.create_geometry(mesh_fname, fiber_angles=settings["fiber_angles"], plot_flag=True)
+        if t == time_mesh[0]:
+            # Creating the mesh settings
+            h5_file = mesh_utils.compile_h5(
+                sample_dir,
+                scan_type,
+                overwrite=h5_overwrite,
+                is_inverted=settings[scan_type]["is_inverted"],
+            )
+            h5_file = mesh_utils.prepare_h5_files(scan_type, h5_file, output_dir, settings)
 
-    geo_outdir = output_dir / "Geometry"
-    geo_fname = geo_outdir / "geometry"
-    geometry.save(geo_fname.as_posix(), overwrite_file=True)
+        mesh_fname = meshing.create_mesh(
+            data_dir,
+            scan_type,
+            mesh_settings,
+            h5_file,
+            plot_flag=True,
+            output_dir=output_dir,
+        )
+        geometry = create_geometry.create_geometry(mesh_fname, fiber_angles=settings["fiber_angles"], plot_flag=True)
 
+        geo_outdir = output_dir / "Geometry"
+        geo_fname = geo_outdir / "geometry"
+        geometry.save(geo_fname.as_posix(), overwrite_file=True)
+        logger.info(f"=========== Mesh generated for {sample_name} at t={t} =========")
+        logger.info(f"=======================================================")
 
 if __name__ == "__main__":
     main()

@@ -85,6 +85,7 @@ def parse_arguments_pre(args=None):
         "--time_mesh",
         default=None,
         type=int,
+        nargs='+',
         help="The time fram to create the mesh from, if specified would overwrite the settings json file",
     )
     
