@@ -296,10 +296,12 @@ def prepare_outdir(outdir):
     """    
     # If the directory exists, remove it and all its contents
     if outdir.exists():
-        shutil.rmtree(outdir)
-    
-    # Create the directory again
-    outdir.mkdir(exist_ok=True, parents=True)
+        try:
+            shutil.rmtree(outdir)
+        except OSError:
+            import subprocess
+            subprocess.run(['rm', '-rf', str(outdir)], check=False)
+    outdir.mkdir(parents=True, exist_ok=True)
     return outdir
 
 def prepare_matparams(args):
