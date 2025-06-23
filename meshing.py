@@ -144,8 +144,8 @@ def create_mesh(
     
     
     # Calculate normals
-    normals_list_endo = mu.calculate_normals(points_cloud_endo, k_apex_endo, mesh_settings["normals_base_ind_endo"])
-    normals_list_epi = mu.calculate_normals(points_cloud_epi, k_apex_epi, mesh_settings["normals_base_ind_epi"])
+    normals_list_endo = mu.calculate_normals(points_cloud_endo, k_apex_endo, base_ind=mesh_settings["normals_base_ind_endo"])
+    normals_list_epi = mu.calculate_normals(points_cloud_epi, k_apex_epi, base_ind=mesh_settings["normals_base_ind_epi"])
     if directory_path.stem =='OP138_3':
         normals_list_epi = mu.calculate_normals(points_cloud_epi, k_apex_epi, base_ind=7)
     
