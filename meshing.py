@@ -21,6 +21,7 @@ def create_mesh(
         mask, T_array, slice_thickness, resolution, I = mesh_utils.read_data_h5_TPM(h5_file)
         if mesh_settings["t_mesh"]>=T_array.shape[0]:
             logger.error("The requested time for meshing is out-of-range")
+            return None
         array_3d = mask[:, :, :, mesh_settings["t_mesh"]]
         mask_epi, mask_endo = mu.get_endo_epi(array_3d)
         coords_epi = mu.get_coords_from_mask(mask_epi, resolution, slice_thickness)

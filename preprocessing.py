@@ -70,6 +70,10 @@ def main(args=None) -> int:
             plot_flag=True,
             output_dir=output_dir,
         )
+        if mesh_fname is None:
+            arg_parser.prepare_outdir(output_dir)
+            output_dir.rmdir()  
+            break
         geometry = create_geometry.create_geometry(mesh_fname, fiber_angles=settings["fiber_angles"], plot_flag=True)
 
         geo_outdir = output_dir / "Geometry"
