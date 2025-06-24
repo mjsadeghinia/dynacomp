@@ -159,6 +159,8 @@ def create_mesh(
         SurfaceMeshSizeEndo=mesh_settings["SurfaceMeshSizeEndo"],
         normals_list_epi = normals_list_epi,
         normals_list_endo = normals_list_endo,
+        poisson_cleanup_epi=True,
+        poisson_cleanup_endo=True,
         save_flag=True,
         filename_suffix="",
         result_folder=outdir.as_posix() + "/",
