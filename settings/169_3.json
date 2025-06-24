@@ -199,8 +199,8 @@
         "Occlusion_recording_num": 6,
         "Occlusion_data_skip_index": 1,
         "calibration": {
-            "a": 281034.8851035063,
-            "b": -353.71198034863545
+            "a": 269758.1678186189,
+            "b": -340.4060669235675
         }
     }
 }
