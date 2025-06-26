@@ -82,15 +82,136 @@
         "shift_slice_mask": false,
         "shift_slice_mask_num": [],
         "close_apex": true,
-        "close_apex_itr_dilation": 4,
+        "close_apex_itr_dilation": 5,
         "close_apex_itr_erosion": 2,
         "mask": {
             "default": [
                 2,
                 2,
                 2,
+                1,
+                1,
+                1,
+                1,
+                0,
+                0
+            ],
+            "1": [
                 2,
                 2,
+                3,
+                3,
+                1,
+                2,
+                2,
+                3,
+                1
+            ],
+            "2": [
+                2,
+                2,
+                3,
+                3,
+                1,
+                2,
+                2,
+                3,
+                1
+            ],
+            "24": [
+                2,
+                2,
+                3,
+                3,
+                1,
+                2,
+                2,
+                3,
+                3
+            ],
+            "30": [
+                2,
+                2,
+                3,
+                3,
+                1,
+                2,
+                2,
+                3,
+                3
+            ],
+            "34": [
+                2,
+                2,
+                3,
+                3,
+                1,
+                2,
+                2,
+                3,
+                3
+            ],
+            "35": [
+                2,
+                2,
+                3,
+                3,
+                1,
+                2,
+                2,
+                3,
+                3
+            ],
+            "36": [
+                2,
+                2,
+                3,
+                3,
+                1,
+                1,
+                1,
+                1,
+                1
+            ],
+            "37": [
+                2,
+                2,
+                3,
+                3,
+                1,
+                1,
+                1,
+                1,
+                1
+            ],
+            "38": [
+                2,
+                2,
+                3,
+                3,
+                1,
+                2,
+                2,
+                1,
+                1
+            ],
+            "48": [
+                2,
+                2,
+                3,
+                3,
+                1,
+                2,
+                2,
+                3,
+                2
+            ],
+            "51": [
+                2,
+                2,
+                3,
+                3,
+                1,
                 2,
                 2,
                 3,
@@ -105,21 +226,21 @@
                 "num_z_sections_endo": 50,
                 "num_mid_layers_base": 7,
                 "smooth_level_epi": 0.05,
-                "smooth_level_endo": 0.05,
+                "smooth_level_endo": 0.08,
                 "num_lax_points": 64,
-                "lax_smooth_level_epi": 2,
-                "lax_smooth_level_endo": 2,
+                "lax_smooth_level_epi": 0.5,
+                "lax_smooth_level_endo": 0.5,
                 "z_sections_flag_epi": 1,
                 "z_sections_flag_endo": 1,
                 "seed_num_threshold_epi": 25,
-                "seed_num_threshold_endo": 20,
+                "seed_num_threshold_endo": 35,
                 "scale_for_delauny": 1.5,
                 "t_mesh": -1,
                 "MeshSizeMin": 0.5,
                 "MeshSizeMax": 1,
                 "SurfaceMeshSizeEndo": 1,
                 "SurfaceMeshSizeEpi": 1,
-                "normals_base_ind_epi": 8,
+                "normals_base_ind_epi": 0,
                 "normals_base_ind_endo": 0
             },
             "fine": {
@@ -195,8 +316,8 @@
         "Occlusion_recording_num": null,
         "Occlusion_data_skip_index": 1,
         "calibration": {
-            "a": 292702.468607912,
-            "b": -607.9827529583308
+            "a": 261461.21059476573,
+            "b": -508.2438351085488
         }
     }
 }
