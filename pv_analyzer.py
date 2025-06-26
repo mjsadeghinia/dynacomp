@@ -210,6 +210,13 @@ def parse_arguments(args=None):
     )
 
     parser.add_argument(
+        "-i",
+        "--ID",
+        type=str,
+        help="The sample ID to be processd, if passed in the sample number will be ignored.",
+    )
+
+    parser.add_argument(
         "--settings_dir",
         default="/home/shared/dynacomp/settings",
         type=Path,
@@ -242,6 +249,14 @@ def load_settings(settings_dir, sample_num):
         settings = json.load(file)
     return settings
 
+def get_num_from_id(sample_ID, setting_dir):
+    sorted_files = sorted([file for file in setting_dir.iterdir() if file.is_file() and file.suffix == ".json"])
+    for i, file in enumerate(sorted_files):
+        with open(file, "r") as f:
+            settings = json.load(f)
+            if settings["id"][2:] == sample_ID:
+                return i + 1
+    raise ValueError(f"Sample ID {sample_ID} not found in settings directory.")
 
 # %%
 def main(args=None) -> int:
@@ -257,6 +272,7 @@ def main(args=None) -> int:
         args = argparse.Namespace(**default_args)
 
     sample_nums = args.number
+    sample_ID = args.ID
     settings_dir = args.settings_dir
     data_dir = args.data_dir
     results_dir = args.results_dir
@@ -268,6 +284,9 @@ def main(args=None) -> int:
             if file.is_file() and file.suffix == ".json"
         ]
     )
+
+    if sample_ID is not None:
+        sample_nums = [get_num_from_id(sample_ID, settings_dir)]
 
     if sample_nums is None:
         sample_nums = range(1,len(sorted_files)+1)
