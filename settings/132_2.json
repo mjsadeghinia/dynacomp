@@ -16,10 +16,10 @@
                 "num_z_sections_endo": 50,
                 "num_mid_layers_base": 7,
                 "smooth_level_epi": 0.01,
-                "smooth_level_endo": 0.01,
+                "smooth_level_endo": 0.03,
                 "num_lax_points": 64,
                 "lax_smooth_level_epi": 0.2,
-                "lax_smooth_level_endo": 0.2,
+                "lax_smooth_level_endo": 0.3,
                 "z_sections_flag_epi": 1,
                 "z_sections_flag_endo": 1,
                 "seed_num_threshold_epi": 25,
@@ -80,7 +80,9 @@
     "TPM": {
         "is_inverted": false,
         "remove_slice": false,
-        "remove_slice_num" : [0],
+        "remove_slice_num": [
+            0
+        ],
         "shift_slice_mask": false,
         "close_apex": true,
         "close_apex_itr_dilation": 5,
@@ -89,6 +91,7 @@
             "default": [
                 2,
                 2,
+                1,
                 1,
                 1,
                 1,
@@ -106,12 +109,14 @@
                 1,
                 1,
                 1,
+                1,
                 1
             ],
             "8": [
                 2,
                 2,
                 3,
+                1,
                 1,
                 1,
                 1,
@@ -127,8 +132,44 @@
                 1,
                 1,
                 1,
+                2,
+                1
+            ],
+            "43": [
+                2,
+                2,
+                3,
+                3,
                 1,
-                2
+                1,
+                1,
+                1,
+                2,
+                1
+            ],
+            "44": [
+                2,
+                2,
+                3,
+                3,
+                1,
+                1,
+                1,
+                1,
+                2,
+                1
+            ],
+            "45": [
+                2,
+                2,
+                3,
+                3,
+                1,
+                1,
+                1,
+                1,
+                2,
+                1
             ]
         },
         "mesh": {
@@ -152,7 +193,9 @@
                 "MeshSizeMin": 0.5,
                 "MeshSizeMax": 1,
                 "SurfaceMeshSizeEndo": 1,
-                "SurfaceMeshSizeEpi": 1
+                "SurfaceMeshSizeEpi": 1,
+                "normals_base_ind_epi": 0,
+                "normals_base_ind_endo": 0
             },
             "fine": {
                 "seed_num_base_epi": 100,
@@ -227,8 +270,8 @@
         "Occlusion_recording_num": 4,
         "Occlusion_data_skip_index": 1,
         "calibration": {
-            "a": 641783.3190784752,
-            "b": -704.7303939837883
+            "a": 630368.6031510513,
+            "b": -695.2306143614361
         }
     }
 }
