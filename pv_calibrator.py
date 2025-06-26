@@ -32,6 +32,15 @@ def get_sample_name(sample_num, setting_dir):
     sample_name = sorted_files[sample_num - 1].with_suffix("").name
     return sample_name
 
+def get_num_from_id(sample_ID, setting_dir):
+    sorted_files = sorted([file for file in setting_dir.iterdir() if file.is_file() and file.suffix == ".json"])
+    for i, file in enumerate(sorted_files):
+        with open(file, "r") as f:
+            settings = json.load(f)
+            if settings["id"][2:] == sample_ID:
+                return i + 1
+    raise ValueError(f"Sample ID {sample_ID} not found in settings directory.")
+
 
 def calculate_cavity_volume_sliced(geometry):
     """
@@ -206,6 +215,13 @@ def main(args=None) -> int:
     )
 
     parser.add_argument(
+        "-i",
+        "--ID",
+        type=str,
+        help="The sample ID to be processd, if passed in the sample number will be ignored.",
+    )
+
+    parser.add_argument(
         "--settings_dir",
         default="/home/shared/dynacomp/settings",
         type=Path,
@@ -230,9 +246,14 @@ def main(args=None) -> int:
     args = parser.parse_args(args)
 
     sample_nums = args.number
+    sample_ID = args.ID
     settings_dir = args.settings_dir
     data_dir = args.data_dir
     results_dir = args.results_dir
+
+    if sample_ID is not None:
+        sample_nums = [get_num_from_id(sample_ID, settings_dir)]
+
     # Get the list of .json files in the directory and sort them by name
     if sample_nums is None:
         sorted_files = sorted([file for file in settings_dir.iterdir() if file.is_file() and file.suffix == ".json"])
