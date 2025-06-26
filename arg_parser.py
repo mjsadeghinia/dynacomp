@@ -37,7 +37,14 @@ def parse_arguments_pre(args=None):
         "-n",
         "--number",
         type=int,
-        help="The sample number(s), will process all the sample if not indicated",
+        help="The sample number(s), will process all the sample if not indicated and if the sample ID is not passed.",
+    )
+
+    parser.add_argument(
+        "-i",
+        "--ID",
+        type=str,
+        help="The sample ID to be processd, if passed in the sample number will be ignored.",
     )
     
     parser.add_argument(
