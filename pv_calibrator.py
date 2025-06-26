@@ -296,7 +296,7 @@ def main(args=None) -> int:
             geo = pulse.HeartGeometry.from_file(mesh_fname.as_posix())
             mri_volumes_original.append(geo.cavity_volume())
         mri_time = np.linspace(0, mri_time_total, len(mri_volumes_original))
-        best_shift, _ = find_best_mri_shift(mri_time, mri_volumes_original, pv_time, pv_volumes, N=5)
+        best_shift, _ = find_best_mri_shift(mri_time, mri_volumes_original, pv_time, pv_volumes, N=10)
         mri_volumes = mri_volumes_original.copy()
         mri_volumes = np.roll(mri_volumes, best_shift)
         if best_shift > 0:
