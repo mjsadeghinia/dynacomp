@@ -78,34 +78,24 @@
     "TPM": {
         "is_inverted": false,
         "remove_slice": false,
-        "remove_slice_num" : [0],
+        "remove_slice_num": [
+            0
+        ],
         "shift_slice_mask": false,
         "close_apex": true,
         "close_apex_itr_dilation": 3,
-        "close_apex_itr_erosion": 2,    
+        "close_apex_itr_erosion": 2,
         "mask": {
             "default": [
                 2,
-                2,
                 1,
                 1,
-                2,
                 1,
                 1,
-                2,
-                2,
-                1
-            ],
-            "1": [
-                2,
-                2,
                 1,
                 1,
-                4,
                 1,
                 1,
-                2,
-                4,
                 1
             ]
         },
@@ -116,11 +106,11 @@
                 "num_z_sections_epi": 50,
                 "num_z_sections_endo": 50,
                 "num_mid_layers_base": 7,
-                "smooth_level_epi": 0.2,
-                "smooth_level_endo": 0.2,
+                "smooth_level_epi": 0.07,
+                "smooth_level_endo": 0.07,
                 "num_lax_points": 64,
-                "lax_smooth_level_epi": 1.5,
-                "lax_smooth_level_endo": 1.5,
+                "lax_smooth_level_epi": 0.5,
+                "lax_smooth_level_endo": 0.8,
                 "z_sections_flag_epi": 1,
                 "z_sections_flag_endo": 1,
                 "seed_num_threshold_epi": 25,
@@ -130,7 +120,9 @@
                 "MeshSizeMin": 0.5,
                 "MeshSizeMax": 1,
                 "SurfaceMeshSizeEndo": 1,
-                "SurfaceMeshSizeEpi": 1
+                "SurfaceMeshSizeEpi": 1,
+                "normals_base_ind_endo": 0,
+                "normals_base_ind_epi": 0
             },
             "fine": {
                 "seed_num_base_epi": 100,
@@ -205,8 +197,8 @@
         "Occlusion_recording_num": null,
         "Occlusion_data_skip_index": 1,
         "calibration": {
-            "a": 37.87410533646866,
-            "b": -422.1515678384344
+            "a": 36.71489090784294,
+            "b": -444.4276121192853
         }
     }
 }
