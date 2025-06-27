@@ -82,7 +82,7 @@ def parse_arguments_pre(args=None):
     parser.add_argument(
         "-s",
         "--scan_type",
-        default='CINE',
+        default='TPM',
         type=str,
         help="The scan type. Settings will be loaded accordingly from json file",
     )
