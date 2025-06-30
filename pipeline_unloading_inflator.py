@@ -89,11 +89,11 @@ def plot_triangle(a_af_lists, colors=None, labels=None):
     return fig, ax
 
 #%%
-sample_nums = [44, 45, 48]
+sample_nums = [13]
 results_folder = f"02_EDPVR_Modeling"
 cpu_num = 8
 
-a_af_list = grid_triangle_biased(N=7, amin=0.05, amax=4, afmin=0.05, afmax=4, bias_power=1.4)
+a_af_list = grid_triangle_biased(N=10, amin=0.05, amax=5, afmin=0.05, afmax=5, bias_power=1.4)
 fig, ax = plot_triangle(a_af_list,)
 fig.savefig("triangle_grid_points.png", dpi=300)
 a_af_list = a_af_list[::-1]  # Reverse the list to start from the largest a and af
