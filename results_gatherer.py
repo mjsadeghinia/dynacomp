@@ -7,20 +7,36 @@ from structlog import get_logger
 
 logger = get_logger()
 
+
 # %%
 def parse_arguments(args=None):
     """
     Parse the command-line arguments.
     """
     parser = argparse.ArgumentParser()
-    
+
+    parser.add_argument(
+        "-n",
+        "--number",
+        nargs="+",
+        type=int,
+        help="The sample number(s), will process all the sample if not indicated",
+    )
+
+    parser.add_argument(
+        "-i",
+        "--ID",
+        type=str,
+        help="The sample ID to be processd, if passed in the sample number will be ignored.",
+    )
+
     parser.add_argument(
         "--settings_dir",
         default="/home/shared/dynacomp/settings",
         type=Path,
         help="The settings directory where json files are stored.",
     )
-    
+
     parser.add_argument(
         "-r",
         "--results_dir",
@@ -28,7 +44,7 @@ def parse_arguments(args=None):
         type=Path,
         help="The results folder where the processed data should be saved.",
     )
-    
+
     parser.add_argument(
         "-rf",
         "--results_folder",
@@ -36,7 +52,13 @@ def parse_arguments(args=None):
         type=str,
         help="The results folder where the processed data should be saved.",
     )
-    
+
+    parser.add_argument(
+        "-edpvr",
+        action="store_true",
+        help="If set, the script will process EDPVR modeling data.",
+    )
+
     parser.add_argument(
         "-f",
         "--filename",
@@ -44,11 +66,11 @@ def parse_arguments(args=None):
         type=str,
         help="The results folder where the processed data should be saved.",
     )
-    
+
     parser.add_argument(
         "-o",
         "--output_dir",
-        default="/home/shared/02_post_processing/EDPVR",
+        default="/home/shared/02_post_processing/02_EDPVR_Modeling",
         type=Path,
         help="The results folder where the processed data should be saved.",
     )
@@ -64,6 +86,16 @@ def load_settings(setting_dir, sample_num):
     return settings
 
 
+def get_num_from_id(sample_ID, setting_dir):
+    sorted_files = sorted([file for file in setting_dir.iterdir() if file.is_file() and file.suffix == ".json"])
+    for i, file in enumerate(sorted_files):
+        with open(file, "r") as f:
+            settings = json.load(f)
+            if settings["id"][2:] == sample_ID:
+                return i + 1
+    raise ValueError(f"Sample ID {sample_ID} not found in settings directory.")
+
+
 # %%
 def main(args=None) -> int:
     if args is None:
@@ -77,34 +109,52 @@ def main(args=None) -> int:
                 default_args[key] = value
         args = argparse.Namespace(**default_args)
     # Getting the arguments
+    sample_num = args.number
+    sample_ID = args.ID
     settings_dir = args.settings_dir
     results_dir = args.results_dir
     results_folder = args.results_folder
     filename = args.filename
     output_dir = args.output_dir
+    edpvr_flag = args.edpvr
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Load settings     
+    # Load settings
     # Get the list of .json files in the directory and sort them by name
-    sorted_files = sorted(
-        [
-            file
-            for file in settings_dir.iterdir()
-            if file.is_file() and file.suffix == ".json"
-        ]
-    )
-    
-    sample_nums = range(1,len(sorted_files)+1)
-    
+    sorted_files = sorted([file for file in settings_dir.iterdir() if file.is_file() and file.suffix == ".json"])
+
+    if sample_ID is not None:
+        sample_num = get_num_from_id(sample_ID, settings_dir)
+        sample_nums = [sample_num]
+    elif sample_num is None:
+        sample_nums = range(1, len(sorted_files) + 1)
+
     for n in sample_nums:
         settings = load_settings(settings_dir, n)
         sample_name = settings["id"]
-        fname = Path(results_dir) / sample_name / results_folder / f"{sample_name}_{filename}.png"
-        if not fname.exists():
-            logger.warning(f"File {fname} does not exist")
-            continue
-        shutil.copy(fname, output_dir)
-        
-        
+        if edpvr_flag:
+            output_dir_sample = output_dir / sample_name
+            output_dir_sample.mkdir(parents=True, exist_ok=True)
+            edpvr_folder = Path(results_dir) / sample_name / "TPM" / "02_EDPVR_Modeling"
+
+            if not edpvr_folder.exists():
+                logger.warning(f"EDPVR folder {edpvr_folder} does not exist for sample {sample_name}")
+                continue
+
+            for folder in edpvr_folder.iterdir():
+                if folder.is_dir():
+                    fname = folder / "inflation_results.png"
+                    if not fname.exists():
+                        continue
+                    outname = output_dir_sample / f"{folder.name}.png"
+                    shutil.copy(fname, outname)
+        else:
+            fname = Path(results_dir) / sample_name / results_folder / f"{sample_name}_{filename}.png"
+            if not fname.exists():
+                logger.warning(f"File {fname} does not exist")
+                continue
+            shutil.copy(fname, output_dir)
+
+
 if __name__ == "__main__":
     main()
