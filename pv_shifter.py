@@ -172,6 +172,12 @@ def main(args=None) -> int:
     )
 
     parser.add_argument(
+        "--no_volume_shift",
+        action="store_true",
+        help="If set, the script will also apply volume shift to the EDPVR data.",
+    )
+
+    parser.add_argument(
         "-d",
         "--data_dir",
         default="/home/shared/00_data",
@@ -192,6 +198,7 @@ def main(args=None) -> int:
     sample_ID = args.ID
     settings_dir = args.settings_dir
     data_dir = args.data_dir
+    no_volume_shift_flag = args.no_volume_shift
     results_dir = args.results_dir
 
     if sample_ID is not None:
@@ -252,7 +259,8 @@ def main(args=None) -> int:
 
         EDP, EDV = registered_pressures[ED_index], registered_calibrated_volumes[ED_index]
         EDP_edpvr, EDV_edpvr = edpvr_pressures_all[cycle_num][ED_index_edpvr], calibrated_edpvr_volumes_all[cycle_num][ED_index_edpvr]
-        volume_diff = EDV - EDV_edpvr
+        volume_diff = 0 if no_volume_shift_flag else EDV - EDV_edpvr
+
         pressure_diff = EDP - EDP_edpvr
         logger.info(f"Sample {sample_name} Pressure Difference: {pressure_diff}, Volume Difference: {volume_diff}")
 
