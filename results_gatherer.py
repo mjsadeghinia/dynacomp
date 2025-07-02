@@ -166,11 +166,12 @@ def main(args=None) -> int:
                     outname = output_dir_sample / f"{i}.png"
                     shutil.copy(fname, outname)
         else:
-            fname = Path(results_dir) / sample_name / results_folder / f"{sample_name}_{filename}.png"
+            fname = Path(results_dir) / sample_name / "TPM" / results_folder / f"{filename}.png"
             if not fname.exists():
                 logger.warning(f"File {fname} does not exist")
                 continue
-            shutil.copy(fname, output_dir)
+            outname = output_dir / f"{sample_name}_{filename}.png"
+            shutil.copy(fname, outname)
 
 
 if __name__ == "__main__":
