@@ -39,7 +39,6 @@ def update_settings(settings, volume_shift, pressure_shift, EDP, EDV):
     EDPVR_shift_flag = True
     if abs(dp) < 5:
         EDPVR_shift_flag = False
-    logger.info(f"EDPVR shift flag set to {EDPVR_shift_flag} based on pressure only shifts.")
     settings["PV"]["EDPVR_shift"] = {
         "flag" : EDPVR_shift_flag,
         "volume": volume_shift,
@@ -110,7 +109,6 @@ def correlate_pv_to_edpvr(registered_calibrated_volumes, registered_pressures, c
     corr_sp = ((edpvr_stroke_pressure - pv_stroke_pressure)/edpvr_stroke_pressure)**2
     corr = corr_sv + corr_sp
     cycle_num = np.argmin(corr)
-    logger.info(f"Cycle number {cycle_num} selected based on correlation.")
     return cycle_num
 
 def get_end_diastole_ind(
@@ -239,6 +237,8 @@ def main(args=None) -> int:
             registered_calibrated_volumes, registered_pressures,
             calibrated_edpvr_volumes_all, edpvr_pressures_all
         )
+        logger.info(f"Cycle number {cycle_num} selected based on correlation.")
+
         # Get the end-diastole index
         ED_index = get_end_diastole_ind(
             registered_pressures,
@@ -274,7 +274,9 @@ def main(args=None) -> int:
 
         settings = update_settings(settings, volume_diff, pressure_diff, EDP, EDV)
         settings_fname = save_settings(settings, settings_dir, sample_name)
-        logger.info(f"Updated settings saved to {settings_fname}")
+        
+        logger.info(f"EDPVR shift flag was set based on pressure only shifts:", EDPVR_shift_flag = settings["PV"]["EDPVR_shift"]["flag"])
+
 
         shifted_calibrated_edpvr_volumes_all = [
             [v + volume_diff for v in volume_cycle]
