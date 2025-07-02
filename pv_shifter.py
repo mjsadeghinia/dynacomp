@@ -310,5 +310,64 @@ def main(args=None) -> int:
         with open(fname, 'w') as f:
             json.dump(shifted_calibrated_edpvr_volumes_all, f)
 
+
+        # Load the EDPVR data
+        edpvr_pressures, edpvr_volumes = load_edpvr(pv_data_dir)
+        calibrated_edpvr_volumes = a * edpvr_volumes + b
+        # Shift the EDPVR volumes and pressures
+        shifted_calibrated_edpvr_volumes = [v + volume_diff for v in
+            calibrated_edpvr_volumes
+        ] if settings["PV"]["EDPVR_shift"]["flag"] else calibrated_edpvr_volumes
+        shifted_edpvr_pressures = [
+            p + pressure_diff for p in edpvr_pressures
+        ] if settings["PV"]["EDPVR_shift"]["flag"] else edpvr_pressures
+        # Calculate the x value at which y = 0 using the regression line equation (avoid division by zero)
+        res = scipy.stats.linregress(shifted_calibrated_edpvr_volumes, shifted_edpvr_pressures)
+        v_0 = -res.intercept / res.slope if res.slope != 0 else float('nan')
+        # Calculate the standard error of the slope and intercept
+        tinv = lambda p, df: abs(scipy.stats.t.ppf(p/2, df))
+        ts = tinv(0.05, len(calibrated_edpvr_volumes)-2)
+
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.plot(registered_calibrated_volumes, registered_pressures, "k", linewidth=1)
+        ax.scatter(registered_calibrated_volumes, registered_pressures, s=15, c="k")
+        ax.scatter(registered_calibrated_volumes[ED_index], registered_pressures[ED_index], s=15, c="r", label="ED Point")
+        for n, (p,v) in enumerate(zip(shifted_edpvr_pressures_all, shifted_calibrated_edpvr_volumes_all)):
+            color = "r" if n == cycle_num else "k"
+            linewidth = 0.5 if n == cycle_num else 0.05
+            ax.plot(v, p, c=color, linewidth=linewidth)
+
+        ax.scatter(shifted_calibrated_edpvr_volumes, shifted_edpvr_pressures, s=8, c="r")
+        plt.xlabel("Volume [micro Liter]")
+        plt.ylabel("LV Pressure [mmHg]")
+
+        # Add a title with the slope and intercept
+        textstr = (
+                f"slope (95%): {res.slope:.3f} $\pm$ {ts*res.stderr:.3f}\n"
+                f"$v_0$ (P=0): {v_0:.2f}"
+            )
+        ax.text(
+            0.05, 0.95, textstr,
+            transform=ax.transAxes,
+            fontsize=10,
+            verticalalignment='top',
+            # bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+        )
+        ax.plot(calibrated_edpvr_volumes, res.intercept + res.slope*calibrated_edpvr_volumes, 'b', label='EDVPR')
+        ax.axhline(y=0, color='gray', linestyle='--')
+
+        # Add a second y-axis for LV Pressure in kPa
+        ax2 = ax.twinx()
+        mmHg_to_kPa = 0.133322
+        ymin, ymax = ax.get_ylim()
+        ax2.set_ylim(ymin * mmHg_to_kPa, ymax * mmHg_to_kPa)
+        ax2.set_ylabel("LV Pressure [kPa]")
+
+        fname =  pv_calibrated_data_dir / f"shifted_registered_edpvr_with_calibrated_cather_volume.png"
+        plt.savefig(fname, dpi=300)
+        plt.close()
+
+        logger.info(f"--------------------------------")
+
 if __name__ == "__main__":
     main()
