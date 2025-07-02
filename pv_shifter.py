@@ -37,9 +37,9 @@ def update_settings(settings, volume_shift, pressure_shift, EDP, EDV):
     dp = pressure_shift / EDP * 100
     dv = volume_shift / EDV * 100
     EDPVR_shift_flag = True
-    if abs(dp) < 5 and abs(dv) < 5:
+    if abs(dp) < 5:
         EDPVR_shift_flag = False
-
+    logger.info(f"EDPVR shift flag set to {EDPVR_shift_flag} based on pressure only shifts.")
     settings["PV"]["EDPVR_shift"] = {
         "flag" : EDPVR_shift_flag,
         "volume": volume_shift,
@@ -108,8 +108,8 @@ def correlate_pv_to_edpvr(registered_calibrated_volumes, registered_pressures, c
 
     corr_sv = ((edpvr_stroke_volume - pv_stroke_volume)/edpvr_stroke_volume)**2
     corr_sp = ((edpvr_stroke_pressure - pv_stroke_pressure)/edpvr_stroke_pressure)**2
-    # corr = corr_sv + corr_sp
-    cycle_num = np.argmin(corr_sp)
+    corr = corr_sv + corr_sp
+    cycle_num = np.argmin(corr)
     logger.info(f"Cycle number {cycle_num} selected based on correlation.")
     return cycle_num
 
@@ -207,13 +207,13 @@ def main(args=None) -> int:
     for sample_num in sample_nums:
         settings = load_settings(settings_dir, sample_num)
         sample_name = settings["id"]
-        if "TPM" not in settings:
-            logger.warning(f"TPM not found in settings for {sample_name}")
-            continue
 
         pv_data_dir = results_dir / sample_name / "PV Data"
         tpm_data_dir = results_dir / sample_name / "TPM"
         pv_calibrated_data_dir = tpm_data_dir / "01_PVCalibration"
+
+        if not pv_calibrated_data_dir.exists():
+            continue
 
         # Load PV calibration data
         registered_time, registered_pressures, registered_calibrated_volumes = load_calibrated_pressure_volumes(pv_calibrated_data_dir)
