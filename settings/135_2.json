@@ -30,50 +30,93 @@
                 "MeshSizeMax": 1,
                 "SurfaceMeshSizeEndo": 1,
                 "SurfaceMeshSizeEpi": 1
-            },
-            "fine": {
+            }
+        }
+    },
+    "TPM": {
+        "is_inverted": false,
+        "remove_slice": false,
+        "remove_slice_num": [
+            0
+        ],
+        "shift_slice_mask": false,
+        "close_apex": true,
+        "close_apex_itr_dilation": 5,
+        "close_apex_itr_erosion": 2,
+        "mask": {
+            "default": [
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1
+            ],
+            "31": [
+                3,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1
+            ],
+            "32": [
+                3,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1
+            ],
+            "33": [
+                3,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1
+            ]
+        },
+        "mesh": {
+            "coarse": {
                 "seed_num_base_epi": 100,
                 "seed_num_base_endo": 100,
                 "num_z_sections_epi": 50,
                 "num_z_sections_endo": 50,
                 "num_mid_layers_base": 7,
-                "smooth_level_epi": 0.01,
-                "smooth_level_endo": 0.01,
+                "smooth_level_epi": 0.2,
+                "smooth_level_endo": 0.2,
                 "num_lax_points": 64,
-                "lax_smooth_level_epi": 0.2,
-                "lax_smooth_level_endo": 0.2,
+                "lax_smooth_level_epi": 0.7,
+                "lax_smooth_level_endo": 0.7,
                 "z_sections_flag_epi": 1,
                 "z_sections_flag_endo": 1,
                 "seed_num_threshold_epi": 25,
                 "seed_num_threshold_endo": 20,
                 "scale_for_delauny": 1.5,
                 "t_mesh": -1,
-                "MeshSizeMin": 0.2,
-                "MeshSizeMax": 0.5,
+                "MeshSizeMin": 0.5,
+                "MeshSizeMax": 1,
                 "SurfaceMeshSizeEndo": 1,
-                "SurfaceMeshSizeEpi": 1
-            },
-            "very_fine": {
-                "seed_num_base_epi": 100,
-                "seed_num_base_endo": 100,
-                "num_z_sections_epi": 50,
-                "num_z_sections_endo": 50,
-                "num_mid_layers_base": 5,
-                "smooth_level_epi": 0.01,
-                "smooth_level_endo": 0.01,
-                "num_lax_points": 128,
-                "lax_smooth_level_epi": 0.2,
-                "lax_smooth_level_endo": 0.2,
-                "z_sections_flag_epi": 1,
-                "z_sections_flag_endo": 1,
-                "seed_num_threshold_epi": 25,
-                "seed_num_threshold_endo": 20,
-                "scale_for_delauny": 1.5,
-                "t_mesh": -1,
-                "MeshSizeMin": 0.1,
-                "MeshSizeMax": 0.3,
-                "SurfaceMeshSizeEndo": 0.5,
-                "SurfaceMeshSizeEpi": 0.5
+                "SurfaceMeshSizeEpi": 1,
+                "normals_base_ind_epi": 0,
+                "normals_base_ind_endo": 0
             }
         }
     },
@@ -102,6 +145,15 @@
         "Occlusion_data_index_i": null,
         "Occlusion_data_index_f": null,
         "Occlusion_recording_num": 4,
-        "Occlusion_data_skip_index": 1
+        "Occlusion_data_skip_index": 1,
+        "calibration": {
+            "a": 567648.5006762041,
+            "b": -994.0502763341743
+        },
+        "EDPVR_shift": {
+            "flag": false,
+            "volume": -13.290424404408668,
+            "pressure": -0.15989176277499695
+        }
     }
 }
