@@ -42,6 +42,16 @@ def create_mesh(
         coords_endo, mesh_settings["smooth_level_endo"]
     )
     K = len(tck_epi)
+    K_endo = len(tck_endo)
+    if K_endo < K-1:
+        logger.warning(
+            f"The number of endocardial sections {K_endo} is less than the number of epicardial sections - 1 {K}. "
+            "This is likely due to an spurious epicardial section that was added"
+        )
+        logger.warning("Removing the last epicardial section to only have 1 apex.")
+        tck_epi = tck_epi[:-1]
+        K = len(tck_epi)
+
     if plot_flag:
         outdir = output_dir / "02_ShaxBSpline"
         outdir.mkdir(exist_ok=True)
