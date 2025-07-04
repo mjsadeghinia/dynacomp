@@ -186,8 +186,11 @@
             "a": 54.23575315349668,
             "b": -1180.4631330617592
         },
+        "EDPVR_shift_flags": {
+            "volume": true,
+            "pressure": true
+        },
         "EDPVR_shift": {
-            "flag": true,
             "volume": 276.62812233661816,
             "pressure": -2.877337035181485
         }

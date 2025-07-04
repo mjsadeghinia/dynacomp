@@ -32,15 +32,9 @@ def get_sample_name(sample_num, setting_dir):
     sample_name = sorted_files[sample_num - 1].with_suffix("").name
     return sample_name
 
-def update_settings(settings, volume_shift, pressure_shift, EDP, EDV):
+def update_settings(settings, volume_shift, pressure_shift):
 
-    dp = pressure_shift / EDP * 100
-    dv = volume_shift / EDV * 100
-    EDPVR_shift_flag = True
-    if abs(dp) < 5:
-        EDPVR_shift_flag = False
     settings["PV"]["EDPVR_shift"] = {
-        "flag" : EDPVR_shift_flag,
         "volume": volume_shift,
         "pressure": pressure_shift,
     }
@@ -172,20 +166,6 @@ def main(args=None) -> int:
     )
 
     parser.add_argument(
-        "--no_volume_shift",
-        action="store_true",
-        help="If set, the script will also apply volume shift to the EDPVR data.",
-    )
-
-    parser.add_argument(
-        "-d",
-        "--data_dir",
-        default="/home/shared/00_data",
-        type=Path,
-        help="The settings directory where data files are stored.",
-    )
-
-    parser.add_argument(
         "-r",
         "--results_dir",
         default="/home/shared/01_results_coarse_mesh",
@@ -197,8 +177,6 @@ def main(args=None) -> int:
     sample_nums = args.number
     sample_ID = args.ID
     settings_dir = args.settings_dir
-    data_dir = args.data_dir
-    no_volume_shift_flag = args.no_volume_shift
     results_dir = args.results_dir
 
     if sample_ID is not None:
@@ -218,6 +196,10 @@ def main(args=None) -> int:
         pv_calibrated_data_dir = tpm_data_dir / "01_PVCalibration"
 
         if not pv_calibrated_data_dir.exists():
+            continue
+        if not settings["PV"]["EDPVR_shift_flags"]["pressure"]:
+            logger.info(f"Sample {settings['id']} needs no shift, according to settings.")
+            logger.info(f"--------------------------------")
             continue
 
         # Load PV calibration data
@@ -259,10 +241,15 @@ def main(args=None) -> int:
 
         EDP, EDV = registered_pressures[ED_index], registered_calibrated_volumes[ED_index]
         EDP_edpvr, EDV_edpvr = edpvr_pressures_all[cycle_num][ED_index_edpvr], calibrated_edpvr_volumes_all[cycle_num][ED_index_edpvr]
-        volume_diff = 0 if no_volume_shift_flag else EDV - EDV_edpvr
+        
+        if settings["PV"]["EDPVR_shift_flags"]["volume"]:
+            volume_diff = EDV - EDV_edpvr
+        else:
+            volume_diff = 0 
+            logger.info(f"Sample {settings['id']} needs no volume shift, according to settings.")
 
         pressure_diff = EDP - EDP_edpvr
-        logger.info(f"Sample {sample_name} Pressure Difference: {pressure_diff}, Volume Difference: {volume_diff}")
+        logger.info(f"Sample {sample_name} Pressure Difference: {pressure_diff:.2f}, Volume Difference: {volume_diff:.2f}({EDV-EDV_edpvr:.2f})")
 
         fig, ax = plt.subplots(figsize=(8, 6))
         ax.plot(registered_calibrated_volumes, registered_pressures, "k", linewidth=1)
@@ -280,20 +267,17 @@ def main(args=None) -> int:
         plt.savefig(fname, dpi=300)
         plt.close()
 
-        settings = update_settings(settings, volume_diff, pressure_diff, EDP, EDV)
+        settings = update_settings(settings, volume_diff, pressure_diff)
         settings_fname = save_settings(settings, settings_dir, sample_name)
-        
-        logger.info(f"EDPVR shift flag was set based on pressure only shifts:", EDPVR_shift_flag = settings["PV"]["EDPVR_shift"]["flag"])
-
 
         shifted_calibrated_edpvr_volumes_all = [
             [v + volume_diff for v in volume_cycle]
             for volume_cycle in calibrated_edpvr_volumes_all
-        ] if settings["PV"]["EDPVR_shift"]["flag"] else calibrated_edpvr_volumes_all
+        ] if settings["PV"]["EDPVR_shift_flags"]["volume"] else calibrated_edpvr_volumes_all
         shifted_edpvr_pressures_all = [
             [p + pressure_diff for p in pressure_cycle]
             for pressure_cycle in edpvr_pressures_all
-        ] if settings["PV"]["EDPVR_shift"]["flag"] else edpvr_pressures_all   
+        ] if settings["PV"]["EDPVR_shift_flags"]["volume"] else edpvr_pressures_all   
 
         fig, ax = plt.subplots(figsize=(8, 6))
         ax.plot(registered_calibrated_volumes, registered_pressures, "k", linewidth=1)
@@ -327,10 +311,10 @@ def main(args=None) -> int:
         # Shift the EDPVR volumes and pressures
         shifted_calibrated_edpvr_volumes = [v + volume_diff for v in
             calibrated_edpvr_volumes
-        ] if settings["PV"]["EDPVR_shift"]["flag"] else calibrated_edpvr_volumes
+        ] if settings["PV"]["EDPVR_shift_flags"]["volume"] else calibrated_edpvr_volumes
         shifted_edpvr_pressures = [
             p + pressure_diff for p in edpvr_pressures
-        ] if settings["PV"]["EDPVR_shift"]["flag"] else edpvr_pressures
+        ] if settings["PV"]["EDPVR_shift_flags"]["volume"] else edpvr_pressures
         # Calculate the x value at which y = 0 using the regression line equation (avoid division by zero)
         res = scipy.stats.linregress(shifted_calibrated_edpvr_volumes, shifted_edpvr_pressures)
         v_0 = -res.intercept / res.slope if res.slope != 0 else float('nan')

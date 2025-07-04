@@ -111,6 +111,14 @@
         "calibration": {
             "a": 48.373103627332306,
             "b": -976.9596362357481
+        },
+        "EDPVR_shift_flags": {
+            "volume": false,
+            "pressure": false
+        },
+        "EDPVR_shift": {
+            "volume": 0,
+            "pressure": -0.7923061735347812
         }
     }
 }
