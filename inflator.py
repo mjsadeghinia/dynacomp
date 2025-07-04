@@ -4,6 +4,7 @@ from pathlib import Path
 import json
 import structlog
 import scipy.interpolate
+from scipy.stats import linregress
 from matplotlib import pyplot as plt
 
 import arg_parser
@@ -26,8 +27,8 @@ def load_pv_data(directory: Path):
     pres = pres_mmHg * 0.133322  # mmHg to kPa
     return time, pres, vols
 
-def load_edpvr(directory: Path):
-    path = next(f for f in directory.iterdir() if "EDPVR.csv" in f.name)
+def load_edpvr_calibrated_shifted(directory: Path):
+    path = next(f for f in directory.iterdir() if "EDPVR_calibrated_shifted.csv" in f.name)
     data = np.loadtxt(path, delimiter=',')
     pres = data[:, 0] * 0.133322
     vols = data[:, 1]
@@ -42,23 +43,24 @@ def calibration_edpvr_vols(edpvr_vols_unc, settings):
     edpvr_vols = a * edpvr_vols_unc + b
     return edpvr_vols
 
-def calculate_error(edpvr_spline, inflation_spline, edpvr_vols):
+def calculate_error(edpvr_regress, inflation_spline, edpvr_vols):
     min_vol = min(edpvr_vols)
     max_vol = max(edpvr_vols)
     inflation_vols = np.linspace(min_vol, max_vol, 20)
-    edpvr_pres_interp = edpvr_spline(inflation_vols)
+    edpvr_pres_interp = edpvr_regress.slope * inflation_vols + edpvr_regress.intercept
     inflation_pres = inflation_spline(inflation_vols)
     error = np.sqrt(np.mean((edpvr_pres_interp - inflation_pres)**2))
     return error
 
-def plot_results(fname, error, matparams, inflation_pres, inflation_vols, edpvr_pres, edpvr_vols, edpvr_spline, inflation_spline, pv_vols, pv_pres):
+def plot_results(fname, error, matparams, inflation_pres, inflation_vols, edpvr_pres, edpvr_vols, edpvr_regress, inflation_spline, pv_vols, pv_pres):
     fig, ax = plt.subplots(figsize=(8, 6))
     ax.plot(pv_vols, pv_pres, 'k', linewidth=1)
     ax.scatter(pv_vols, pv_pres, s=15, c='k', label='PV Data')
     ax.scatter(edpvr_vols, edpvr_pres, s=8, c='r', label='EDPVR')
     # Regression line
     edpvr_vols_spline = np.linspace(min(edpvr_vols), max(edpvr_vols), 100)
-    edpvr_pres_spline = edpvr_spline(edpvr_vols_spline)
+    m, b = edpvr_regress.slope, edpvr_regress.intercept
+    edpvr_pres_spline = m * edpvr_vols_spline + b
     ax.plot(edpvr_vols_spline, edpvr_pres_spline, 'b')
     res = scipy.stats.linregress(edpvr_vols_spline, edpvr_pres_spline)
     v_0 = -res.intercept / res.slope if res.slope != 0 else float('nan')
@@ -248,9 +250,9 @@ def main():
         # Load PV and EDPVR data
         _, pv_pres, pv_vols = load_pv_data(sample_dir / "01_PVCalibration")
         EDV = pv_vols[0]
-        edpvr_pres, edpvr_vols_unc = load_edpvr(sample_dir.parent / "PV Data")
-        edpvr_vols = calibration_edpvr_vols(edpvr_vols_unc, settings)
-        edpvr_spline = scipy.interpolate.UnivariateSpline(edpvr_vols, edpvr_pres, s=spline_smoothness, k=2)
+        edpvr_pres, edpvr_vols = load_edpvr_calibrated_shifted(sample_dir / "01_PVCalibration")
+        edpvr_regress = linregress(edpvr_vols, edpvr_pres)
+
         # Creating FE model
         geometry = pulse.HeartGeometry.from_file(
         (output_dir / 'unloaded_geometry_0_with_fibers.h5').as_posix(), comm=comm
@@ -286,12 +288,12 @@ def main():
                 logger.info(f"Inflation step {i}: ", pressure=round(p,3), volume=round(v,3))
 
         inflation_spline = scipy.interpolate.UnivariateSpline(inflation_vols, inflation_pres, s=spline_smoothness, k=3)
-        error = calculate_error(edpvr_spline, inflation_spline, edpvr_vols)
+        error = calculate_error(edpvr_regress, inflation_spline, edpvr_vols)
         if comm.rank == 0:
             logger.info(f"Inflation RMS error: {error:.3f} kPa")
             if plot_flag:
                 fname = output_dir / f"inflation_results.png"
-                plot_results(fname, error, matparams, inflation_pres, inflation_vols, edpvr_pres, edpvr_vols, edpvr_spline, inflation_spline, pv_vols, pv_pres)
+                plot_results(fname, error, matparams, inflation_pres, inflation_vols, edpvr_pres, edpvr_vols, edpvr_regress, inflation_spline, pv_vols, pv_pres)
             if logging_flag:
                 # Save results to a file
                 fname = output_dir.parent / f"inflation_results.txt"
