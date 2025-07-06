@@ -89,7 +89,7 @@ def plot_triangle(a_af_lists, colors=None, labels=None):
     return fig, ax
 
 #%%
-sample_nums = [13]
+sample_nums = [10, 15, 17, 18, 19, 21, 22, 24, 25, 26, 28, 29, 44, 45, 51, 53]
 results_folder = f"02_EDPVR_Modeling"
 cpu_num = 8
 
