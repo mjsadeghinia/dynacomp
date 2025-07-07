@@ -373,6 +373,65 @@ def plot_bar_with_error(
 
     fig.savefig(str(output_path), dpi=300)    
 
+
+def plot_bar_with_data(
+    data_dict,
+    output_path,
+    ylim=None,
+    ylabel="Tissue Volume [mm³]",
+    ordered_keys=None
+):
+    # Flatten and remove empty entries
+    data_dict = flatten_data_dict(data_dict)
+    data_dict = {k: v for k, v in data_dict.items() if v}
+
+    # Determine ordering of keys
+    if ordered_keys is not None:
+        ordered = [k for k in ordered_keys if k in data_dict]
+    else:
+        ordered = list(data_dict.keys())
+    # Reorder data_dict according to ordered list
+    data_dict = {k: data_dict[k] for k in ordered}
+
+    # Retrieve colors (styles unused here)
+    colors_dict, _ = get_colors_styles(data_dict.keys())
+    # Build list of colors matching the order
+    bar_colors = [colors_dict[k] for k in data_dict.keys()]
+
+    # Compute means and SEMs (avoid ddof warning for n=1)
+    means = []
+    sems = []
+    for k in data_dict:
+        vals = np.array(data_dict[k])
+        means.append(np.mean(vals))
+        n = vals.size
+        if n > 1:
+            sems.append(np.std(vals, ddof=1) / np.sqrt(n))
+        else:
+            sems.append(0.0)
+
+    # Create bar plot
+    x = np.arange(len(data_dict))
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.bar(x, means, yerr=sems, color=bar_colors, capsize=5)
+
+    # Overlay individual data points without jitter
+    for i, k in enumerate(data_dict):
+        y = data_dict[k]
+        ax.scatter(np.full(len(y), i), y, color='black', alpha=0.7)
+
+    # Formatting
+    ax.set_xticks(x)
+    ax.set_xticklabels(list(data_dict.keys()), rotation=45, ha='right')
+    ax.set_ylabel(ylabel)
+    if ylim is not None:
+        ax.set_ylim(ylim)
+    fig.tight_layout()
+
+    # Save figure
+    fig.savefig(str(output_path), dpi=300)
+    plt.close(fig)
+
 # %%
 def load_mesh_from_file(mesh_fname: Path):
     # Read the mesh
