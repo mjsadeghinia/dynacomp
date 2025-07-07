@@ -149,39 +149,56 @@ def noramalize_data_dicts(data_dict1, data_dict2):
 
     return normalized_dict
 
-def calculate_data_average_and_std(data_dict):
+def flatten_data_dict(data_dict):
     """
-    Calculate the average and standard deviation of all data along the list for each group, time_key, and diameter (if exists).
+    Flatten a nested data dictionary into a single-level dict mapping composite keys to data lists.
 
     Parameters:
-    - data_dict (dict): Dictionary containing data to be averaged.
+    - data_dict (dict): Nested dictionary with structure:
+        { group: { time_key: [data_list] or { diameter: [data_list], ... }, ... }, ... }
 
     Returns:
-    - averaged_dict (dict): Dictionary with keys as "group_time_key_diameter" and averaged data as values.
-    - std_dict (dict): Dictionary with keys as "group_time_key_diameter" and standard deviations as values.
+    - flat_dict (dict): Dictionary with keys of the form "group_time_key" or "group_time_key_diameter"
+      and values as the corresponding lists of data.
+    """
+    flat_dict = {}
+
+    for group, times_group in data_dict.items():
+        for time_key, times_list in times_group.items():
+            if isinstance(times_list, dict):  # Has diameters
+                for diameter, data_list in times_list.items():
+                    key = f"{group}_{time_key}_{diameter}"
+                    flat_dict[key] = data_list
+            else:  # No diameters
+                key = f"{group}_{time_key}"
+                flat_dict[key] = times_list
+
+    return flat_dict
+
+
+def calculate_data_average_and_std(data_dict):
+    """
+    Compute the mean and standard deviation for each entry in a flattened data dictionary.
+
+    Parameters:
+    - flat_dict (dict): Dictionary with composite keys and list-of-array data values.
+
+    Returns:
+    - averaged_dict (dict): Same keys as flat_dict, with values as the mean over axis 0, or None if empty.
+    - std_dict (dict): Same keys as flat_dict, with values as the standard deviation over axis 0, or None if empty.
     """
     averaged_dict = {}
     std_dict = {}
 
-    for group, times_group in data_dict.items():
-        for time_key, times_list in times_group.items():
-            if isinstance(times_list, dict):  # Check if there are diameters
-                for diameter, data_list in times_list.items():
-                    key = f"{group}_{time_key}_{diameter}"
-                    if data_list:
-                        averaged_dict[key] = np.mean(data_list, axis=0)
-                        std_dict[key] = np.std(data_list, axis=0)
-                    else:
-                        averaged_dict[key] = None
-                        std_dict[key] = None
-            else:  # Handle case without diameters
-                key = f"{group}_{time_key}"
-                if times_list:
-                    averaged_dict[key] = np.mean(times_list, axis=0)
-                    std_dict[key] = np.std(times_list, axis=0)
-                else:
-                    averaged_dict[key] = None
-                    std_dict[key] = None
+    flat_dict = flatten_data_dict(data_dict)
+
+    for key, data_list in flat_dict.items():
+        if data_list:
+            averaged_dict[key] = np.mean(data_list, axis=0)
+            std_dict[key] = np.std(data_list, axis=0)
+        else:
+            averaged_dict[key] = None
+            std_dict[key] = None
 
     return averaged_dict, std_dict
 
