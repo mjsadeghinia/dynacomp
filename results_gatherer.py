@@ -148,14 +148,14 @@ def main(args=None) -> int:
         settings = load_settings(settings_dir, n)
         sample_name = settings["id"]
         if edpvr_flag:
-            output_dir_sample = output_dir / sample_name
-            output_dir_sample.mkdir(parents=True, exist_ok=True)
             edpvr_folder = Path(results_dir) / sample_name / "TPM" / "02_EDPVR_Modeling"
 
             if not edpvr_folder.exists():
                 logger.warning(f"EDPVR folder {edpvr_folder} does not exist for sample {sample_name}")
                 continue
-                
+            
+            output_dir_sample = output_dir / sample_name
+            output_dir_sample.mkdir(parents=True, exist_ok=True)
             edpvr_data = read_edpvr_data(edpvr_folder)
             experimets_folders = get_folders_from_edpvr_data(edpvr_data)
             for i, folder in enumerate(experimets_folders):
