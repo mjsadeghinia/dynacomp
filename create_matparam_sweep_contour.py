@@ -197,7 +197,7 @@ def main():
         plot_error_contour(
             data,
             data_dir,
-            filename=f'error_contour_sample_{sample_id}.png',
+            filename=f'error_contour.png',
             contour_levels=args.contour_levels,
             interpolation=args.interpolation,
             bf_flag=args.bf_flag
