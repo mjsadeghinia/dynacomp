@@ -148,7 +148,7 @@ def main(args=None) -> int:
         settings = load_settings(settings_dir, n)
         sample_name = settings["id"]
         if edpvr_flag:
-            edpvr_folder = Path(results_dir) / sample_name / "TPM" / "02_EDPVR_Modeling"
+            edpvr_folder = Path(results_dir) / sample_name / "TPM" / results_folder
 
             if not edpvr_folder.exists():
                 logger.warning(f"EDPVR folder {edpvr_folder} does not exist for sample {sample_name}")
