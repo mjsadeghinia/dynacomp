@@ -94,6 +94,36 @@ def plot_results(fname, error, matparams, inflation_pres, inflation_vols, edpvr_
     ax.legend(loc='upper left')
     fig.savefig(fname, dpi=300)
 
+def save_model(model, t: float, outdir: Path = Path("results")):
+        """
+        Saves the current state of the heart model at a given time to a specified file.
+
+        Parameters:
+        t (float): The time at which to save the model state.
+        outname (Path): The file path to save the model state.
+        """
+        fname = outdir / "displacement.xdmf"
+
+        results_u, _ = model.problem.state.split(deepcopy=True)
+        results_u.t = t
+        with dolfin.XDMFFile(model.comm, fname.as_posix()) as xdmf:
+            xdmf.write_checkpoint(
+                results_u,
+                "Displacement",
+                float(t + 1),
+                dolfin.XDMFFile.Encoding.HDF5,
+                True,
+            )
+
+        F = pulse.kinematics.DeformationGradient(results_u)
+        Cauchy = model.problem.material.CauchyStress(F)
+        Fib0_ref = model.geometry.f0
+        fib0_curr = F * Fib0_ref
+        Cauchy_ff =dolfin.inner(Cauchy * fib0_curr, fib0_curr)
+        fname = outdir / "Cauchy_ff.xdmf"
+        model.save_scalar(Cauchy_ff, fname, t, name="Cauchy_ff")
+
+
 #%%
 def main():
     parser = argparse.ArgumentParser()
@@ -210,6 +240,12 @@ def main():
         default='logging the results',
         help='Flag to indicate whether to log the results.'
         )
+    parser.add_argument(
+        '--save_stress',
+        action='store_true',
+        default=False,
+        help='Flag to indicate whether to save stress results.'
+    )
 
     args = parser.parse_args()
 
@@ -225,6 +261,7 @@ def main():
     spline_smoothness = args.spline_smoothness
     plot_flag = args.plot_flag
     logging_flag = args.logging_flag
+    save_stress = args.save_stress
     # Determine sample list
     if number:
         sample_nums = number
@@ -279,6 +316,10 @@ def main():
             v = model.compute_volume(activation_value=0, pressure_value=p, logging_flag=False)
             inflation_pres.append(p)
             inflation_vols.append(v)
+
+            if save_stress:
+                save_model(model, t=i, outdir=output_dir)
+
             if v>EDV*3:
                 # If the volume exceeds EDV, break the loop
                 if comm.rank == 0:
