@@ -278,7 +278,7 @@ def main():
     else:
         settings_files = sorted([f for f in settings_dir.iterdir() if f.suffix == ".json"])
         sample_nums = list(range(1, len(settings_files) + 1))
-    breakpoint()
+
     # Run inflation for each sample
     for sample_num in sample_nums:
         settings = utils.load_settings(settings_dir, sample_num)
