@@ -33,6 +33,20 @@ def parse_arguments(args=None):
     )
 
     parser.add_argument(
+        "-x",
+        "--exclusion",
+        action="store_true",
+        help="The flag for excluding samples with high error",
+    )
+
+    parser.add_argument(
+        "--error_threshold",
+        default=0.5,
+        type=float,
+        help="The value used for excluding samples with high error",
+    )
+
+    parser.add_argument(
         "--settings_dir",
         default="/home/shared/dynacomp/settings",
         type=Path,
@@ -111,6 +125,8 @@ def main(args=None) -> int:
     # Getting the arguments
     sample_num = args.number
     sample_ID = args.ID
+    exclusion_flag = args.exclusion
+    error_threshold = args.error_threshold
     settings_dir = args.settings_dir
     results_dir = args.results_dir
     output_dir = args.output_dir
@@ -152,6 +168,9 @@ def main(args=None) -> int:
         a = edpvr_data_sorted[0][0]
         af = edpvr_data_sorted[0][1]
         error = edpvr_data_sorted[0][-1]
+        if exclusion_flag and error>error_threshold :
+            logger.warning(f"Sample {sample_name} with the error of {error} is ignored")
+            continue
         if diameter is None:
             ids[group][time].append(sample_name)
             a_matparam[group][time].append(a)
