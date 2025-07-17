@@ -154,6 +154,13 @@ def main():
         help='Directory where results will be saved.'
     )
     parser.add_argument(
+        '-o',
+        "--output_folder",
+        default="02_EDPVR_Modeling",
+        type=str,
+        help="The result folder name tha would be created in the directory of the sample.",
+    )
+    parser.add_argument(
         '-c', '--contour_levels',
         type=int,
         default=20,
@@ -186,7 +193,7 @@ def main():
         sample_id = settings['id']
 
         # Prepare directories and file paths
-        out_dir  = args.results_dir / sample_id / args.scan_type / "02_EDPVR_Modeling"
+        out_dir  = args.results_dir / sample_id / args.scan_type / args.output_folder
         data_dir = out_dir
         fname    = data_dir / "inflation_results.txt"
 
