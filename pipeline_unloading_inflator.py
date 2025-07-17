@@ -1,7 +1,10 @@
 import subprocess
 import numpy as np
 from structlog import get_logger
+from pathlib import Path
 import matplotlib.pyplot as plt
+
+import utils
 
 logger = get_logger()
 #%%
@@ -90,6 +93,8 @@ def plot_triangle(a_af_lists, colors=None, labels=None):
 
 #%%
 sample_nums = [10, 15, 17, 18, 19, 21, 22, 24, 25, 26, 28, 29, 44, 45, 51, 53]
+sample_IDs = ["131_1", "133_1", "136_1", "136_2", "136_3", "138_1", "138_2", "139_1", "139_2", "140_2", "142_2", "142_2", "169_1", "169_3", "183_1", "185_1"]
+
 results_folder = f"02_EDPVR_Modeling"
 cpu_num = 8
 
@@ -100,14 +105,14 @@ a_af_list = a_af_list[::-1]  # Reverse the list to start from the largest a and 
 bf_list = [0.001]
 
 for bf in bf_list:
-    for sample_num in sample_nums:
+    for sample_ID in sample_IDs:
         for n, (a, af) in enumerate(a_af_list):
             logger.info(f"Running unloading and inflator for a={a}, af={af}, bf={bf}")
             output_folder = f"{results_folder}/a_{a}_af_{af}_bf_{bf}"
             try:
                 subprocess.run(
                     f"mpirun -n {cpu_num} python3 dynacomp/unloading.py "
-                    f"-n {sample_num} "
+                    f"-i {sample_ID} "
                     f"-o {output_folder} "
                     f"--a_matparam {a} "
                     f"--af_matparam {af} "
@@ -117,7 +122,7 @@ for bf in bf_list:
 
                 subprocess.run(
                     f"mpirun -n {cpu_num} python3 dynacomp/inflator.py "
-                    f"-n {sample_num} "
+                    f"-i {sample_ID} "
                     f"-o {output_folder} "
                     f"--a_matparam {a} "
                     f"--af_matparam {af} "
@@ -127,7 +132,7 @@ for bf in bf_list:
                 )
                 if n > 2:
                     subprocess.run(
-                        f"python3 dynacomp/create_matparam_sweep_contour.py -n {sample_num} -c 30 --bf_flag -o {output_folder}",
+                        f"python3 dynacomp/create_matparam_sweep_contour.py -i {sample_ID} -c 30 --bf_flag -o {output_folder}",
                         shell=True, check=True
                     )
 
