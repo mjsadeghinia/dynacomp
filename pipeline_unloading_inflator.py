@@ -132,7 +132,7 @@ for bf in bf_list:
                 )
                 if n > 2:
                     subprocess.run(
-                        f"python3 dynacomp/create_matparam_sweep_contour.py -i {sample_ID} -c 30 --bf_flag -o {output_folder}",
+                        f"python3 dynacomp/create_matparam_sweep_contour.py -i {sample_ID} -c 30 --bf_flag -o {results_folder}",
                         shell=True, check=True
                     )
 
