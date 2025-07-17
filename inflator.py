@@ -123,6 +123,14 @@ def save_model(model, t: float, outdir: Path = Path("results")):
         fname = outdir / "Cauchy_ff.xdmf"
         model.save_scalar(Cauchy_ff, fname, t, name="Cauchy_ff")
 
+def get_num_from_id(sample_ID, setting_dir):
+    sorted_files = sorted([file for file in setting_dir.iterdir() if file.is_file() and file.suffix == ".json"])
+    for i, file in enumerate(sorted_files):
+        with open(file, "r") as f:
+            settings = json.load(f)
+            if settings["id"][2:] == sample_ID:
+                return i + 1
+    raise ValueError(f"Sample ID {sample_ID} not found in settings directory.")
 
 #%%
 def main():
@@ -135,6 +143,13 @@ def main():
         type=int,
         default=None,
         help='Sample number(s) to process. If omitted, all samples in settings_dir will be processed.'
+    )
+    parser.add_argument(
+        "-i",
+        "--ID",
+        nargs="+",
+        type=str,
+        help="The sample ID to be processd, if passed in the sample number will be ignored.",
     )
     parser.add_argument(
         '--settings_dir',
@@ -250,6 +265,7 @@ def main():
     args = parser.parse_args()
 
     number = args.number
+    sample_ID = args.ID
     settings_dir = args.settings_dir
     results_dir = args.results_dir
     output_folder = args.output_folder
@@ -263,12 +279,17 @@ def main():
     logging_flag = args.logging_flag
     save_stress = args.save_stress
     # Determine sample list
-    if number:
+    if sample_ID is not None:
+        sample_nums = []
+        for id in sample_ID:
+            id_num = get_num_from_id(id, settings_dir)
+            sample_nums.append(id_num)
+    elif number:
         sample_nums = number
     else:
         settings_files = sorted([f for f in settings_dir.iterdir() if f.suffix == ".json"])
         sample_nums = list(range(1, len(settings_files) + 1))
-
+    breakpoint()
     # Run inflation for each sample
     for sample_num in sample_nums:
         settings = load_settings(settings_dir, sample_num)

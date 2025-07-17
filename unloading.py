@@ -124,6 +124,14 @@ def load_settings(settings_dir, sample_num):
         settings = json.load(file)
     return settings
 
+def get_num_from_id(sample_ID, setting_dir):
+    sorted_files = sorted([file for file in setting_dir.iterdir() if file.is_file() and file.suffix == ".json"])
+    for i, file in enumerate(sorted_files):
+        with open(file, "r") as f:
+            settings = json.load(f)
+            if settings["id"][2:] == sample_ID:
+                return i + 1
+    raise ValueError(f"Sample ID {sample_ID} not found in settings directory.")
 
 def load_atrium_pressure(pv_dir):
     fname = pv_dir / "calibrated_pv_data.csv"
@@ -153,6 +161,7 @@ def main(args=None) -> int:
         args = arg_parser.update_arguments(args, step="unloading")
 
     number = args.number
+    sample_ID = args.ID
     bcs_parameters = arg_parser.create_bc_params(args)
     settings_dir = args.settings_dir
     data_dir = args.data_dir
@@ -162,8 +171,12 @@ def main(args=None) -> int:
     output_folder = args.output_folder
     input_matparams = arg_parser.prepare_matparams(args)
     
-    # Determine sample list
-    if number:
+    if sample_ID is not None:
+        sample_nums = []
+        for id in sample_ID:
+            id_num = get_num_from_id(id, settings_dir)
+            sample_nums.append(id_num)
+    elif number:
         sample_nums = number
     else:
         settings_files = sorted([f for f in settings_dir.iterdir() if f.suffix == ".json"])

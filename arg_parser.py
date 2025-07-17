@@ -129,6 +129,14 @@ def parse_arguments_unloading(args=None):
         type=int,
         help="The sample number(s), will process all the sample if not indicated",
     )
+
+    parser.add_argument(
+        "-i",
+        "--ID",
+        nargs="+",
+        type=str,
+        help="The sample ID to be processd, if passed in the sample number will be ignored.",
+    )
     
     parser.add_argument(
         "-st",
