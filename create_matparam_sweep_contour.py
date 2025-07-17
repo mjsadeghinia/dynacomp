@@ -7,14 +7,7 @@ import matplotlib.tri as mtri
 import plotly.graph_objects as go
 from scipy.interpolate import griddata
 
-
-def load_settings(settings_dir: Path, sample_num: int) -> dict:
-    """
-    Load the JSON settings file for a given sample index (1-based).
-    """
-    files = sorted([f for f in settings_dir.iterdir() if f.suffix == ".json"])
-    with open(files[sample_num - 1], 'r') as f:
-        return json.load(f)
+import utils
 
 def _plot_contour_slice(a, a_f, error, output_path, contour_levels, interpolation):
     """
@@ -136,6 +129,13 @@ def main():
         help='Sample number(s) to process. If omitted, all samples will be processed.'
     )
     parser.add_argument(
+        "-i",
+        "--ID",
+        nargs="+",
+        type=str,
+        help="The sample ID to be processd, if passed in the sample number will be ignored.",
+    )
+    parser.add_argument(
         '--settings_dir',
         type=Path,
         default=Path('/home/shared/dynacomp/settings'),
@@ -182,14 +182,19 @@ def main():
     args = parser.parse_args()
 
     # Determine samples to process
-    if args.number:
-        sample_list = args.number
+    if args.sample_ID is not None:
+        sample_nums = []
+        for id in args.sample_ID:
+            id_num = utils.get_num_from_id(id, args.settings_dir)
+            sample_nums.append(id_num)
+    elif args.number:
+        sample_nums = args.number
     else:
         files = sorted([f for f in args.settings_dir.iterdir() if f.suffix == ".json"])
-        sample_list = list(range(1, len(files) + 1))
+        sample_nums = list(range(1, len(files) + 1))
 
-    for sample in sample_list:
-        settings = load_settings(args.settings_dir, sample)
+    for sample in sample_nums:
+        settings = utils.load_settings(args.settings_dir, sample)
         sample_id = settings['id']
 
         # Prepare directories and file paths
