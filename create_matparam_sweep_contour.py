@@ -9,7 +9,7 @@ from scipy.interpolate import griddata
 
 import utils
 
-def _plot_contour_slice(a, a_f, error, output_path, contour_levels, interpolation):
+def _plot_contour_slice(a, a_f, error, output_path, contour_levels, interpolation, manual_bestfit):
     """
     Helper to plot and save a single (a_f, a) vs. error contour slice.
     """
@@ -27,7 +27,8 @@ def _plot_contour_slice(a, a_f, error, output_path, contour_levels, interpolatio
     error_grid = interp(a_f_grid, a_grid)
 
     # Find minimum‐error point in this slice
-    min_idx = np.argmin(error)
+    sort_idx = np.argsort(error)
+    min_idx = sort_idx[0]
     best_a = a[min_idx]
     best_a_f = a_f[min_idx]
 
@@ -48,7 +49,9 @@ def _plot_contour_slice(a, a_f, error, output_path, contour_levels, interpolatio
     ax.scatter(a_f, a, c='white', edgecolor='black', s=10, linewidth=0.5, label='Data points')
     # Mark best fit
     ax.scatter(best_a_f, best_a, c='red', edgecolor='black', s=10, linewidth=0.5, label='Best Fit')
-
+    if manual_bestfit is not None:
+        # If manual best fit is provided, mark it it
+        ax.scatter(a[sort_idx[manual_bestfit-1]], a_f[sort_idx[manual_bestfit-1]], c='yellow', edgecolor='black', s=10, linewidth=0.5, label='Selected Best Fit')
     # Labels and limits
     ax.set_xlabel('a_f')
     ax.set_ylabel('a')
@@ -66,7 +69,7 @@ def _plot_contour_slice(a, a_f, error, output_path, contour_levels, interpolatio
 
 
 def plot_error_contour(data, output_dir: Path, filename='error_contour.png',
-                       contour_levels=20, interpolation='cubic', bf_flag=False):
+                       contour_levels=20, interpolation='cubic', bf_flag=False, manual_bestfit=None):
     """
     Creates interpolated contour plot(s) of error over (a_f, a).
     If bf_flag is False (default), produces a single plot using all data.
@@ -102,7 +105,8 @@ def plot_error_contour(data, output_dir: Path, filename='error_contour.png',
                 error_slice,
                 out_path,
                 contour_levels,
-                interpolation
+                interpolation,
+                manual_bestfit
             )
     else:
         # Single plot using all data
@@ -113,7 +117,8 @@ def plot_error_contour(data, output_dir: Path, filename='error_contour.png',
             error,
             out_path,
             contour_levels,
-            interpolation
+            interpolation,
+            manual_bestfit
         )
 
 
@@ -130,7 +135,7 @@ def main():
     )
     parser.add_argument(
         "-i",
-        "--ID",
+        "--sample_ID",
         nargs="+",
         type=str,
         help="The sample ID to be processd, if passed in the sample number will be ignored.",
@@ -212,7 +217,8 @@ def main():
             filename=f'error_contour.png',
             contour_levels=args.contour_levels,
             interpolation=args.interpolation,
-            bf_flag=args.bf_flag
+            bf_flag=args.bf_flag,
+            manual_bestfit=settings["PV"].get('EDPVR_modeling_manual_bestfit', None)
         )
 
 if __name__ == "__main__":

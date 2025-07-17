@@ -108,6 +108,7 @@
         "Occlusion_data_index_f": null,
         "Occlusion_recording_num": null,
         "Occlusion_data_skip_index": 1,
+        "EDPVR_modeling_manual_bestfit": 2,
         "calibration": {
             "a": 617903.2943378213,
             "b": -560.7723155917711
