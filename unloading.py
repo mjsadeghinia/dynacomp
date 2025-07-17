@@ -5,6 +5,7 @@ from structlog import get_logger
 import json
 import shutil
 
+import utils
 import arg_parser
 from fenics_plotly import plot
 import pulse
@@ -117,22 +118,6 @@ def recreate_geometry_with_fibers(geo, fiber_angles):
     )
 
 
-def load_settings(settings_dir, sample_num):
-    sorted_files = sorted([file for file in settings_dir.iterdir() if file.is_file() and file.suffix == ".json"])
-    settings_fname = sorted_files[sample_num - 1]
-    with open(settings_fname, "r") as file:
-        settings = json.load(file)
-    return settings
-
-def get_num_from_id(sample_ID, setting_dir):
-    sorted_files = sorted([file for file in setting_dir.iterdir() if file.is_file() and file.suffix == ".json"])
-    for i, file in enumerate(sorted_files):
-        with open(file, "r") as f:
-            settings = json.load(f)
-            if settings["id"][2:] == sample_ID:
-                return i + 1
-    raise ValueError(f"Sample ID {sample_ID} not found in settings directory.")
-
 def load_atrium_pressure(pv_dir):
     fname = pv_dir / "calibrated_pv_data.csv"
     PV_data = np.loadtxt(fname.as_posix(), delimiter=",")
@@ -174,7 +159,7 @@ def main(args=None) -> int:
     if sample_ID is not None:
         sample_nums = []
         for id in sample_ID:
-            id_num = get_num_from_id(id, settings_dir)
+            id_num = utils.get_num_from_id(id, settings_dir)
             sample_nums.append(id_num)
     elif number:
         sample_nums = number
@@ -184,7 +169,7 @@ def main(args=None) -> int:
 
     # Run inflation for each sample
     for sample_num in sample_nums:
-        settings = load_settings(settings_dir, sample_num)
+        settings = utils.load_settings(settings_dir, sample_num)
         sample_name = settings["id"]
         sample_dir = results_dir / sample_name / scan_type
         output_dir = sample_dir / output_folder
