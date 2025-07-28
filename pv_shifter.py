@@ -61,7 +61,7 @@ def get_num_from_id(sample_ID, setting_dir):
     raise ValueError(f"Sample ID {sample_ID} not found in settings directory.")
 
 def load_calibrated_pressure_volumes(data_dir):
-    PV_data_fname = [fname for fname in data_dir.iterdir() if "pv_data" in fname.stem][0]
+    PV_data_fname = [fname for fname in data_dir.iterdir() if "ordered_calibrated_pv_data" in fname.stem][0]
     PV_data = np.loadtxt(PV_data_fname.as_posix(), delimiter=",")
     time = PV_data[:, 0] * 1000
     pressures = PV_data[:, 1]
@@ -237,14 +237,7 @@ def main(args=None) -> int:
         logger.info(f"Cycle number {cycle_num} selected based on correlation.")
 
         # Get the end-diastole index
-        # ED_index = get_end_diastole_ind(
-        #     registered_pressures,
-        #     registered_calibrated_volumes
-        # )
-        # load ordere PV data
-        fname = pv_calibrated_data_dir / "ordered_pv_data.csv"
-        ordered_indices = np.loadtxt(fname, dtype=int, delimiter=",")
-        ED_index = ordered_indices[0]
+        ED_index = 0
 
         ED_index_edpvr = get_end_diastole_ind(
             edpvr_pressures_all[cycle_num],
@@ -340,7 +333,7 @@ def main(args=None) -> int:
         fig, ax = plt.subplots(figsize=(8, 6))
         ax.plot(registered_calibrated_volumes_cycle, registered_pressures_cycle, "k", linewidth=1)
         ax.scatter(registered_calibrated_volumes_cycle, registered_pressures_cycle, s=15, c="k")
-        ax.scatter(registered_calibrated_volumes_cycle[ED_index], registered_pressures_cycle[ED_index], s=15, c="r", label="ED Point")
+        ax.scatter(registered_calibrated_volumes_cycle[ED_index], registered_pressures_cycle[ED_index], s=15, c="m", label="ED Point")
         for n, (p,v) in enumerate(zip(shifted_edpvr_pressures_all, shifted_calibrated_edpvr_volumes_all)):
             color = "r" if n == cycle_num else "k"
             linewidth = 0.5 if n == cycle_num else 0.05

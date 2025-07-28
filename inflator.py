@@ -19,7 +19,7 @@ logger = structlog.get_logger()
 
 
 def load_pv_data(directory: Path):
-    data = np.loadtxt(directory / "calibrated_pv_data.csv", delimiter=',')
+    data = np.loadtxt(directory / "ordered_calibrated_pv_data.csv", delimiter=',')
     time, pres_mmHg, vols = data.T
     pres = pres_mmHg * 0.133322  # mmHg to kPa
     return time, pres, vols
@@ -53,6 +53,7 @@ def plot_results(fname, error, matparams, inflation_pres, inflation_vols, edpvr_
     fig, ax = plt.subplots(figsize=(8, 6))
     ax.plot(pv_vols, pv_pres, 'k', linewidth=1)
     ax.scatter(pv_vols, pv_pres, s=15, c='k', label='PV Data')
+    ax.scatter(pv_vols[0], pv_pres[0], s=15, c='m')
     ax.scatter(edpvr_vols, edpvr_pres, s=8, c='r', label='EDPVR')
     # Regression line
     edpvr_vols_spline = np.linspace(min(edpvr_vols), max(edpvr_vols), 100)

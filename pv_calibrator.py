@@ -456,13 +456,17 @@ def main(args=None) -> int:
 
         pv_volumes_calibrated = a * pv_volumes + b
         regirstered_calibrated_volumes = np.interp(mri_time, pv_time, pv_volumes_calibrated)
-        regirstered_calibrated_volumes_cycle = np.append(regirstered_calibrated_volumes, regirstered_calibrated_volumes[0])
-        regirstered_pressures_cycle = np.append(regirstered_pressures, regirstered_pressures[0])
+        regirstered_calibrated_volumes = np.roll(regirstered_calibrated_volumes, best_shift)
+        regirstered_pressures = np.roll(regirstered_pressures, best_shift)
+
+        regirstered_calibrated_volumes = np.append(regirstered_calibrated_volumes, regirstered_calibrated_volumes[0])
+        regirstered_pressures = np.append(regirstered_pressures, regirstered_pressures[0])
+        mri_time = np.append(mri_time,  mri_time[-1]+mri_time[-1]-mri_time[-2])
 
         fig, ax = plt.subplots(figsize=(8, 6))
-        ax.plot(regirstered_calibrated_volumes_cycle, regirstered_pressures_cycle, "k", linewidth=1)
-        ax.scatter(regirstered_calibrated_volumes_cycle, regirstered_pressures_cycle, s=15, c="k")
-        ax.scatter(regirstered_calibrated_volumes_cycle[indices[0]], regirstered_pressures_cycle[indices[0]], s=15, c="r")
+        ax.plot(regirstered_calibrated_volumes, regirstered_pressures, "k", linewidth=1)
+        ax.scatter(regirstered_calibrated_volumes, regirstered_pressures, s=15, c="k")
+        ax.scatter(regirstered_calibrated_volumes[0], regirstered_pressures[0], s=15, c="m", label="ED Point")
         ax.scatter(calibrated_edpvr_volumes, edpvr_pressures, s=8, c="r")
         for p,v in zip(edpvr_pressures_all, edpvr_volumes_all):
             v_calibrated = a * np.array(v) + b
@@ -496,12 +500,8 @@ def main(args=None) -> int:
         plt.savefig(fname, dpi=300)
         plt.close()
         # Save the calibrated EDPVR data
-        fname = output_dir / "calibrated_pv_data.csv"
+        fname = output_dir / "ordered_calibrated_pv_data.csv"
         np.savetxt(fname, np.vstack((mri_time, regirstered_pressures, regirstered_calibrated_volumes)).T, delimiter=",")
-        # Save the ordered PV data
-        fname = output_dir / "ordered_pv_data.csv"
-        np.savetxt(fname, indices, delimiter=",", fmt="%i")
-
 
 if __name__ == "__main__":
     main()

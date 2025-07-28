@@ -119,7 +119,7 @@ def recreate_geometry_with_fibers(geo, fiber_angles):
 
 
 def load_atrium_pressure(pv_dir):
-    fname = pv_dir / "calibrated_pv_data.csv"
+    fname = pv_dir / "ordered_calibrated_pv_data.csv"
     PV_data = np.loadtxt(fname.as_posix(), delimiter=",")
     mmHg_to_kPa = 0.133322
     atrium_pressure = PV_data[0, 1] * mmHg_to_kPa
