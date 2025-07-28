@@ -393,7 +393,7 @@ def main(args=None) -> int:
         # updating the geometries by adjusting based on best shift
         geo_outdir = output_dir / "Geometries"
         geo_outdir.mkdir(parents=True, exist_ok=True)
-        indices = [np.argmin(np.abs(mri_volumes_original - v)) for v in mri_volumes]
+        indices = list(np.roll(np.arange(len(mri_time)), best_shift))
         for i, n in enumerate(indices):
             geo_fname = meshes_data_dir / f"time_{n}/Geometry/geometry.h5"
             geo_outname = geo_outdir / f"geometry_{i}.h5"
