@@ -201,7 +201,7 @@ def main(args=None) -> int:
         a = settings["PV"]["calibration"]["a"]
         b = settings["PV"]["calibration"]["b"]
 
-        if not settings["PV"]["EDPVR_shift_flags"]["pressure"]:
+        if not settings["PV"]["EDPVR_shift_flags"]["pressure"] and not settings["PV"]["EDPVR_shift_flags"]["volume"]:
             logger.info(f"Sample {settings['id']} needs no shift, according to settings.")
             # Load the EDPVR data
             edpvr_pressures, edpvr_volumes = load_edpvr(pv_data_dir)
@@ -237,10 +237,14 @@ def main(args=None) -> int:
         logger.info(f"Cycle number {cycle_num} selected based on correlation.")
 
         # Get the end-diastole index
-        ED_index = get_end_diastole_ind(
-            registered_pressures,
-            registered_calibrated_volumes
-        )
+        # ED_index = get_end_diastole_ind(
+        #     registered_pressures,
+        #     registered_calibrated_volumes
+        # )
+        # load ordere PV data
+        fname = pv_calibrated_data_dir / "ordered_pv_data.csv"
+        ordered_indices = np.loadtxt(fname, dtype=int, delimiter=",")
+        ED_index = ordered_indices[0]
 
         ED_index_edpvr = get_end_diastole_ind(
             edpvr_pressures_all[cycle_num],
@@ -330,10 +334,13 @@ def main(args=None) -> int:
         tinv = lambda p, df: abs(scipy.stats.t.ppf(p/2, df))
         ts = tinv(0.05, len(calibrated_edpvr_volumes)-2)
 
+        registered_calibrated_volumes_cycle = np.append(registered_calibrated_volumes, registered_calibrated_volumes[0])
+        registered_pressures_cycle = np.append(registered_pressures, registered_pressures[0])
+
         fig, ax = plt.subplots(figsize=(8, 6))
-        ax.plot(registered_calibrated_volumes, registered_pressures, "k", linewidth=1)
-        ax.scatter(registered_calibrated_volumes, registered_pressures, s=15, c="k")
-        ax.scatter(registered_calibrated_volumes[ED_index], registered_pressures[ED_index], s=15, c="r", label="ED Point")
+        ax.plot(registered_calibrated_volumes_cycle, registered_pressures_cycle, "k", linewidth=1)
+        ax.scatter(registered_calibrated_volumes_cycle, registered_pressures_cycle, s=15, c="k")
+        ax.scatter(registered_calibrated_volumes_cycle[ED_index], registered_pressures_cycle[ED_index], s=15, c="r", label="ED Point")
         for n, (p,v) in enumerate(zip(shifted_edpvr_pressures_all, shifted_calibrated_edpvr_volumes_all)):
             color = "r" if n == cycle_num else "k"
             linewidth = 0.5 if n == cycle_num else 0.05
