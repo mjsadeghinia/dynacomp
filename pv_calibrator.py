@@ -198,6 +198,22 @@ def save_settings(settings, settings_dir, sample_name):
         json.dump(settings, file, indent=4)
     return settings_fname
 
+def append_additional_volumes(mri_time, registered_volumes, registered_pressures, pv_volumes, pv_pressures):
+    stroke_volume = max(registered_volumes) - min(registered_volumes)
+    if registered_volumes[0]-registered_volumes[-1] > stroke_volume * 0.05:
+        logger.warning("The first and last volume are not close enough, appending data from the PV curves.")
+        last_reg_vol = registered_volumes[-1]
+        ind = np.where(pv_volumes < last_reg_vol)[0][-1] + 1
+        pv_pres = pv_pressures[ind:]
+        pv_vols = pv_volumes[ind:]
+        missing_range = (registered_volumes[0]-registered_volumes[-1]) / stroke_volume
+        num_additional_data = int(missing_range / 0.03)
+        skip_interval = int(len(pv_vols) / num_additional_data)
+        registered_pressures = np.append(registered_pressures, pv_pres[::skip_interval])
+        registered_volumes = np.append(registered_volumes, pv_vols[::skip_interval])
+        mri_time = np.append(mri_time, mri_time[-1] + (mri_time[-1] - mri_time[-2]) * np.arange(1, len(registered_volumes)-len(mri_time) + 1))
+    return mri_time, registered_volumes, registered_pressures
+
 
 # %%
 def main(args=None) -> int:
@@ -456,6 +472,7 @@ def main(args=None) -> int:
 
         pv_volumes_calibrated = a * pv_volumes + b
         regirstered_calibrated_volumes = np.interp(mri_time, pv_time, pv_volumes_calibrated)
+        # mri_time, regirstered_calibrated_volumes,  regirstered_pressures= append_additional_volumes(mri_time, regirstered_calibrated_volumes, regirstered_pressures, pv_volumes_calibrated, pv_pressures)
         ED_offset_index = settings["PV"]["ED_offset_index"] if "ED_offset_index" in settings["PV"] else 0
 
         if not ED_offset_index==0:
