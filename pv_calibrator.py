@@ -379,8 +379,8 @@ def main(args=None) -> int:
         plt.savefig(fname, dpi=300)
         plt.close()
 
-        fname = output_dir / "registered_pv_data.csv"
-        np.savetxt(fname, np.vstack((mri_time, regirstered_pressures, mri_volumes)).T, delimiter=",")
+        # fname = output_dir / "registered_pv_data.csv"
+        # np.savetxt(fname, np.vstack((mri_time, regirstered_pressures, mri_volumes)).T, delimiter=",")
 
         settings = update_settings(settings, a, b)
         settings_fname = save_settings(settings, settings_dir, sample_name)
