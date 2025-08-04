@@ -410,12 +410,12 @@ def main(args=None) -> int:
             pres_occlusion_divided_all, vols_occlusion_divided_all = divide_pv_data(pres_occlusion, vols_occlusion)
 
             if settings["PV"]["Occlusion_data_index_i"] is None and settings["PV"]["Occlusion_data_index_f"] is None:
-                inds = get_edpvr_cycles(pres_occlusion_divided_all)
-                pres_occlusion_divided = [pres_occlusion_divided_all[i] for i in inds]
-                vols_occlusion_divided = [vols_occlusion_divided_all[i] for i in inds]
+                selected_inds = get_edpvr_cycles(pres_occlusion_divided_all)
+                pres_occlusion_divided = [pres_occlusion_divided_all[i] for i in selected_inds]
+                vols_occlusion_divided = [vols_occlusion_divided_all[i] for i in selected_inds]
             else:
                 first_cycle, last_cycle = settings["PV"]["Occlusion_data_index_i"], settings["PV"]["Occlusion_data_index_f"]
-                inds = np.linspace(first_cycle,last_cycle,dtype=int)
+                selected_inds = np.linspace(first_cycle,last_cycle,dtype=int)
                 pres_occlusion_divided = pres_occlusion_divided_all[first_cycle:last_cycle]
                 vols_occlusion_divided = vols_occlusion_divided_all[first_cycle:last_cycle]
                                                                 
@@ -423,7 +423,7 @@ def main(args=None) -> int:
             fig, ax = plt.subplots(figsize=(8, 6))
             for i, p in enumerate(pres_occlusion_divided_all):
                 ax.scatter(i, np.max(p), s=5, c="k")
-                if i in inds:
+                if i in selected_inds:
                     ax.scatter(i, np.max(p), s=5, c="r")
             plt.ylabel("Max LV Pressure during Caval Occlusion [mmHg]")
             plt.xlabel("Cycle no.")
@@ -478,14 +478,13 @@ def main(args=None) -> int:
 
             # write the EDPVR_pv_data data to a file
             fname = output_dir / f"{sample_name}_EDPVR_pressure_data.csv"
-            pres_occlusion_divided_all_lists = [arr.tolist() for arr in pres_occlusion_divided_all]
+            pres_occlusion_divided_selected_lists = [pres_occlusion_divided_all[i].tolist() for i in selected_inds]
             with open(fname, 'w') as f:
-                json.dump(pres_occlusion_divided_all_lists, f)
+                json.dump(pres_occlusion_divided_selected_lists, f)
 
             fname = output_dir / f"{sample_name}_EDPVR_volume_data.csv"
-            vols_occlusion_divided_all_lists = [arr.tolist() for arr in vols_occlusion_divided_all]
+            vols_occlusion_divided_selected_lists = [vols_occlusion_divided_all[i].tolist() for i in selected_inds]
             with open(fname, 'w') as f:
-                json.dump(vols_occlusion_divided_all_lists, f)
-
+                json.dump(vols_occlusion_divided_selected_lists, f)
 if __name__ == "__main__":
     main()
