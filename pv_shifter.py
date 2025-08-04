@@ -238,14 +238,19 @@ def main(args=None) -> int:
 
         # Get the end-diastole index
         ED_index = 0
-
-        ED_index_edpvr = get_end_diastole_ind(
-            edpvr_pressures_all[cycle_num],
-            calibrated_edpvr_volumes_all[cycle_num]
-        )
-
         EDP, EDV = registered_pressures[ED_index], registered_calibrated_volumes[ED_index]
-        EDP_edpvr, EDV_edpvr = edpvr_pressures_all[cycle_num][ED_index_edpvr], calibrated_edpvr_volumes_all[cycle_num][ED_index_edpvr]
+
+        # ED_index_edpvr = get_end_diastole_ind(
+        #     edpvr_pressures_all[cycle_num],
+        #     calibrated_edpvr_volumes_all[cycle_num]
+        # )
+        # EDP_edpvr, EDV_edpvr = edpvr_pressures_all[cycle_num][ED_index_edpvr], calibrated_edpvr_volumes_all[cycle_num][ED_index_edpvr]
+
+        # Load the EDPVR data
+        edpvr_pressures, edpvr_volumes = load_edpvr(pv_data_dir)
+        calibrated_edpvr_volumes = a * edpvr_volumes + b
+
+        EDP_edpvr, EDV_edpvr = edpvr_pressures[cycle_num], calibrated_edpvr_volumes[cycle_num]
         
         if settings["PV"]["EDPVR_shift_flags"]["volume"]:
             volume_diff = EDV - EDV_edpvr
@@ -264,8 +269,7 @@ def main(args=None) -> int:
             color = "r" if n == cycle_num else "k"
             linewidth = 0.5 if n == cycle_num else 0.05
             ax.plot(v, p, c=color, linewidth=linewidth)
-            if n == cycle_num:
-                ax.scatter(v[ED_index_edpvr], p[ED_index_edpvr], s=5, c="r")
+        ax.scatter(calibrated_edpvr_volumes[cycle_num], edpvr_pressures[cycle_num], s=5, c="r")
         plt.xlabel("Volume [micro Liter]")
         plt.ylabel("LV Pressure [mmHg]")
         fname = pv_calibrated_data_dir / f"EDPVR_shift.png"
@@ -292,8 +296,7 @@ def main(args=None) -> int:
             color = "r" if n == cycle_num else "k"
             linewidth = 0.5 if n == cycle_num else 0.05
             ax.plot(v, p, c=color, linewidth=linewidth)
-            if n == cycle_num:
-                ax.scatter(v[ED_index_edpvr], p[ED_index_edpvr], s=5, c="r")
+        ax.scatter(calibrated_edpvr_volumes[cycle_num], edpvr_pressures[cycle_num], s=5, c="r")
         plt.xlabel("Volume [micro Liter]")
         plt.ylabel("LV Pressure [mmHg]")
         fname = pv_calibrated_data_dir / f"Shifted_EDPVR.png"
@@ -310,9 +313,7 @@ def main(args=None) -> int:
             json.dump(shifted_calibrated_edpvr_volumes_all, f)
 
 
-        # Load the EDPVR data
-        edpvr_pressures, edpvr_volumes = load_edpvr(pv_data_dir)
-        calibrated_edpvr_volumes = a * edpvr_volumes + b
+        
         # Shift the EDPVR volumes and pressures
         shifted_calibrated_edpvr_volumes = [v + volume_diff for v in
             calibrated_edpvr_volumes
@@ -356,6 +357,7 @@ def main(args=None) -> int:
             # bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5)
         )
         ax.plot(calibrated_edpvr_volumes, res.intercept + res.slope*calibrated_edpvr_volumes, 'b', label='EDVPR')
+        ax.scatter(shifted_calibrated_edpvr_volumes[cycle_num], shifted_edpvr_pressures[cycle_num], s=5, c="r")
         ax.axhline(y=0, color='gray', linestyle='--')
 
         # Add a second y-axis for LV Pressure in kPa
