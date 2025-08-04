@@ -123,27 +123,19 @@ def average_pv_data(pres_divided, vols_divided, dt, n_points=100):
 
 
 def average_array(arrays, n_points):
-    # Determine the length of the longest array
-    max_length = max(len(array) for array in arrays)
-
-    # Define common x values
-    average_x = np.linspace(0, max_length - 1, num=n_points)
-
-    # Interpolate each array to the common x-axis
     interpolated_arrays = []
-    for array in arrays:
-        x = np.linspace(0, len(array) - 1, num=len(array))
-        f = interp1d(x, array, kind="linear", fill_value="extrapolate")
-        interpolated_y = f(average_x)
-        interpolated_arrays.append(interpolated_y)
+    target_x = np.linspace(0, 1, n_points)
+    for arr in arrays:
+        original_len = len(arr)
+        original_x = np.linspace(0, 1, original_len)
+        interpolator = interp1d(original_x, arr, kind='linear', fill_value="extrapolate")
+        interpolated_arr = interpolator(target_x)
+        interpolated_arrays.append(interpolated_arr)
 
-    # Convert list of arrays to a 2D NumPy array for averaging
     interpolated_arrays = np.array(interpolated_arrays)
 
-    # Calculate the average along the common x-axis
     average_y = np.mean(interpolated_arrays, axis=0)
     return average_y
-
 
 def get_end_diastole_ind(
     pressures, volumes, pressure_threshold_percent=0.1, volume_threshold_percent=0.05
@@ -325,10 +317,6 @@ def main(args=None) -> int:
         else:
             v_0 = vols_average[0]
             ED_data_num = int(0.15 * len(vols_average))
-            ind = ED_data_num - np.where(vols_average[-ED_data_num:] < v_0)[0][0]
-            vols_average = vols_average[:-ind]
-            pres_average = pres_average[:-ind]
-            time_average = time_average[:-ind]
 
             # Smoothing data
             smoothed_vols_average = savgol_filter(
