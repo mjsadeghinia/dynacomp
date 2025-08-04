@@ -111,16 +111,16 @@
         "Occlusion_data_skip_index": 1,
         "EDPVR_modeling_manual_bestfit": 2,
         "calibration": {
-            "a": 617903.2943378213,
-            "b": -560.7723155917711
+            "a": 587579.1699516311,
+            "b": -516.2757379798767
         },
         "EDPVR_shift_flags": {
             "volume": true,
             "pressure": true
         },
         "EDPVR_shift": {
-            "volume": 33.83512023469768,
-            "pressure": 4.264620370407737
+            "volume": 36.68957890766876,
+            "pressure": 5.2643740144059965
         }
     }
 }

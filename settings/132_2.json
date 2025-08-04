@@ -271,8 +271,8 @@
         "Occlusion_recording_num": 4,
         "Occlusion_data_skip_index": 1,
         "calibration": {
-            "a": 622244.2959025934,
-            "b": -674.7245208988003
+            "a": 656283.739312998,
+            "b": -719.4133453656394
         },
         "EDPVR_shift_flags": {
             "volume": false,
