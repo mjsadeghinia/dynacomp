@@ -456,8 +456,13 @@ def main(args=None) -> int:
 
         pv_volumes_calibrated = a * pv_volumes + b
         regirstered_calibrated_volumes = np.interp(mri_time, pv_time, pv_volumes_calibrated)
-        regirstered_calibrated_volumes = np.roll(regirstered_calibrated_volumes, best_shift)
-        regirstered_pressures = np.roll(regirstered_pressures, best_shift)
+        ED_offset_index = settings["PV"]["ED_offset_index"] if "ED_offset_index" in settings["PV"] else 0
+
+        if not ED_offset_index==0:
+            logger.warning(f"ED_offset_index is set to {ED_offset_index}")
+            
+        regirstered_calibrated_volumes = np.roll(regirstered_calibrated_volumes, best_shift+ED_offset_index)
+        regirstered_pressures = np.roll(regirstered_pressures, best_shift+ED_offset_index)
 
         regirstered_calibrated_volumes = np.append(regirstered_calibrated_volumes, regirstered_calibrated_volumes[0])
         regirstered_pressures = np.append(regirstered_pressures, regirstered_pressures[0])
