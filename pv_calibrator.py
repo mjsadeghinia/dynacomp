@@ -339,6 +339,8 @@ def main(args=None) -> int:
         plt.close()
 
         regirstered_pressures = np.interp(mri_time, pv_time, pv_pressures)
+        # adding a possibility for adjusting the ED pressure just, USE with caution! only for the samples where the original PV loop makes sense to adjust the ED pressure
+        regirstered_pressures[0] = regirstered_pressures[0] if not "ED_pressure_offset" in settings["PV"] else regirstered_pressures[0] + settings["PV"]["ED_pressure_offset"]
         # Triming the mri_volumes based on EDV
         ind = np.where(mri_volumes[-10:] > mri_volumes[0])[0]
         if ind.shape[0] > 0:
