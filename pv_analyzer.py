@@ -462,7 +462,7 @@ def main(args=None) -> int:
 
             fname = output_dir / f"{sample_name}_EDPVR.csv"
             np.savetxt(fname, np.vstack((edpvr_p, edpvr_v)).T, delimiter=",")
-            logger.info("------------------")
+            logger.info("--------------------------------")
 
             # write the EDPVR_pv_data data to a file
             fname = output_dir / f"{sample_name}_EDPVR_pressure_data.csv"
