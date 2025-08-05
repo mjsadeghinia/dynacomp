@@ -9,6 +9,7 @@ import json
 import shutil
 import ast
 import scipy.stats
+import logging
 
 
 import arg_parser
@@ -306,7 +307,8 @@ def main(args=None) -> int:
         )
 
         mri_volumes_original = []
-
+        pulse_logger = logging.getLogger("pulse")
+        pulse_logger.setLevel(logging.WARNING)
         for folder in mri_time_series:
             mesh_fname = folder / "geometry/Geometry.h5"
             geo = pulse.HeartGeometry.from_file(mesh_fname.as_posix())
@@ -316,7 +318,7 @@ def main(args=None) -> int:
         mri_volumes = mri_volumes_original.copy()
         mri_volumes = np.roll(mri_volumes, best_shift)
         if best_shift > 0:
-            logger.warning(f"MRI data has been shifted by {best_shift} in time")
+            logger.info(f"MRI data has been shifted by {best_shift} in time")
 
         fig, ax1 = plt.subplots(figsize=(8, 6))
         ax1.plot(mri_time, mri_volumes, color="black", linewidth=1)
@@ -469,7 +471,7 @@ def main(args=None) -> int:
         ED_offset_index = settings["PV"]["ED_offset_index"] if "ED_offset_index" in settings["PV"] else 0
 
         if not ED_offset_index==0:
-            logger.warning(f"ED_offset_index is set to {ED_offset_index}")
+            logger.info(f"ED_offset_index is set to {ED_offset_index}")
             
         regirstered_calibrated_volumes = np.roll(regirstered_calibrated_volumes, best_shift+ED_offset_index)
         regirstered_pressures = np.roll(regirstered_pressures, best_shift+ED_offset_index)
@@ -521,11 +523,14 @@ def main(args=None) -> int:
         # updating the geometries by adjusting based on best shift
         geo_outdir = output_dir / "Geometries"
         geo_outdir.mkdir(parents=True, exist_ok=True)
-        indices = list(np.roll(np.arange(len(mri_time)), best_shift+ED_offset_index))
+        indices = list(np.roll(np.arange(len(mri_time[:-1])), best_shift+ED_offset_index))
         for i, n in enumerate(indices):
             geo_fname = meshes_data_dir / f"time_{n}/Geometry/geometry.h5"
             geo_outname = geo_outdir / f"geometry_{i}.h5"
-            shutil.copy(geo_fname, geo_outname)
+            if geo_fname.is_file():
+                shutil.copy(geo_fname, geo_outname)
+            else:
+                logger.warning(f"Geometry file {geo_fname} does not exist, skipping.")
 
 if __name__ == "__main__":
     main()
