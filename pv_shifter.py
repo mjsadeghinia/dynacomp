@@ -208,6 +208,9 @@ def main(args=None) -> int:
             calibrated_edpvr_volumes = a * edpvr_volumes + b
             fname = pv_calibrated_data_dir / f"{sample_name}_EDPVR_calibrated_shifted.csv"
             np.savetxt(fname, np.vstack((edpvr_pressures, calibrated_edpvr_volumes)).T, delimiter=",")
+            src = pv_calibrated_data_dir / "registered_edpvr_with_calibrated_cather_volume.png"
+            fname = pv_calibrated_data_dir / "shifted_registered_edpvr_with_calibrated_cather_volume.png"
+            shutil.copy(src, fname)
             logger.info(f"--------------------------------")
             continue
 
