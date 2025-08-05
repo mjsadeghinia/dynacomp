@@ -93,9 +93,10 @@ def plot_triangle(a_af_lists, colors=None, labels=None):
 
 #%%
 sample_nums = [10, 15, 17, 18, 19, 21, 22, 24, 25, 26, 28, 29, 44, 45, 51, 53]
-sample_IDs = ["131_1", "133_1", "136_1", "136_2", "136_3", "138_1", "138_2", "139_1", "139_2", "140_2", "142_2", "142_2", "169_1", "169_3", "183_1", "185_1"]
+sample_IDs = ["131_1", "133_1", "136_1", "136_2", "136_3", "138_1"]
+#, "138_2", "139_1", "139_2", "140_2", "142_2", "142_2", "169_1", "169_3", "183_1", "185_1"]
 
-results_folder = f"02_EDPVR_Modeling"
+results_folder = f"02_EDPVR_Modeling_v2"
 cpu_num = 8
 
 a_af_list = grid_triangle_biased(N=10, amin=0.05, amax=5, afmin=0.05, afmax=5, bias_power=1.4)
