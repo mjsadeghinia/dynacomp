@@ -2,8 +2,7 @@
 import numpy as np
 from pathlib import Path
 from structlog import get_logger
-import json
-import shutil
+import logging
 
 import utils
 import arg_parser
@@ -102,6 +101,7 @@ def recreate_geometry_with_fibers(geo, fiber_angles):
         fiber_space=fiber_space,
         ffun=geo.ffun,
         markers=markers,
+        log_level=logging.WARNING,
         **fiber_angles,
     )
     if comm.Get_rank() == 1:
