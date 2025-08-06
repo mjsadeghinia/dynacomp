@@ -359,7 +359,7 @@ def main(args=None) -> int:
             verticalalignment='top',
             # bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5)
         )
-        ax.plot(calibrated_edpvr_volumes, res.intercept + res.slope*calibrated_edpvr_volumes, 'b', label='EDVPR')
+        ax.plot(shifted_calibrated_edpvr_volumes, res.intercept + res.slope*calibrated_edpvr_volumes, 'b', label='EDVPR')
         ax.scatter(shifted_calibrated_edpvr_volumes[cycle_num], shifted_edpvr_pressures[cycle_num], s=5, c="r")
         ax.axhline(y=0, color='gray', linestyle='--')
 
