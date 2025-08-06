@@ -403,7 +403,7 @@ def main(args=None) -> int:
                 vols_occlusion_divided = [vols_occlusion_divided_all[i] for i in selected_inds]
             else:
                 first_cycle, last_cycle = settings["PV"]["Occlusion_data_index_i"], settings["PV"]["Occlusion_data_index_f"]
-                selected_inds = np.linspace(first_cycle,last_cycle,dtype=int)
+                selected_inds = np.arange(first_cycle, last_cycle + 1, 1)
                 pres_occlusion_divided = pres_occlusion_divided_all[first_cycle:last_cycle]
                 vols_occlusion_divided = vols_occlusion_divided_all[first_cycle:last_cycle]
                                                                 
