@@ -314,7 +314,7 @@ def main(args=None) -> int:
             geo = pulse.HeartGeometry.from_file(mesh_fname.as_posix())
             mri_volumes_original.append(geo.cavity_volume())
         mri_time = np.linspace(0, mri_time_total, len(mri_volumes_original))
-        best_shift, _ = find_best_mri_shift(mri_time, mri_volumes_original, pv_time, pv_volumes, N=10)
+        best_shift, _ = find_best_mri_shift(mri_time, mri_volumes_original, pv_time, pv_volumes, N=20)
         mri_volumes = mri_volumes_original.copy()
         mri_volumes = np.roll(mri_volumes, best_shift)
         if best_shift > 0:
@@ -343,14 +343,6 @@ def main(args=None) -> int:
         regirstered_pressures = np.interp(mri_time, pv_time, pv_pressures)
         # adding a possibility for adjusting the ED pressure just, USE with caution! only for the samples where the original PV loop makes sense to adjust the ED pressure
         regirstered_pressures[0] = regirstered_pressures[0] if not "ED_pressure_offset" in settings["PV"] else regirstered_pressures[0] + settings["PV"]["ED_pressure_offset"]
-        # Triming the mri_volumes based on EDV
-        ind = np.where(mri_volumes[-10:] > mri_volumes[0])[0]
-        if ind.shape[0] > 0:
-            ind = ind[-1]
-            mri_time = mri_time[:-ind]
-            mri_volumes = mri_volumes[:-ind]
-            regirstered_pressures = regirstered_pressures[:-ind]
-
         N = len(mri_time)
         weights = np.ones(len(mri_time))
         weights[: int(0.25 * N)] = 5
