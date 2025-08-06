@@ -329,7 +329,7 @@ def main(args=None) -> int:
         v_0 = -res.intercept / res.slope if res.slope != 0 else float('nan')
         # Calculate the standard error of the slope and intercept
         tinv = lambda p, df: abs(scipy.stats.t.ppf(p/2, df))
-        ts = tinv(0.05, len(calibrated_edpvr_volumes)-2)
+        ts = tinv(0.05, len(shifted_calibrated_edpvr_volumes)-2)
 
         registered_calibrated_volumes_cycle = np.append(registered_calibrated_volumes, registered_calibrated_volumes[0])
         registered_pressures_cycle = np.append(registered_pressures, registered_pressures[0])
@@ -359,7 +359,7 @@ def main(args=None) -> int:
             verticalalignment='top',
             # bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5)
         )
-        ax.plot(shifted_calibrated_edpvr_volumes, res.intercept + res.slope*calibrated_edpvr_volumes, 'b', label='EDVPR')
+        ax.plot(shifted_calibrated_edpvr_volumes, res.intercept + res.slope*np.array(shifted_calibrated_edpvr_volumes), 'b', label='EDVPR')
         ax.scatter(shifted_calibrated_edpvr_volumes[cycle_num], shifted_edpvr_pressures[cycle_num], s=5, c="r")
         ax.axhline(y=0, color='gray', linestyle='--')
 
