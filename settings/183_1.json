@@ -195,8 +195,8 @@
         "Occlusion_recording_num": null,
         "Occlusion_data_skip_index": 1,
         "calibration": {
-            "a": 446863.4949947532,
-            "b": -590.0401332375352
+            "a": 461766.3989357556,
+            "b": -621.1175681209081
         },
         "EDPVR_shift_flags": {
             "volume": false,
@@ -204,7 +204,7 @@
         },
         "EDPVR_shift": {
             "volume": 0,
-            "pressure": 2.3792939645832742
+            "pressure": 2.285459018619143
         }
     }
 }
