@@ -519,6 +519,12 @@ def main(args=None) -> int:
         for i, n in enumerate(indices):
             geo_fname = meshes_data_dir / f"time_{n}/Geometry/geometry.h5"
             geo_outname = geo_outdir / f"geometry_{i}.h5"
+            if i == 0:
+                logger.info(f"Time {n} is considered as ED")
+                outname = geo_outdir / f"geometry_{i}_ffun.xdmf"
+                geo = pulse.HeartGeometry.from_file(geo_fname.as_posix())
+                with dolfin.XDMFFile(outname.as_posix()) as infile:
+                    infile.write(geo.ffun)
             if geo_fname.is_file():
                 shutil.copy(geo_fname, geo_outname)
             else:
