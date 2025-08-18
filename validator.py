@@ -50,16 +50,14 @@ def copy_facet_markers_to_mesh(src_ffun: dolfin.cpp.mesh.MeshFunctionSizet,
     dst_ffun.array()[:] = src_ffun.array()
     return dst_ffun
 
-def plot_facet_tag_to_html(mesh: dolfin.Mesh,
-                           ffun: dolfin.MeshFunction,
-                           tag: int,
-                           out_html: Path,
-                           name: str = 'unnamed',
-                           color: str = 'blue',
-                           title: str = "Facet tag surface"):
+def facet_tag_trace(mesh: dolfin.Mesh,
+                    ffun: dolfin.MeshFunction,
+                    tag: int,
+                    name: str,
+                    color: str,
+                    opacity: float = 0.5):
     """
-    Build a Plotly Mesh3d for all facets with ffun == tag and write to HTML.
-    Assumes a 3D tetrahedral mesh (triangular facets).
+    Return a Plotly Mesh3d trace for facets with ffun == tag.
     """
     mesh.init(2, 0)  # ensure facet->vertex connectivity
 
@@ -67,16 +65,12 @@ def plot_facet_tag_to_html(mesh: dolfin.Mesh,
     gdim = mesh.geometry().dim()
     assert gdim == 3, "This routine expects a 3D mesh."
 
-    # Collect the triangles (vertex indices) for facets with the given tag
     tris = []
     vert_used = set()
-
-    # Iterate facets
     for f in dolfin.facets(mesh):
         if ffun[f.index()] == tag:
-            vs = f.entities(0)  # vertex indices of this facet
+            vs = f.entities(0)
             if len(vs) != 3:
-                # If not triangular, skip (Plotly Mesh3d expects triangles)
                 continue
             tris.append(tuple(vs))
             vert_used.update(vs)
@@ -84,7 +78,6 @@ def plot_facet_tag_to_html(mesh: dolfin.Mesh,
     if not tris:
         raise RuntimeError(f"No facets found with tag {tag}")
 
-    # Reindex vertices to a compact 0..N-1 set for Plotly
     vert_used = sorted(vert_used)
     global_to_local = {g: i for i, g in enumerate(vert_used)}
 
@@ -96,28 +89,32 @@ def plot_facet_tag_to_html(mesh: dolfin.Mesh,
     j = [global_to_local[b] for (a, b, c) in tris]
     k = [global_to_local[c] for (a, b, c) in tris]
 
-    fig = go.Figure(
-        data=[
-            go.Mesh3d(
-                x=x, y=y, z=z,
-                i=i, j=j, k=k,
-                opacity=0.5,
-                flatshading=True,
-                name=name,
-                color=color,  
-                # Do not set colors explicitly (lets Plotly pick)
-            )
-        ]
+    mesh_trace = go.Mesh3d(
+        x=x, y=y, z=z,
+        i=i, j=j, k=k,
+        opacity=opacity,
+        flatshading=True,
+        name=name,
+        color=color,
+        showlegend=True
     )
-    fig.update_layout(
-        title=title,
-        scene=dict(
-            xaxis_title="x", yaxis_title="y", zaxis_title="z",
-            aspectmode="data"
-        ),
-        margin=dict(l=0, r=0, t=40, b=0),
+
+    # Wireframe (edges) overlay
+    edge_x, edge_y, edge_z = [], [], []
+    for (a, b, c) in tris:
+        for u, v in [(a, b), (b, c), (c, a)]:
+            edge_x += [coords[u][0], coords[v][0], None]
+            edge_y += [coords[u][1], coords[v][1], None]
+            edge_z += [coords[u][2], coords[v][2], None]
+    edge_trace = go.Scatter3d(
+        x=edge_x, y=edge_y, z=edge_z,
+        mode="lines",
+        line=dict(color=color, width=1),
+        name=f"{name} edges",
+        showlegend=False
     )
-    fig.write_html(str(out_html), include_plotlyjs="cdn")
+
+    return mesh_trace, edge_trace
 
 # %%
 def main(args=None) -> int:
@@ -211,14 +208,16 @@ def main(args=None) -> int:
     mri_mesh = mri_geometry.mesh
 
     out_html = sample_dir / "peak_sys_ffun.html"
-    plot_facet_tag_to_html(
-        mesh=peak_sys_mesh,
-        ffun=ffun_peak,
-        tag=7,
-        out_html=out_html,
-        name="Epi",
-        color="blue",
+    epi_mesh, epi_edges = facet_tag_trace(peak_sys_mesh, ffun_peak, 7, name="Epi", color="blue")
+    endo_mesh, endo_edges = facet_tag_trace(peak_sys_mesh, ffun_peak, 6, name="Endo", color="red")
+
+    fig = go.Figure(data=[epi_mesh, epi_edges, endo_mesh, endo_edges])
+    fig.update_layout(
+        title=f"{sample_name} — peak systole surfaces",
+        scene=dict(xaxis_title="x", yaxis_title="y", zaxis_title="z", aspectmode="data"),
+        margin=dict(l=0, r=0, t=40, b=0),
     )
+    fig.write_html(str(out_html), include_plotlyjs="cdn")
 
 
 if __name__ == "__main__":
