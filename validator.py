@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
 import plotly.graph_objects as go
+from typing import Tuple, List
+
 
 
 import pulse
@@ -115,6 +117,133 @@ def facet_tag_trace(mesh: dolfin.Mesh,
     )
 
     return mesh_trace, edge_trace
+def surface_vertices(mesh: dolfin.Mesh, ffun: dolfin.MeshFunction, tag: int) -> Tuple[np.ndarray, List[int]]:
+    """
+    Return (coords_of_surface_vertices, list_of_global_vertex_ids) for facets with marker == tag.
+    """
+    mesh.init(2, 0)
+    coords = mesh.coordinates()
+    vert_ids = set()
+    for f in dolfin.facets(mesh):
+        if ffun[f.index()] == tag:
+            vs = f.entities(0)
+            if len(vs) == 3:
+                vert_ids.update(vs)
+    vert_ids = sorted(vert_ids)
+    pts = coords[vert_ids]
+    return pts, vert_ids
+
+def surface_triangles(mesh: dolfin.Mesh, ffun: dolfin.MeshFunction, tag: int) -> np.ndarray:
+    """
+    Return triangles as Nx3x3 array of coordinates for facets with marker == tag.
+    tri_coords[n] = [[ax,ay,az],[bx,by,bz],[cx,cy,cz]]
+    """
+    mesh.init(2, 0)
+    coords = mesh.coordinates()
+    tris = []
+    for f in dolfin.facets(mesh):
+        if ffun[f.index()] == tag:
+            vs = f.entities(0)
+            if len(vs) == 3:
+                a, b, c = vs
+                tris.append(np.vstack([coords[a], coords[b], coords[c]]))
+    if not tris:
+        raise RuntimeError(f"No triangular facets for tag {tag}")
+    return np.asarray(tris)  # (N,3,3)
+
+# --- geometry helpers: closest distance point->triangle ---
+def point_triangle_distance(p: np.ndarray, tri: np.ndarray) -> float:
+    """
+    Compute shortest distance from point p (3,) to triangle tri (3,3) with rows a,b,c.
+    Robust algorithm adapted from Christer Ericson, “Real-Time Collision Detection”.
+    """
+    a, b, c = tri
+    ab = b - a
+    ac = c - a
+    ap = p - a
+
+    d1 = np.dot(ab, ap)
+    d2 = np.dot(ac, ap)
+    if d1 <= 0.0 and d2 <= 0.0:
+        return np.linalg.norm(ap)  # barycentric (1,0,0)
+
+    bp = p - b
+    d3 = np.dot(ab, bp)
+    d4 = np.dot(ac, bp)
+    if d3 >= 0.0 and d4 <= d3:
+        return np.linalg.norm(bp)  # barycentric (0,1,0)
+
+    vc = d1*d4 - d3*d2
+    if vc <= 0.0 and d1 >= 0.0 and d3 <= 0.0:
+        v = d1 / (d1 - d3)
+        proj = a + v * ab
+        return np.linalg.norm(p - proj)  # edge AB
+
+    cp = p - c
+    d5 = np.dot(ab, cp)
+    d6 = np.dot(ac, cp)
+    if d6 >= 0.0 and d5 <= d6:
+        return np.linalg.norm(cp)  # barycentric (0,0,1)
+
+    vb = d5*d2 - d1*d6
+    if vb <= 0.0 and d2 >= 0.0 and d6 <= 0.0:
+        w = d2 / (d2 - d6)
+        proj = a + w * ac
+        return np.linalg.norm(p - proj)  # edge AC
+
+    va = d3*d6 - d5*d4
+    if va <= 0.0 and (d4 - d3) >= 0.0 and (d5 - d6) >= 0.0:
+        w = (d4 - d3) / ((d4 - d3) + (d5 - d6))
+        proj = b + w * (c - b)
+        return np.linalg.norm(p - proj)  # edge BC
+
+    # Inside face region
+    n = np.cross(ab, ac)
+    n_norm2 = np.dot(n, n)
+    if n_norm2 == 0.0:
+        # Degenerate triangle; fallback to min distance to vertices
+        return min(np.linalg.norm(ap), np.linalg.norm(bp), np.linalg.norm(cp))
+    dist = abs(np.dot(ap, n)) / np.sqrt(n_norm2)
+    return dist
+
+def distances_points_to_surface(points: np.ndarray, tri_coords: np.ndarray) -> np.ndarray:
+    """
+    Brute-force distances from each point to the closest triangle in tri_coords.
+    points: (M,3), tri_coords: (N,3,3)
+    Returns: (M,) distances
+    """
+    M = points.shape[0]
+    N = tri_coords.shape[0]
+    d = np.empty(M, dtype=float)
+    for i in range(M):
+        p = points[i]
+        # Compute distance to all triangles; take min
+        # (If slow for your mesh size, we can add KD-tree accel later.)
+        mind = np.inf
+        for n in range(N):
+            dist = point_triangle_distance(p, tri_coords[n])
+            if dist < mind:
+                mind = dist
+        d[i] = mind
+    return d
+
+def plot_error_histogram(errors, fname, color, xlim=None, ylim=None, title_prefix=""):
+    avg_error = np.mean(errors)
+    std_error  = np.std(errors)
+    line = f'{title_prefix} Error Distribution (Avg: {avg_error:.2f} ± {std_error:.2f})'
+
+    plt.figure()
+    plt.hist(errors, bins=30, edgecolor='black', color=color)
+    plt.xlabel('Distance')
+    plt.ylabel('Frequency')
+    plt.title(line)
+    if xlim is not None:
+        plt.xlim(xlim)
+    if ylim is not None:
+        plt.ylim(ylim)
+    plt.tight_layout()
+    plt.savefig(fname, dpi=150)
+    plt.close()
 
 # %%
 def main(args=None) -> int:
@@ -207,7 +336,7 @@ def main(args=None) -> int:
     )
     mri_mesh = mri_geometry.mesh
     ffun_mri = copy_facet_markers_to_mesh(mri_geometry.ffun, mri_mesh)
-    
+
     # Traces for simulation mesh
     epi_mesh, epi_edges   = facet_tag_trace(peak_sys_mesh, ffun_peak, 7, name="Epi (sim)",  color="blue")
     endo_mesh, endo_edges = facet_tag_trace(peak_sys_mesh, ffun_peak, 6, name="Endo (sim)", color="red")
@@ -230,9 +359,33 @@ def main(args=None) -> int:
         margin=dict(l=0, r=0, t=40, b=0),
     )
 
-    out_html = sample_dir / "peak_sys_ffun.html"
+    out_html = modeling_dir / "peak_sys_ffun.html"
     fig.write_html(str(out_html), include_plotlyjs="cdn")
 
+    # Extract sim surface nodes for each tag
+    epi_pts_sim, _  = surface_vertices(peak_sys_mesh, ffun_peak, 7)
+    endo_pts_sim, _ = surface_vertices(peak_sys_mesh, ffun_peak, 6)
+
+    # Extract MRI surface triangles for each tag
+    epi_tris_mri  = surface_triangles(mri_mesh, ffun_mri, 7)  # (N_e,3,3)
+    endo_tris_mri = surface_triangles(mri_mesh, ffun_mri, 6)  # (N_i,3,3)
+
+    # Compute distances: sim nodes -> MRI surfaces
+    epi_dists  = distances_points_to_surface(epi_pts_sim,  epi_tris_mri)
+    endo_dists = distances_points_to_surface(endo_pts_sim, endo_tris_mri)
+    hist_epi_png  = modeling_dir / "hist_epi.png"
+    hist_endo_png = modeling_dir / "hist_endo.png"
+    plot_error_histogram(
+        epi_dists, hist_epi_png, color="blue",
+        xlim=(0, np.max(epi_dists)*1.05), ylim=None,
+        title_prefix="Epi (ffun=7)"
+    )
+    plot_error_histogram(
+        endo_dists, hist_endo_png, color="red",
+        xlim=(0, np.max(endo_dists)*1.05), ylim=None,
+        title_prefix="Endo (ffun=6)"
+    )
+    
 
 if __name__ == "__main__":
     main()
