@@ -10,50 +10,26 @@ import pulse
 from heart_model import HeartModelDynaComp
 from datacollector import DataCollector
 from coupling_solver import newton_solver
+import utils
 
 logger = get_logger()
 
 # %%
 # UNITS:
 # [kg]   [mm]    [s]    [mN]     [kPa]       [mN-mm]	    g = 9.806e+03
-def get_sample_name(sample_num, setting_dir):
-    # Get the list of .json files in the directory and sort them by name
-    sorted_files = sorted(
-        [
-            file
-            for file in setting_dir.iterdir()
-            if file.is_file() and file.suffix == ".json"
-        ]
-    )
-    sample_name = sorted_files[sample_num - 1].with_suffix("").name
-    return sample_name
+def load_edpvr_results(edpvr_dir):
+    edpvr_data = utils.read_edpvr_data(edpvr_dir)
+    edpvr_data_sorted = edpvr_data[edpvr_data[:, -1].argsort()]
+    experimets_folders = utils.get_folders_from_edpvr_data(edpvr_data)
+    unloaded_geometry_fname  = edpvr_dir / experimets_folders[0] / "unloaded_geometry_0_with_fibers.h5"
+    a_matparam = edpvr_data_sorted[0, 0]
+    af_matparam = edpvr_data_sorted[0, 1]
+    return unloaded_geometry_fname, a_matparam, af_matparam
 
-def load_settings(setting_dir, sample_name):
-    settings_fname = setting_dir / f"{sample_name}.json"
-    with open(settings_fname, "r") as file:
-        settings = json.load(file)
+def update_matparam_settings(settings, a_matparam, af_matparam):
+    settings["matparams"]["a"] = a_matparam
+    settings["matparams"]["a_f"] = af_matparam
     return settings
-
-def load_pressure_volumes(data_dir, sample_name):
-    PV_data_fname = data_dir / f"PV data/PV data/{sample_name}_PV_data.csv"
-    PV_data = np.loadtxt(PV_data_fname.as_posix(), delimiter=",")
-    mmHg_to_kPa = 0.133322
-    pressures = PV_data[:, 1] * mmHg_to_kPa
-    volumes = PV_data[:, 2]
-    return pressures, volumes
-
-def caliberate_volumes(mesh_dir, vols, comm=None):
-    ED_geometry_fname = mesh_dir / "geometry"
-    ED_geometry = pulse.HeartGeometry.from_file(
-        ED_geometry_fname.as_posix() + ".h5", comm=comm
-    )
-    v = ED_geometry.cavity_volume()
-    RVU_to_microL = v / vols[0]
-    if comm.Get_rank() == 0:
-        logger.info(f"Caliberation is done, RVU to micro Liter is {RVU_to_microL}")
-    volumes = vols * RVU_to_microL
-    return volumes
-
 
 # %%
 def main(args=None) -> int:
@@ -65,23 +41,40 @@ def main(args=None) -> int:
         args = arg_parser.update_arguments(args, step="processing")
 
     sample_num = args.number
+    sample_ID = args.ID
     setting_dir = args.settings_dir
     output_folder = args.output_folder
-    sample_name = get_sample_name(sample_num, setting_dir)
-    settings = load_settings(setting_dir, sample_name)
+    results_dir = args.results_dir
+    scan_type = args.scan_type
+
+    if sample_ID is not None:
+        sample_num = utils.get_num_from_id(sample_ID, setting_dir)
+
+
+    settings = utils.load_settings(setting_dir, sample_num)
+    sample_name = settings["id"]
+    logger.info(f"Loaded settings from {sample_name}")
     bc_params = arg_parser.create_bc_params(args)
-    data_dir = Path(settings["path"])
-    mesh_dir = data_dir / f"{output_folder}/Geometry"
+
+    sample_dir = Path(results_dir) / sample_name / scan_type
+    pv_dir = sample_dir / "01_PVCalibration"
+    geo_dir = pv_dir / "Geometries"
+    edpvr_dir = sample_dir / "02_EDPVR_Modeling_v2"
+    outdir = sample_dir / output_folder
 
     # delet files for saving again
-    outdir = arg_parser.prepare_oudir_processing(data_dir, output_folder, comm)
+    outdir = arg_parser.prepare_oudir_processing(outdir, comm)
     comm.Barrier()
 
     # Loading PV Data
-    pressures, volumes = load_pressure_volumes(data_dir, sample_name)
-    volumes = caliberate_volumes(mesh_dir, volumes, comm=comm)
+    pressures, volumes = utils.load_pressure_volumes(pv_dir)
     #
-    unloaded_geometry_fname = mesh_dir / "unloaded_geometry_with_fibers.h5"
+    unloaded_geometry_fname, a_matparam, af_matparam = load_edpvr_results(edpvr_dir)
+    if comm.rank == 0:
+        settings = update_matparam_settings(settings, a_matparam, af_matparam)
+        utils.save_settings(settings, setting_dir, sample_name)
+    comm.Barrier()
+
     unloaded_geometry = pulse.HeartGeometry.from_file(
         unloaded_geometry_fname.as_posix(), comm=comm
     )

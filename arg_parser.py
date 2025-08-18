@@ -240,7 +240,29 @@ def parse_arguments_processing(args=None):
         type=int,
         help="The sample number(s), will process all the sample if not indicated",
     )
+
+    parser.add_argument(
+        "-i",
+        "--ID",
+        type=str,
+        help="The sample ID to be processd, if passed in the sample number will be ignored.",
+    )
     
+    parser.add_argument(
+        "-r",
+        "--results_dir",
+        default="/home/shared/01_results_coarse_mesh",
+        type=str,
+        help="The results folder where the processed data should be saved.",
+    )
+
+    parser.add_argument(
+        "--scan_type",
+        default='TPM',
+        type=str,
+        help="The scan type. Settings will be loaded accordingly from json file",
+    )
+
     parser.add_argument(
         "--settings_dir",
         default="/home/shared/dynacomp/settings",
@@ -265,7 +287,7 @@ def parse_arguments_processing(args=None):
     parser.add_argument(
         "-o",
         "--output_folder",
-        default= "fine_mesh",
+        default= "03_Active_Modeling",
         type=str,
         help="The result folder name tha would be created in the directory of the sample.",
     )
