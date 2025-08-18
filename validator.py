@@ -206,17 +206,31 @@ def main(args=None) -> int:
         mri_peak_sys_mesh_fname.as_posix()
     )
     mri_mesh = mri_geometry.mesh
+    ffun_mri = copy_facet_markers_to_mesh(mri_geometry.ffun, mri_mesh)
+    
+    # Traces for simulation mesh
+    epi_mesh, epi_edges   = facet_tag_trace(peak_sys_mesh, ffun_peak, 7, name="Epi (sim)",  color="blue")
+    endo_mesh, endo_edges = facet_tag_trace(peak_sys_mesh, ffun_peak, 6, name="Endo (sim)", color="red")
 
-    out_html = sample_dir / "peak_sys_ffun.html"
-    epi_mesh, epi_edges = facet_tag_trace(peak_sys_mesh, ffun_peak, 7, name="Epi", color="blue")
-    endo_mesh, endo_edges = facet_tag_trace(peak_sys_mesh, ffun_peak, 6, name="Endo", color="red")
+    # Traces for MRI mesh (both epi & endo in grey)
+    epi_mri_mesh, epi_mri_edges   = facet_tag_trace(mri_mesh, ffun_mri, 7, name="Epi (MRI)",  color="grey", opacity=0.3)
+    endo_mri_mesh, endo_mri_edges = facet_tag_trace(mri_mesh, ffun_mri, 6, name="Endo (MRI)", color="grey", opacity=0.3)
 
-    fig = go.Figure(data=[epi_mesh, epi_edges, endo_mesh, endo_edges])
+    # Combine all into one figure
+    fig = go.Figure(data=[
+        epi_mesh, epi_edges,
+        endo_mesh, endo_edges,
+        epi_mri_mesh, epi_mri_edges,
+        endo_mri_mesh, endo_mri_edges
+    ])
+
     fig.update_layout(
-        title=f"{sample_name} — peak systole surfaces",
+        title=f"{sample_name} — peak systole: Simulation vs MRI surfaces",
         scene=dict(xaxis_title="x", yaxis_title="y", zaxis_title="z", aspectmode="data"),
         margin=dict(l=0, r=0, t=40, b=0),
     )
+
+    out_html = sample_dir / "peak_sys_ffun.html"
     fig.write_html(str(out_html), include_plotlyjs="cdn")
 
 
