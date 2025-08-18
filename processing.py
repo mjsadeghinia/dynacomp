@@ -94,12 +94,13 @@ def main(args=None) -> int:
         target_volume=v,
         activation=0.0,
     )
-    # Pressurizing up to End Diastole
-    v = heart_model.compute_volume(activation_value=0, pressure_value=pressures[0])
-    collector.collect(
-        time=1,
-        pressure=pressures[0],
-        volume=v,
+    # Pressurizing up to End Diastole with 10 steps
+    for i in range(1, 11):
+        v = heart_model.compute_volume(activation_value=0, pressure_value=pressures[0] * i / 10)
+        collector.collect(
+            time=i,
+            pressure=pressures[0] * i / 10,
+            volume=v,
         target_volume=v,
         activation=0.0,
     )
@@ -109,7 +110,7 @@ def main(args=None) -> int:
         pres=pressures[1:],
         vols=volumes[1:],
         collector=collector,
-        start_time=2,
+        start_time=11,
         comm=comm,
     )
     
