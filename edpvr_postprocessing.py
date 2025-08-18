@@ -64,7 +64,7 @@ def parse_arguments(args=None):
     parser.add_argument(
         "-o",
         "--output_dir",
-        default="/home/shared/02_post_processing/02_EDPVR_Results",
+        default="/home/shared/02_post_processing/02_EDPVR_Results_v2",
         type=Path,
         help="The results folder where the processed data should be saved.",
     )
@@ -193,7 +193,7 @@ def main(args=None) -> int:
     fname = output_dir / "ECM_Myocyte_Stiffness_Ratio.png"
     utils_post.plot_bar_with_data(a_af_matparam, fname, ylabel="ECM/Myocyte Stiffness Ratio", ordered_keys=ordered_keys)
     fname = output_dir / "EDPVR_Error.png"
-    utils_post.plot_bar_with_data(err, fname, ylabel="EDPVR Error", ordered_keys=ordered_keys)
+    utils_post.plot_bar_with_data(err, fname, ylabel="EDPVR Error", ordered_keys=ordered_keys, ylim=(0, 1))
 
     a_matparam = prepare_results_dict(a_matparam, ordered_keys=ordered_keys)
     af_matparam = prepare_results_dict(af_matparam, ordered_keys=ordered_keys)
