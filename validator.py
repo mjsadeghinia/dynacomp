@@ -281,6 +281,14 @@ def main(args=None) -> int:
     )
 
     parser.add_argument(
+        "-o",
+        "--output_folder",
+        default= "03_Active_Modeling",
+        type=str,
+        help="The result folder name tha would be created in the directory of the sample.",
+    )
+
+    parser.add_argument(
         "-r",
         "--results_dir",
         default="/home/shared/01_results_coarse_mesh",
@@ -294,6 +302,7 @@ def main(args=None) -> int:
     scan_type = args.scan_type
     settings_dir = args.settings_dir
     results_dir = args.results_dir
+    output_folder = args.output_folder
 
     if sample_ID is not None:
         sample_num = utils.get_num_from_id(sample_ID, settings_dir)
@@ -305,7 +314,7 @@ def main(args=None) -> int:
     pv_dir = sample_dir / "01_PVCalibration"
     geo_dir = pv_dir / "Geometries"
     edpvr_dir = sample_dir / "02_EDPVR_Modeling_v2"
-    modeling_dir = sample_dir / "03_Active_Modeling"
+    modeling_dir = sample_dir / output_folder
 
     pressures, volumes = utils.load_pressure_volumes(pv_dir)
     peak_sys_ind = np.where(pressures == np.max(pressures))[0][0]
