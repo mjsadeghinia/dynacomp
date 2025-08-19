@@ -7,6 +7,7 @@ import json
 
 import dolfin
 import pulse
+from unloading import recreate_geometry_with_fibers
 from heart_model import HeartModelDynaComp
 from datacollector import DataCollector
 from coupling_solver import newton_solver
@@ -31,6 +32,11 @@ def update_matparam_settings(settings, a_matparam, af_matparam):
     settings["matparams"]["a_f"] = af_matparam
     return settings
 
+def update_fibparam_settings(settings, epi_fiber, endo_fiber):
+    settings["fiber_angles"]["alpha_epi_lv"] = epi_fiber
+    settings["fiber_angles"]["alpha_endo_lv"] = endo_fiber
+    return settings
+
 # %%
 def main(args=None) -> int:
     comm = dolfin.MPI.comm_world
@@ -46,6 +52,8 @@ def main(args=None) -> int:
     output_folder = args.output_folder
     results_dir = args.results_dir
     scan_type = args.scan_type
+    epi_fiber = args.epi_fiber
+    endo_fiber = args.endo_fiber
 
     if sample_ID is not None:
         sample_num = utils.get_num_from_id(sample_ID, setting_dir)
@@ -53,7 +61,6 @@ def main(args=None) -> int:
 
     settings = utils.load_settings(setting_dir, sample_num)
     sample_name = settings["id"]
-    logger.info(f"Loaded settings from {sample_name}")
     bc_params = arg_parser.create_bc_params(args)
 
     sample_dir = Path(results_dir) / sample_name / scan_type
@@ -70,16 +77,22 @@ def main(args=None) -> int:
     pressures, volumes = utils.load_pressure_volumes(pv_dir)
     #
     unloaded_geometry_fname, a_matparam, af_matparam = load_edpvr_results(edpvr_dir)
+    settings = update_matparam_settings(settings, a_matparam, af_matparam)
     if comm.rank == 0:
-        settings = update_matparam_settings(settings, a_matparam, af_matparam)
-        utils.save_settings(settings, setting_dir, sample_name)
-    comm.Barrier()
+        logger.info("Updated settings with EDPVR matparams", a=a_matparam, a_f=af_matparam)
 
     unloaded_geometry = pulse.HeartGeometry.from_file(
         unloaded_geometry_fname.as_posix(), comm=comm
     )
+    settings = update_fibparam_settings(settings, epi_fiber, endo_fiber)
+    unloaded_geometry_with_updated_fibers = recreate_geometry_with_fibers(
+            unloaded_geometry, settings["fiber_angles"]
+        )
+    if comm.rank == 0:
+        logger.info("Updated settings with fiber angles", epi_fiber=epi_fiber, endo_fiber=endo_fiber)
+
     heart_model = HeartModelDynaComp(
-        geo=unloaded_geometry,
+        geo=unloaded_geometry_with_updated_fibers,
         bc_params=bc_params,
         matparams=settings["matparams"],
         comm=comm,
@@ -113,6 +126,9 @@ def main(args=None) -> int:
         start_time=11,
         comm=comm,
     )
-    
+
+    if comm.rank == 0:
+        utils.save_settings(settings, setting_dir, sample_name)
+
 if __name__ == "__main__":
     main()

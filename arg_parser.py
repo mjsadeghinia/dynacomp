@@ -283,6 +283,20 @@ def parse_arguments_processing(args=None):
         type=float,
         help="HeartModel BC: The stiffness of the spring at the base.",
     )
+
+    parser.add_argument(
+        "--epi_fiber",
+        default=-60,
+        type=float,
+        help="HeartModel BC: The orientation of the fibers on the epicardium.",
+    )
+
+    parser.add_argument(
+        "--endo_fiber",
+        default=60,
+        type=float,
+        help="HeartModel BC: The orientation of the fibers on the endocardium.",
+    )
     
     parser.add_argument(
         "-o",
