@@ -244,8 +244,8 @@
         }
     },
     "matparams": {
-        "a": 10.726,
-        "a_f": 7.048,
+        "a": 0.251,
+        "a_f": 0.452,
         "b": 2.118,
         "b_f": 0.001,
         "a_s": 0.0,
@@ -254,8 +254,8 @@
         "b_fs": 0.0
     },
     "fiber_angles": {
-        "alpha_endo_lv": 60,
-        "alpha_epi_lv": -60,
+        "alpha_endo_lv": 30.0,
+        "alpha_epi_lv": -60.0,
         "beta_endo_lv": -15,
         "beta_epi_lv": 15
     },
