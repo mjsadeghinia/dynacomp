@@ -47,9 +47,17 @@ def main(args=None) -> int:
     )
 
     parser.add_argument(
+        "--skip_samples",
+        default=["136_2", "136_3","169_3"],
+        nargs="+",
+        type=str,
+        help="Comma-separated list of sample IDs to skip."
+    )
+
+    parser.add_argument(
         "-o",
         "--output_dir",
-        default="/home/shared/02_post_processing/03_Active_Modeling",
+        default="/home/shared/02_post_processing/03_Active_Modeling_post",
         type=Path,
         help="The result folder name tha would be created in the directory of the sample.",
     )
@@ -59,6 +67,7 @@ def main(args=None) -> int:
     settings_dir = args.settings_dir
     results_dir = args.results_dir
     scan_type = args.scan_type
+    skip_samples = args.skip_samples
     output_dir = args.output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -79,6 +88,10 @@ def main(args=None) -> int:
     sorted_samples = [p for p in sorted(results_dir.iterdir(), key=lambda p: p.name) if p.is_dir()]
     for sample_dir in sorted_samples:
         sample_id = sample_dir.name[2:]
+
+        if sample_id in skip_samples:
+            continue
+
         sample_num = utils.get_num_from_id(sample_id, settings_dir)
         settings = utils.load_settings(settings_dir, sample_num)
         result_path = sample_dir / scan_type / "03_Active_Modeling" / "results_data.csv"
@@ -179,12 +192,12 @@ def main(args=None) -> int:
             "fname_prefix": "pressure",
         },
         "strain": {
-            "ylim": (-0.1, 0),
+            "ylim": (-0.15, 0.15),
             "ylabel": "Averaged Fiber Strains [-]",
             "fname_prefix": "strain",
         },
         "work": {
-            "ylim": (-4, 4),
+            "ylim": (-4, 10),
             "ylabel": "Averaged Myocardial Work [mJ]",
             "fname_prefix": "work",
         },
