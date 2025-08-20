@@ -295,6 +295,15 @@ def main(args=None) -> int:
         type=Path,
         help="The results folder where the processed data should be saved.",
     )
+
+    parser.add_argument(
+        '-l',
+        '--logging_flag',
+        action='store_true',
+        default='logging the results',
+        help='Flag to indicate whether to log the results.'
+        )
+    
     args = parser.parse_args(args)
 
     sample_num = args.number
@@ -303,6 +312,7 @@ def main(args=None) -> int:
     settings_dir = args.settings_dir
     results_dir = args.results_dir
     output_folder = args.output_folder
+    logging_flag = args.logging_flag
 
     if sample_ID is not None:
         sample_num = utils.get_num_from_id(sample_ID, settings_dir)
@@ -319,6 +329,9 @@ def main(args=None) -> int:
     pressures, volumes = utils.load_pressure_volumes(pv_dir)
     peak_sys_ind = np.where(pressures == np.max(pressures))[0][0]
     inflation_time = get_infaltion_time(modeling_dir) 
+
+    result_path = sample_dir / "03_Active_Modeling" / "results_data.csv"
+    sample_data = np.loadtxt(result_path, delimiter=",", skiprows=1)
 
     peak_sys_ind_simulation = peak_sys_ind + inflation_time
     # Load Simulation peak systole geometry
@@ -394,6 +407,27 @@ def main(args=None) -> int:
         xlim=(0, np.max(endo_dists)*1.05), ylim=None,
         title_prefix="Endo (ffun=6)"
     )
+    
+    if logging_flag:
+        epi_avg_error = np.mean(epi_dists)
+        epi_std_error  = np.std(epi_dists)
+        endo_avg_error = np.mean(endo_dists)
+        endo_std_error  = np.std(endo_dists)
+        # Save results to a file
+        fname = modeling_dir.parent / f"Fiber_results.csv"
+        if not fname.exists():
+            header = "a, a_f, epi_fib, endo_fib, maximum Activation (kPa), epi_distance (mean), epi_distance (STD), endo_distance (mean), endo_distance(STD)\n"
+            fname.write_text(header, encoding="utf-8")
+        with fname.open("a", encoding="utf-8") as f:
+            f.write(f"{settings['matparams']['a']},"
+                    f"{settings['matparams']['a_f']},"
+                    f"{settings['fiber_angles']['alpha_epi_lv']},"
+                    f"{settings['fiber_angles']['alpha_endo_lv']},"
+                    f"{np.max(sample_data[:,1])},"
+                    f"{epi_avg_error},"
+                    f"{epi_std_error},"
+                    f"{endo_avg_error},"
+                    f"{endo_std_error}\n")
     
 
 if __name__ == "__main__":
