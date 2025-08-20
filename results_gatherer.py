@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import shutil
 import numpy as np
+import utils
 
 from structlog import get_logger
 
@@ -96,20 +97,6 @@ def get_num_from_id(sample_ID, setting_dir):
                 return i + 1
     raise ValueError(f"Sample ID {sample_ID} not found in settings directory.")
 
-def read_edpvr_data(edpvr_folder):
-    fname = edpvr_folder / "inflation_results.txt"
-    if not fname.exists():
-        raise FileNotFoundError(f"EDPVR data file {fname} does not exist.")
-    edpvr_data = np.loadtxt(fname, delimiter=',', skiprows=1)
-    return edpvr_data
-
-def get_folders_from_edpvr_data(edpvr_data):
-    edpvr_data_sorted = edpvr_data[edpvr_data[:, -1].argsort()]
-    folders = []
-    for row in edpvr_data_sorted:
-        folder_name = f"a_{row[0]}_af_{row[1]}_bf_{row[3]}"
-        folders.append(folder_name)
-    return folders
 
 # %%
 def main(args=None) -> int:
@@ -156,8 +143,8 @@ def main(args=None) -> int:
             
             output_dir_sample = output_dir / sample_name
             output_dir_sample.mkdir(parents=True, exist_ok=True)
-            edpvr_data = read_edpvr_data(edpvr_folder)
-            experimets_folders = get_folders_from_edpvr_data(edpvr_data)
+            edpvr_data = utils.read_edpvr_data(edpvr_folder)
+            experimets_folders = utils.get_folders_from_edpvr_data(edpvr_data)
             for i, folder in enumerate(experimets_folders):
                     fname = edpvr_folder / folder / "inflation_results.png"
                     if not fname.exists():
