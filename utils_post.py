@@ -664,7 +664,7 @@ def plot_maximums_with_regression(fname, activations, pressures, marker_size=1):
     ax.set_ylim(0, 120)
     ax.set_xlabel("Maximum Pressure (kPa)")
     ax.set_ylabel("Maximum Activation (kPa)")
-    plt.savefig(fname)
+    plt.savefig(fname, dpi=300)
     
     return slope, intercept, r_value**2, p_value, std_err
 
