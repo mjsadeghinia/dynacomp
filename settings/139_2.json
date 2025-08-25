@@ -366,6 +366,7 @@
     "PV": {
         "recording_num": 2,
         "ED_offset_index": -3,
+        "total_pressure_offset": 5.0,
         "volume_smooth_window_length": 15,
         "pressure_smooth_window_length": 15,
         "skip_redundant_data_flag": false,
@@ -384,7 +385,7 @@
         },
         "EDPVR_shift": {
             "volume": 10.87699076684487,
-            "pressure": -1.7051360994673876
+            "pressure": -1.7051361037853532
         }
     }
 }
