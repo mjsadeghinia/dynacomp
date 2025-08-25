@@ -296,6 +296,10 @@ def main(args=None) -> int:
         data = load_pv_data(pv_data_dir, recording_num=recording_num)
         vols, pres = data["volumes"], data["pressures"]
 
+        if "total_pressure_offset" in settings["PV"]:
+            pres += settings["PV"]["total_pressure_offset"]
+            logger.warning(f"Applied a total pressure offset of {settings['PV']['total_pressure_offset']} mmHg, check if it was necessary")
+
         pres_divided, vols_divided = divide_pv_data(pres, vols)
         pres_average, vols_average, time_average = average_pv_data(
             pres_divided, vols_divided, data["dt"]
@@ -395,6 +399,10 @@ def main(args=None) -> int:
         if settings["PV"]["process_occlusion_flag"]:
             occlusion_data = load_caval_occlusion_data(pv_data_dir, settings["PV"]["Occlusion_recording_num"])
             pres_occlusion, vols_occlusion = occlusion_data["pressures"], occlusion_data["volumes"]
+            if "total_pressure_offset" in settings["PV"]:
+                pres_occlusion += settings["PV"]["total_pressure_offset"]
+                logger.warning(f"Applied a total pressure offset of {settings['PV']['total_pressure_offset']} mmHg TO EDPVR, check if it was necessary")
+                
             pres_occlusion_divided_all, vols_occlusion_divided_all = divide_pv_data(pres_occlusion, vols_occlusion)
 
             if settings["PV"]["Occlusion_data_index_i"] is None and settings["PV"]["Occlusion_data_index_f"] is None:
