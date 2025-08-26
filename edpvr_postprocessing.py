@@ -97,9 +97,10 @@ def read_edpvr_data(edpvr_folder):
     edpvr_data = np.loadtxt(fname, delimiter=',', skiprows=1)
     return edpvr_data
 
-def prepare_results_dict(data_dict, ordered_keys=None):
+def prepare_results_dict(data_dict, ordered_keys=None, round_flag=True):
     data_dict = utils_post.flatten_data_dict(data_dict)
-    data_dict = {k: np.round(v,3) for k, v in data_dict.items() if v}
+    if round_flag:
+        data_dict = {k: np.round(v,3) for k, v in data_dict.items() if v}
     # Determine ordering of keys
     if ordered_keys is not None:
         ordered = [k for k in ordered_keys if k in data_dict]
@@ -157,7 +158,7 @@ def main(args=None) -> int:
     for n in sample_nums:
         settings = load_settings(settings_dir, n)
         sample_name = settings["id"]
-        edpvr_folder = Path(results_dir) / sample_name / "TPM" / "02_EDPVR_Modeling"
+        edpvr_folder = Path(results_dir) / sample_name / "TPM" / "02_EDPVR_Modeling_v2"
         if not edpvr_folder.exists():
             continue
         group = settings["group"]
@@ -195,6 +196,7 @@ def main(args=None) -> int:
     fname = output_dir / "EDPVR_Error.png"
     utils_post.plot_bar_with_data(err, fname, ylabel="EDPVR Error", ordered_keys=ordered_keys, ylim=(0, 1))
 
+    ids = prepare_results_dict(ids, ordered_keys=ordered_keys, round_flag=False)
     a_matparam = prepare_results_dict(a_matparam, ordered_keys=ordered_keys)
     af_matparam = prepare_results_dict(af_matparam, ordered_keys=ordered_keys)
     a_af_matparam = prepare_results_dict(a_af_matparam, ordered_keys=ordered_keys)
@@ -203,25 +205,23 @@ def main(args=None) -> int:
 
     fname = output_dir / "EDPVR_Results.csv"
     with open(fname, 'w', newline='') as csvfile:
+        # Define header
+        header = ["Group", "ID", "a_matparam [kPa]", "af_matparam [kPa]", "a_af_matparam", "err [kPa]"]
         writer = csv.writer(csvfile)
-        # header
-        writer.writerow([
-            "Group",
-            "a_matparam [kPa]",
-            "af_matparam [kPa]",
-            "a_af_matparam",
-            "err [kPa]"
-        ])
+        writer.writerow(header)
 
-        # rows in the exact ordered_keys sequence
-        for key in a_matparam.keys():
-            # each dict returns something like a numpy array or list
-            row = [ key ]
-            for d in (a_matparam, af_matparam, a_af_matparam, err):
-                vals = d.get(key, [])
-                # join into a string; fallback to empty if missing
-                row.append(";".join(str(x) for x in vals))
-            writer.writerow(row)
+        # Loop over groups
+        for group, id_list in ids.items():
+            for i, sample_id in enumerate(id_list):
+                row = [
+                    group,
+                    sample_id,
+                    a_matparam.get(group, [None])[i] if group in a_matparam and len(a_matparam[group]) > i else None,
+                    af_matparam.get(group, [None])[i] if group in af_matparam and len(af_matparam[group]) > i else None,
+                    a_af_matparam.get(group, [None])[i] if group in a_af_matparam and len(a_af_matparam[group]) > i else None,
+                    err.get(group, [None])[i] if group in err and len(err[group]) > i else None,
+                ]
+                writer.writerow(row)
              
 # %%
 if __name__ == "__main__":
