@@ -458,10 +458,10 @@ def compute_fiber_strain(E: dolfin.Function, fib0: dolfin.Function, mesh: dolfin
     return Eff
 
 
-def compute_fiber_strain_values_from_file(F_fname: Path, mesh: dolfin.mesh, fib0, num_time_step: int = 1000):
+def compute_fiber_strain_values_from_file(F_fname: Path, mesh: dolfin.mesh, fib0, num_time_step: int = 1000, F0_time: int = 1):
     F_fname = Path(F_fname)
     Eff_value = []
-    F0 = load_F_function_from_file(F_fname, 1, mesh)
+    F0 = load_F_function_from_file(F_fname, F0_time, mesh)
     for t in range(num_time_step):
         try:
             F_function = load_F_function_from_file(F_fname, t, mesh)
@@ -633,39 +633,62 @@ def get_all_data(results_dict):
                     all_data.update({key : [list for list in results_dict[group][time_key]]})
     return all_data       
 
-def plot_maximums_with_regression(fname, activations, pressures, marker_size=1):
-    dict_keys = activations.keys()
+def plot_maximums_with_regression(fname, x, y, marker_size=5, v0_flag = False):
+    dict_keys = list(x.keys())
     colors_dict, marker_dict = get_colors_styles(dict_keys, marker_flags=True)
-    # Prepare data for regression
-    all_pressures = []
-    all_activations = []
-    for key in dict_keys:
-        all_pressures.extend(np.concatenate([np.atleast_1d(item) for item in pressures[key]]))
-        all_activations.extend(np.concatenate([np.atleast_1d(item) for item in activations[key]]))
-    # Convert to numpy arrays for regression
-    all_pressures = np.array(all_pressures)
-    all_activations = np.array(all_activations)
-    
-    # Perform linear regression
-    slope, intercept, r_value, p_value, std_err = linregress(all_pressures, all_activations)
-    regression_line = slope * all_pressures + intercept
 
-    # Plot data with regression line
-    figure = plt.figure()
-    ax = figure.gca()
+    def _flatten(data_dict):
+        vals = []
+        for k in dict_keys:
+            items = data_dict[k]
+            vals.extend(np.concatenate([np.atleast_1d(it) for it in items]))
+        return np.asarray(vals, dtype=float)
+
+    all_x = _flatten(x)
+    all_y = _flatten(y)
+
+    # Drop NaN/Inf pairs to keep linregress stable
+    m = np.isfinite(all_x) & np.isfinite(all_y)
+    all_x = all_x[m]
+    all_y = all_y[m]
+
+    slope, intercept, r_value, p_value, std_err = linregress(all_x, all_y)
+    fig, ax = plt.subplots()
     for key in dict_keys:
-        pres = np.concatenate([np.atleast_1d(item) for item in pressures[key]])
-        act = np.concatenate([np.atleast_1d(item) for item in activations[key]])
-        ax.scatter(pres, act, s=marker_size, c=colors_dict[key], marker=marker_dict[key], label=key)
+        ax.scatter(x[key], y[key], s=marker_size,c=colors_dict[key], marker=marker_dict[key], label=key)
+
+    if v0_flag:
+        # Fixed symmetric limits and equal data aspect
+        # Regression line across current x-limits
+        title = f"v0_sim = {slope:.2f} * v0_edpvr + {intercept:.2f} (r²={r_value**2:.2f})" if intercept >= 0 else f"v0_sim = {slope:.2f} * v0_edpvr - {abs(intercept):.2f} (r²={r_value**2:.2f})"
+        ax.set_title(title)
+        x_line = np.linspace(np.min(all_x), np.max(all_x), 200)
+        ax.plot(x_line, slope * x_line + intercept, linewidth=0.9, label="Regression", color='r')
+        x_min, x_max = -300, 600
+        y_min, y_max = -300, 600
+        ax.set_xlim(x_min, x_max)
+        ax.set_ylim(y_min, y_max)
+        ax.set_aspect('equal', adjustable='box')
+        step = 100
+        ax.set_xticks(np.arange(x_min, x_max+1, step))
+        ax.set_yticks(np.arange(y_min, y_max+1, step))
+        ax.axvspan(x_min, 0, color="grey", alpha=0.3)
+        ax.fill_between([0, x_max], y_min, 0, color="grey", alpha=0.3)
+        ax.grid(True)
+        ax.set_xlabel("EDPVR V0 (µL)")
+        ax.set_ylabel("Simulation V0 (µL)")
+    else:
+        ax.set_xlim(0, 30)
+        ax.set_ylim(0, 120)
+        ax.set_xlabel("Maximum Pressure (kPa)")
+        ax.set_ylabel("Maximum Activation (kPa)")
+        title = f"y = {slope:.2f}·x + {intercept:.2f} (r²={r_value**2:.2f})"
+
     
-    ax.plot(all_pressures, regression_line, color='red', label=f"Regression Line (R²={r_value**2:.2f})")
-    ax.grid()
-    ax.set_xlim(0, 30)
-    ax.set_ylim(0, 120)
-    ax.set_xlabel("Maximum Pressure (kPa)")
-    ax.set_ylabel("Maximum Activation (kPa)")
-    plt.savefig(fname, dpi=300)
-    
+
+    fig.savefig(fname, dpi=300, bbox_inches='tight')
+    plt.close(fig)
+
     return slope, intercept, r_value**2, p_value, std_err
 
 def generate_report(fname, slope, intercept, r_squared, p_value, std_err):
