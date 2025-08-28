@@ -54,6 +54,7 @@ def main(args=None) -> int:
     scan_type = args.scan_type
     epi_fiber = args.epi_fiber
     endo_fiber = args.endo_fiber
+    fiber_modeling_flag = args.fiber_modeling_flag
 
     if sample_ID is not None:
         sample_num = utils.get_num_from_id(sample_ID, setting_dir)
@@ -75,7 +76,13 @@ def main(args=None) -> int:
 
     # Loading PV Data
     pressures, volumes = utils.load_pressure_volumes(pv_dir)
-    #
+    if fiber_modeling_flag:
+        peak_sys_ind = np.where(pressures == np.max(pressures))[0][0]
+        pressures = pressures[:peak_sys_ind + 5]
+        if comm.rank == 0:
+            logger.warning(f"Fiber modeling enabled, using pressures up to peak systole (+5) peak_systole_pressure = {np.round(pressures[peak_sys_ind], 2)}.")
+    
+    
     unloaded_geometry_fname, a_matparam, af_matparam = load_edpvr_results(edpvr_dir)
     settings = update_matparam_settings(settings, a_matparam, af_matparam)
     if comm.rank == 0:
@@ -85,6 +92,9 @@ def main(args=None) -> int:
         unloaded_geometry_fname.as_posix(), comm=comm
     )
     settings = update_fibparam_settings(settings, epi_fiber, endo_fiber)
+    if comm.rank == 0:
+        utils.save_settings(settings, setting_dir, sample_name)
+
     unloaded_geometry_with_updated_fibers = recreate_geometry_with_fibers(
             unloaded_geometry, settings["fiber_angles"]
         )
@@ -126,9 +136,6 @@ def main(args=None) -> int:
         start_time=11,
         comm=comm,
     )
-
-    if comm.rank == 0:
-        utils.save_settings(settings, setting_dir, sample_name)
 
 if __name__ == "__main__":
     main()
