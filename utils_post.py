@@ -640,10 +640,10 @@ def plot_maximums_with_regression(fname, x, y, marker_size=5, case=None):
     def _flatten(data_dict):
         vals = []
         for k in dict_keys:
-            items = data_dict[k]
-            vals.extend(np.concatenate([np.atleast_1d(it) for it in items]))
+            arr = np.atleast_1d(data_dict[k]).astype(float).ravel()
+            vals.extend(arr)
         return np.asarray(vals, dtype=float)
-    breakpoint()
+
     all_x = _flatten(x)
     all_y = _flatten(y)
 
@@ -682,16 +682,14 @@ def plot_maximums_with_regression(fname, x, y, marker_size=5, case=None):
         ax.set_title(title)
         x_line = np.linspace(np.min(all_x), np.max(all_x), 200)
         ax.plot(x_line, slope * x_line + intercept, linewidth=0.9, label="Regression", color='r')
-        # x_min, x_max = -300, 600
-        # y_min, y_max = -300, 600
-        # ax.set_xlim(x_min, x_max)
-        # ax.set_ylim(y_min, y_max)
+        x_min, x_max = 0, 5
+        y_min, y_max = 0, 5
+        ax.set_xlim(x_min, x_max)
+        ax.set_ylim(y_min, y_max)
         ax.set_aspect('equal', adjustable='box')
-        # step = 100
-        # ax.set_xticks(np.arange(x_min, x_max+1, step))
-        # ax.set_yticks(np.arange(y_min, y_max+1, step))
-        # ax.axvspan(x_min, 0, color="grey", alpha=0.3)
-        # ax.fill_between([0, x_max], y_min, 0, color="grey", alpha=0.3)
+        step = 1
+        ax.set_xticks(np.arange(x_min, x_max+1, step))
+        ax.set_yticks(np.arange(y_min, y_max+1, step))
         ax.grid(True)
         ax.set_xlabel("Fibrosis (%)")
         ax.set_ylabel("a (ECM Stiffness) (kPa)")

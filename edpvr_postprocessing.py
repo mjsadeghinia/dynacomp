@@ -81,6 +81,13 @@ def parse_arguments(args=None):
         help="The folder containing the EDPVR results."
     )
 
+    parser.add_argument(
+        "--fibrosis_path",
+        type=str,
+        default="/home/shared/00_data/fibrosis_data.csv",
+        help="The path to the fibrosis data file (csv)."
+    )
+
     return parser.parse_args(args)
 
 def load_edpvr_calibrated_shifted(pv_directory: Path):
@@ -120,6 +127,21 @@ def prepare_results_dict(data_dict, ordered_keys=None, round_flag=True):
     data_dict = {k: data_dict[k] for k in ordered}
     return data_dict
 
+def get_fibrosis_data(ids, fibrosis_path):
+    fibrosis = dict()
+    data = np.loadtxt(fibrosis_path, delimiter=',', skiprows=1, dtype=str)
+    for key in ids.keys():
+        if ids[key]:
+            for id in ids[key]:
+                try:
+                    ind = np.where(data[:,0]==id[2:])[0][0]
+                    if key not in fibrosis:
+                        fibrosis[key] = []
+                    fibrosis[key].append(float(data[ind][-1]))
+                except IndexError:
+                    logger.error(f"Sample {id} not found in fibrosis data.")
+                    fibrosis[key].append(np.nan)
+    return fibrosis
 
 # %%
 def main(args=None) -> int:
@@ -141,6 +163,7 @@ def main(args=None) -> int:
     settings_dir = args.settings_dir
     results_dir = args.results_dir
     edpvr_folder = args.folder
+    fibrosis_path = args.fibrosis_path
     output_dir = args.output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -226,15 +249,18 @@ def main(args=None) -> int:
     err = prepare_results_dict(err, ordered_keys=ordered_keys)
 
     fname = output_dir / "V0_Comparison.png"
-    slope, intercept, r_squared, p_value, std_err = utils_post.plot_maximums_with_regression(fname.as_posix(), v0_edpvr, v0_sim, v0_flag=True)
+    slope, intercept, r_squared, p_value, std_err = utils_post.plot_maximums_with_regression(fname.as_posix(), v0_edpvr, v0_sim, case='v0')
 
-    
+    fibrosis = get_fibrosis_data(ids, fibrosis_path)
+    print(fibrosis)
+    fname = output_dir / "Fibrosis_Comparison.png"
+    slope_fibrosis, intercept_fibrosis, r_squared_fibrosis, p_value_fibrosis, std_err_fibrosis = utils_post.plot_maximums_with_regression(fname.as_posix(), fibrosis, a_matparam, case='fibrosis')
     # Save the results to a csv file
 
     fname = output_dir / "EDPVR_Results.csv"
     with open(fname, 'w', newline='') as csvfile:
         # Define header
-        header = ["Group", "ID", "a_matparam [kPa]", "af_matparam [kPa]", "a_af_matparam", "v0_sim [microL]" , "v0_edpvr [microL]", "err [kPa]"]
+        header = ["Group", "ID", "a_matparam [kPa]", "af_matparam [kPa]", "a_af_matparam", "v0_sim [microL]" , "v0_edpvr [microL]", "Fibrosis [%]","err [kPa]"]
         writer = csv.writer(csvfile)
         writer.writerow(header)
 
@@ -249,6 +275,7 @@ def main(args=None) -> int:
                     a_af_matparam.get(group, [None])[i] if group in a_af_matparam and len(a_af_matparam[group]) > i else None,
                     v0_sim.get(group, [None])[i] if group in v0_sim and len(v0_sim[group]) > i else None,
                     v0_edpvr.get(group, [None])[i] if group in v0_edpvr and len(v0_edpvr[group]) > i else None,
+                    fibrosis.get(group, [None])[i] if group in fibrosis and len(fibrosis[group]) > i else None,
                     err.get(group, [None])[i] if group in err and len(err[group]) > i else None,
                 ]
                 writer.writerow(row)
