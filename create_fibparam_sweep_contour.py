@@ -7,35 +7,6 @@ import matplotlib.tri as mtri
 import utils
 
 #%%
-def read_csv_columns(csv_path: Path):
-    """
-    Lightweight CSV reader for numeric data with a header row.
-    Returns (headers:list[str], data:np.ndarray [nrow x ncol]).
-    """
-    with open(csv_path, "r", encoding="utf-8") as f:
-        header = f.readline().strip()
-    headers = [h.strip() for h in header.split(",")]
-    data = np.loadtxt(csv_path, delimiter=",", skiprows=1)
-    if data.ndim == 1:  # single row edge case
-        data = data[None, :]
-    return headers, data
-
-
-def get_cols_by_name(headers, data, colnames):
-    """
-    Extract columns by exact (stripped) name from headers.
-    Returns a dict {name: np.ndarray}.
-    """
-    idx_map = {h: i for i, h in enumerate(headers)}
-    out = {}
-    for name in colnames:
-        if name not in idx_map:
-            raise KeyError(
-                f"Column '{name}' not found. Available columns: {headers}"
-            )
-        out[name] = data[:, idx_map[name]].astype(float)
-    return out
-
 def fit_quadratic_surface(x, y, z):
     """
     Fit z = c0 + c1*x + c2*y + c3*x^2 + c4*x*y + c5*y^2 via least squares.
@@ -98,29 +69,29 @@ def plot_contours(
 
     cf = ax.contourf(Xi, Yi, Zi, levels=levels, alpha=1.0)
 
-    # Data points (white face, black outline) + best fit (red)
+    # Data points (white face, black outline) + minimum (data) in red circles
     ax.scatter(x, y, s=40, facecolors="white", edgecolors="black",
                linewidths=0.7, marker="o", label="Data points")
-    ax.scatter(x_best, y_best, s=60, facecolors="red", edgecolors="black",
-               linewidths=0.7, marker="o", label="Best fit (grid)")
+    min_mask = np.isfinite(z) & np.isclose(z, np.nanmin(z))
+    ax.scatter(x[min_mask], y[min_mask], s=60, facecolors="red", edgecolors="black",
+               linewidths=0.7, marker="o", label="Minimum (data)")
 
     # Optional analytic minimum marker (if inside bounds)
     if mark_analytic is not None:
         xa, ya = mark_analytic
         if (Xi.min() <= xa <= Xi.max()) and (Yi.min() <= ya <= Yi.max()):
-            ax.scatter(xa, ya, s=70, facecolors="none", edgecolors="red",
-                       linewidths=1.2, marker="X", label="Analytic min (quad)")
+            ax.scatter(xa, ya, s=70, color="red",
+                       linewidths=1.2, marker="x", label="Analytic min (quad)")
 
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
-    ax.legend(loc="upper right")
     cbar = fig.colorbar(cf, ax=ax)
     cbar.set_label(zlabel + " — contour")
     ax.grid(False)
     fig.tight_layout()
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output_path, dpi=300)
+    fig.savefig(output_path, dpi=300, bbox_inches="tight")
     plt.close(fig)
 
 
@@ -137,11 +108,10 @@ def process_one_csv(
     yname="endo_fib",
     zname="total_distance (mean)"
 ):
-    headers, data = read_csv_columns(csv_path)
-    cols = get_cols_by_name(headers, data, [xname, yname, zname])
-    x = cols[xname]
-    y = cols[yname]
-    z = cols[zname]
+    data = np.loadtxt(csv_path, skiprows=1, delimiter=',')
+    x = data[:, 2]
+    y = data[:, 3]
+    z = data[:, 9]
 
     if method == "quadratic":
         _, zhat, analytic_xy = fit_quadratic_surface(x, y, z)
@@ -264,9 +234,6 @@ def main():
         default="total_distance (mean)", 
         help="Z column name."
     )
-
-
-
     args = parser.parse_args()   
 
     settings_dir = args.settings_dir
@@ -305,7 +272,7 @@ def main():
         process_one_csv(
             csv_path=csv_path,
             output_dir=out_dir,
-            filename="contour.png",
+            filename="Fiber_contour.png",
             method=method,
             contour_levels=contour_levels,
             grid_nx=nx,
