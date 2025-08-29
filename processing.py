@@ -107,7 +107,8 @@ def main(args=None) -> int:
         matparams=settings["matparams"],
         comm=comm,
     )
-    collector = DataCollector(outdir=outdir, problem=heart_model)
+    save_all = False if fiber_modeling_flag else True
+    collector = DataCollector(outdir=outdir, model=heart_model, save_all=save_all)
     # Initializing the model
     v = heart_model.compute_volume(activation_value=0, pressure_value=0)
     collector.collect(

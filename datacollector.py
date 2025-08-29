@@ -14,17 +14,18 @@ class Problem(Protocol):
 
 
 class DataCollector:
-    def __init__(self, outdir: Path, problem: Problem) -> None:
+    def __init__(self, outdir: Path, model: Problem, save_all: bool) -> None:
         self.times = []
         self.activations = []
         self.volumes = []
         self.target_volumes = []
         self.pressures = []
-        self.problem = problem
+        self.model = model
+        self.save_all = save_all
         outdir.mkdir(exist_ok=True, parents=True)
         self.outdir = outdir
-        if hasattr(problem, "comm"):
-            self.comm = problem.comm
+        if hasattr(model, "comm"):
+            self.comm = model.comm
         else:
             from dolfin import MPI
 
@@ -115,7 +116,7 @@ class DataCollector:
         plt.close(fig)
 
     def save(self, t: float) -> None:
-        self.problem.save(t, self.outdir)
+        self.model.save(t, self.outdir, all=self.save_all)
         if self.comm.rank == 0:
             self._plot()
             self._save_csv()
@@ -144,7 +145,7 @@ class DataCollectorInflator:
     def __init__(
         self,
         outdir: Path,
-        problem,
+        model,
         pv_vols: np.ndarray = None,
         pv_pres: np.ndarray = None,
         edpvr_vols: np.ndarray = None,
@@ -154,10 +155,10 @@ class DataCollectorInflator:
         self.times = []
         self.volumes = []
         self.pressures = []
-        self.problem = problem
+        self.model = model
         outdir.mkdir(exist_ok=True, parents=True)
         self.outdir = outdir
-        self.comm = getattr(problem, 'comm', None) or __import__('dolfin').MPI.comm_world
+        self.comm = getattr(model, 'comm', None) or __import__('dolfin').MPI.comm_world
 
         # Reference data
         self.pv_vols = pv_vols
@@ -174,7 +175,7 @@ class DataCollectorInflator:
         tinv = lambda p, df: abs(scipy.stats.t.ppf(p/2, df))
         self.ts = tinv(0.05, len(self.edpvr_vols) - 2)
         self.v0 = -self.intercept / self.slope if self.slope != 0 else float('nan')
-        self.v0_est = self.problem.compute_volume(activation_value=0, pressure_value=0)
+        self.v0_est = self.model.compute_volume(activation_value=0, pressure_value=0)
 
         if self.live_plot:
             plt.ion()
@@ -250,7 +251,7 @@ class DataCollectorInflator:
                 writer.writerow([t, v, p])
 
     def save(self, t: float) -> None:
-        self.problem.save(t, self.outdir, all=False)
+        self.model.save(t, self.outdir, all=False)
         if self.comm.rank == 0:
             self._save_csv()
 
