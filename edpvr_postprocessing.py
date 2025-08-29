@@ -4,6 +4,10 @@ from pathlib import Path
 import utils_post
 import numpy as np
 import csv
+import scipy.stats
+import pulse
+
+import utils
 
 from structlog import get_logger
 
@@ -69,33 +73,39 @@ def parse_arguments(args=None):
         help="The results folder where the processed data should be saved.",
     )
 
+    parser.add_argument(
+        "-f",
+        "--folder",
+        default="02_EDPVR_Modeling_v2",
+        type=str,
+        help="The folder containing the EDPVR results."
+    )
+
     return parser.parse_args(args)
 
+def load_edpvr_calibrated_shifted(pv_directory: Path):
+    path = next(f for f in pv_directory.iterdir() if "EDPVR_calibrated_shifted.csv" in f.name)
+    data = np.loadtxt(path, delimiter=',')
+    pres = data[:, 0] * 0.133322
+    vols = data[:, 1]
+    idx_v = np.argsort(vols)
+    vols = vols[idx_v]
+    pres = pres[idx_v]
+    return pres, vols
 
-def load_settings(setting_dir, sample_num):
-    sorted_files = sorted([file for file in setting_dir.iterdir() if file.is_file() and file.suffix == ".json"])
-    settings_fname = sorted_files[sample_num - 1]
-    with open(settings_fname, "r") as file:
-        settings = json.load(file)
-    return settings
+def get_v0_edpvr(pv_directory: Path):
+    pres, vols = load_edpvr_calibrated_shifted(pv_directory)
+    res = scipy.stats.linregress(vols, pres)
+    v_0 = -res.intercept / res.slope if res.slope != 0 else float('nan')
+    return v_0
 
-
-def get_num_from_id(sample_ID, setting_dir):
-    sorted_files = sorted([file for file in setting_dir.iterdir() if file.is_file() and file.suffix == ".json"])
-    for i, file in enumerate(sorted_files):
-        with open(file, "r") as f:
-            settings = json.load(f)
-            if settings["id"][2:] == sample_ID:
-                return i + 1
-    raise ValueError(f"Sample ID {sample_ID} not found in settings directory.")
-
-
-def read_edpvr_data(edpvr_folder):
-    fname = edpvr_folder / "inflation_results.txt"
-    if not fname.exists():
-        raise FileNotFoundError(f"EDPVR data file {fname} does not exist.")
-    edpvr_data = np.loadtxt(fname, delimiter=',', skiprows=1)
-    return edpvr_data
+def get_v0_sim(sim_directory: Path):
+    unloaded_geometry_fname = sim_directory / "unloaded_geometry_0_with_fibers.h5"
+    unloaded_geometry = pulse.HeartGeometry.from_file(
+        unloaded_geometry_fname.as_posix()
+    )
+    v_0 = unloaded_geometry.cavity_volume()
+    return v_0
 
 def prepare_results_dict(data_dict, ordered_keys=None, round_flag=True):
     data_dict = utils_post.flatten_data_dict(data_dict)
@@ -130,6 +140,7 @@ def main(args=None) -> int:
     error_threshold = args.error_threshold
     settings_dir = args.settings_dir
     results_dir = args.results_dir
+    edpvr_folder = args.folder
     output_dir = args.output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -143,6 +154,8 @@ def main(args=None) -> int:
     af_matparam = utils_post.initialize_results_dict(group_list, time_list, diameter_list)
     a_af_matparam = utils_post.initialize_results_dict(group_list, time_list, diameter_list)
     err = utils_post.initialize_results_dict(group_list, time_list, diameter_list)
+    v0_edpvr = utils_post.initialize_results_dict(group_list, time_list, diameter_list)
+    v0_sim = utils_post.initialize_results_dict(group_list, time_list, diameter_list)
 
 
     # Load settings
@@ -150,25 +163,29 @@ def main(args=None) -> int:
     sorted_files = sorted([file for file in settings_dir.iterdir() if file.is_file() and file.suffix == ".json"])
 
     if sample_ID is not None:
-        sample_num = get_num_from_id(sample_ID, settings_dir)
+        sample_num = utils.get_num_from_id(sample_ID, settings_dir)
         sample_nums = [sample_num]
     elif sample_num is None:
         sample_nums = range(1, len(sorted_files) + 1)
 
     for n in sample_nums:
-        settings = load_settings(settings_dir, n)
+        settings = utils.load_settings(settings_dir, n)
         sample_name = settings["id"]
-        edpvr_folder = Path(results_dir) / sample_name / "TPM" / "02_EDPVR_Modeling_v2"
-        if not edpvr_folder.exists():
+        edpvr_dir = Path(results_dir) / sample_name / "TPM" / edpvr_folder
+        pv_dir = Path(results_dir) / sample_name / "TPM" / "01_PVCalibration"
+        if not edpvr_dir.exists():
             continue
         group = settings["group"]
         time = settings["time"]
         diameter = settings.get("ring_diameter", None)
-        edpvr_data = read_edpvr_data(edpvr_folder)
+        edpvr_data = utils.read_edpvr_data(edpvr_dir)
         edpvr_data_sorted = edpvr_data[edpvr_data[:, -1].argsort()]
         a = edpvr_data_sorted[0][0]
         af = edpvr_data_sorted[0][1]
+        bf = edpvr_data_sorted[0][-2]
         error = edpvr_data_sorted[0][-1]
+        sim_dir = Path(f"{edpvr_dir}/a_{a}_af_{af}_bf_{bf}")
+
         if exclusion_flag and error>error_threshold :
             logger.warning(f"Sample {sample_name} with the error of {error} is ignored")
             continue
@@ -177,12 +194,16 @@ def main(args=None) -> int:
             a_matparam[group][time].append(a)
             af_matparam[group][time].append(af)
             a_af_matparam[group][time].append((np.round(a/af, 3)))
+            v0_edpvr[group][time].append(get_v0_edpvr(pv_dir))
+            v0_sim[group][time].append(get_v0_sim(sim_dir))
             err[group][time].append(error)
         else:
             ids[group][time][diameter].append(sample_name)
             a_matparam[group][time][diameter].append(a)
             af_matparam[group][time][diameter].append(af)
             a_af_matparam[group][time][diameter].append((np.round(a/af, 3)))
+            v0_edpvr[group][time][diameter].append(get_v0_edpvr(pv_dir))
+            v0_sim[group][time][diameter].append(get_v0_sim(sim_dir))
             err[group][time][diameter].append(error)
 
     # Save the results
@@ -200,13 +221,20 @@ def main(args=None) -> int:
     a_matparam = prepare_results_dict(a_matparam, ordered_keys=ordered_keys)
     af_matparam = prepare_results_dict(af_matparam, ordered_keys=ordered_keys)
     a_af_matparam = prepare_results_dict(a_af_matparam, ordered_keys=ordered_keys)
+    v0_edpvr = prepare_results_dict(v0_edpvr, ordered_keys=ordered_keys)
+    v0_sim = prepare_results_dict(v0_sim, ordered_keys=ordered_keys)
     err = prepare_results_dict(err, ordered_keys=ordered_keys)
+
+    fname = output_dir / "V0_Comparison.png"
+    slope, intercept, r_squared, p_value, std_err = utils_post.plot_maximums_with_regression(fname.as_posix(), v0_edpvr, v0_sim, v0_flag=True)
+
+    
     # Save the results to a csv file
 
     fname = output_dir / "EDPVR_Results.csv"
     with open(fname, 'w', newline='') as csvfile:
         # Define header
-        header = ["Group", "ID", "a_matparam [kPa]", "af_matparam [kPa]", "a_af_matparam", "err [kPa]"]
+        header = ["Group", "ID", "a_matparam [kPa]", "af_matparam [kPa]", "a_af_matparam", "v0_sim [microL]" , "v0_edpvr [microL]", "err [kPa]"]
         writer = csv.writer(csvfile)
         writer.writerow(header)
 
@@ -219,6 +247,8 @@ def main(args=None) -> int:
                     a_matparam.get(group, [None])[i] if group in a_matparam and len(a_matparam[group]) > i else None,
                     af_matparam.get(group, [None])[i] if group in af_matparam and len(af_matparam[group]) > i else None,
                     a_af_matparam.get(group, [None])[i] if group in a_af_matparam and len(a_af_matparam[group]) > i else None,
+                    v0_sim.get(group, [None])[i] if group in v0_sim and len(v0_sim[group]) > i else None,
+                    v0_edpvr.get(group, [None])[i] if group in v0_edpvr and len(v0_edpvr[group]) > i else None,
                     err.get(group, [None])[i] if group in err and len(err[group]) > i else None,
                 ]
                 writer.writerow(row)
