@@ -164,12 +164,12 @@ def get_end_diastole_ind(
 
     return index
 
-def get_edpvr_cycles(pres):
+def get_edpvr_cycles(pres, max_pres_diff_edpvr_cycle = 10, min_pres_diff_edpvr_cycle = 0.75):
     max_pres = [np.max(p) for p in pres]
     # Create a new list for the filtered descending sequence
     descending_sequence = [0]  
     for i in range(1, len(max_pres)):
-        if max_pres[i] < max_pres[descending_sequence[-1]] and max_pres[i]-max_pres[descending_sequence[-1]]<-0.75 and max_pres[i]-max_pres[descending_sequence[-1]]>-10:
+        if max_pres[i] < max_pres[descending_sequence[-1]] and max_pres[i]-max_pres[descending_sequence[-1]]<-min_pres_diff_edpvr_cycle and max_pres[i]-max_pres[descending_sequence[-1]]>-max_pres_diff_edpvr_cycle:
             descending_sequence.append(i)
     run = first_consecutive_run(descending_sequence)
     return descending_sequence[run:]
@@ -406,7 +406,15 @@ def main(args=None) -> int:
             pres_occlusion_divided_all, vols_occlusion_divided_all = divide_pv_data(pres_occlusion, vols_occlusion)
 
             if settings["PV"]["Occlusion_data_index_i"] is None and settings["PV"]["Occlusion_data_index_f"] is None:
-                selected_inds = get_edpvr_cycles(pres_occlusion_divided_all)
+                if "max_pres_diff_edpvr_cycle" in settings["PV"]:
+                    max_pres_diff_edpvr_cycle = settings["PV"]["max_pres_diff_edpvr_cycle"]
+                else:
+                    max_pres_diff_edpvr_cycle = 10
+                if "min_pres_diff_edpvr_cycle" in settings["PV"]:
+                    min_pres_diff_edpvr_cycle = settings["PV"]["min_pres_diff_edpvr_cycle"]
+                else:
+                    min_pres_diff_edpvr_cycle = 0.75
+                selected_inds = get_edpvr_cycles(pres_occlusion_divided_all, min_pres_diff_edpvr_cycle=min_pres_diff_edpvr_cycle, max_pres_diff_edpvr_cycle=max_pres_diff_edpvr_cycle)
                 pres_occlusion_divided = [pres_occlusion_divided_all[i] for i in selected_inds]
                 vols_occlusion_divided = [vols_occlusion_divided_all[i] for i in selected_inds]
             else:
