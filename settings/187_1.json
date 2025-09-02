@@ -230,9 +230,11 @@
         "beta_epi_lv": 15
     },
     "PV": {
-        "recording_num": 1,
+        "recording_num": 2,
         "volume_smooth_window_length": 15,
         "pressure_smooth_window_length": 15,
+        "ED_offset_index": 1,
+        "total_pressure_offset": 0,
         "skip_redundant_data_flag": false,
         "process_occlusion_flag": true,
         "Occlusion_data_index_i": null,
@@ -240,16 +242,17 @@
         "Occlusion_recording_num": null,
         "Occlusion_data_skip_index": 1,
         "calibration": {
-            "a": 413014.307070709,
-            "b": -710.8639864572058
+            "a": 500298.32248662226,
+            "b": -814.3778561881153
         },
         "EDPVR_shift_flags": {
-            "volume": false,
-            "pressure": false
+            "volume": true,
+            "pressure": true
         },
         "EDPVR_shift": {
-            "volume": 0,
-            "pressure": 3.6179181296584613
-        }
+            "volume": 178.71867289920118,
+            "pressure": 1.1734292513693672
+        },
+        "max_edpvr_vols": 350
     }
 }

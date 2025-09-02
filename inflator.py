@@ -40,9 +40,9 @@ def calibration_edpvr_vols(edpvr_vols_unc, settings):
     edpvr_vols = a * edpvr_vols_unc + b
     return edpvr_vols
 
-def calculate_error(edpvr_regress, inflation_spline, edpvr_vols):
+def calculate_error(edpvr_regress, inflation_spline, edpvr_vols, max_edpvr_vols=None):
     min_vol = min(edpvr_vols)
-    max_vol = max(edpvr_vols)
+    max_vol = max(edpvr_vols) if max_edpvr_vols is None else max_edpvr_vols
     inflation_vols = np.linspace(min_vol, max_vol, 20)
     edpvr_pres_interp = edpvr_regress.slope * inflation_vols + edpvr_regress.intercept
     inflation_pres = inflation_spline(inflation_vols)
@@ -340,7 +340,9 @@ def main():
                 logger.info(f"Inflation step {i}: ", pressure=round(p,3), volume=round(v,3))
 
         inflation_spline = scipy.interpolate.UnivariateSpline(inflation_vols, inflation_pres, s=spline_smoothness, k=3)
-        error = calculate_error(edpvr_regress, inflation_spline, edpvr_vols)
+        
+        max_edpvr_vols = settings['PV']["max_edpvr_vols"] if "max_edpvr_vols" in settings['PV'] else None
+        error = calculate_error(edpvr_regress, inflation_spline, edpvr_vols, max_edpvr_vols=max_edpvr_vols)
         if comm.rank == 0:
             logger.info(f"Inflation RMS error: {error:.3f} kPa")
             if plot_flag:
