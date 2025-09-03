@@ -664,8 +664,8 @@ def plot_maximums_with_regression(fname, x, y, marker_size=5, case=None):
         ax.set_title(title)
         x_line = np.linspace(np.min(all_x), np.max(all_x), 200)
         ax.plot(x_line, slope * x_line + intercept, linewidth=0.9, label="Regression", color='r')
-        x_min, x_max = -300, 600
-        y_min, y_max = -300, 600
+        x_min, x_max = -100, 600
+        y_min, y_max = -100, 600
         ax.set_xlim(x_min, x_max)
         ax.set_ylim(y_min, y_max)
         ax.set_aspect('equal', adjustable='box')
