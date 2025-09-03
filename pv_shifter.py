@@ -232,11 +232,14 @@ def main(args=None) -> int:
             for volume_cycle in edpvr_volumes_all
         ]
 
-    
-        cycle_num = correlate_pv_to_edpvr(
-            registered_calibrated_volumes, registered_pressures,
-            calibrated_edpvr_volumes_all, edpvr_pressures_all
-        )
+        if "manual_pv_to_edpvr" in settings["PV"]:
+            cycle_num = settings["PV"]["manual_pv_to_edpvr"]
+            logger.warning(f"Using manual PV to EDPVR correlation, {cycle_num} is selected for EDPVR.")
+        else:
+            cycle_num = correlate_pv_to_edpvr(
+                registered_calibrated_volumes, registered_pressures,
+                calibrated_edpvr_volumes_all, edpvr_pressures_all
+            )
         logger.info(f"Cycle number {cycle_num} selected based on correlation.")
 
         # Get the end-diastole index
