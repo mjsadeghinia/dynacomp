@@ -129,6 +129,8 @@ def prepare_results_dict(data_dict, ordered_keys=None, round_flag=True):
 
 def get_fibrosis_data(ids, fibrosis_path):
     fibrosis = dict()
+    fibrosis_slice1 = dict()
+    fibrosis_slice2 = dict()
     data = np.loadtxt(fibrosis_path, delimiter=',', skiprows=1, dtype=str)
     for key in ids.keys():
         if ids[key]:
@@ -137,11 +139,17 @@ def get_fibrosis_data(ids, fibrosis_path):
                     ind = np.where(data[:,0]==id[2:])[0][0]
                     if key not in fibrosis:
                         fibrosis[key] = []
+                        fibrosis_slice1[key] = []
+                        fibrosis_slice2[key] = []
                     fibrosis[key].append(float(data[ind][-1]))
+                    fibrosis_slice1[key].append(float(data[ind][-3]))
+                    fibrosis_slice2[key].append(float(data[ind][-2]))
                 except IndexError:
                     logger.error(f"Sample {id} not found in fibrosis data.")
                     fibrosis[key].append(np.nan)
-    return fibrosis
+                    fibrosis_slice1[key].append(np.nan)
+                    fibrosis_slice2[key].append(np.nan)
+    return fibrosis, fibrosis_slice1, fibrosis_slice2
 
 # %%
 def main(args=None) -> int:
@@ -251,16 +259,15 @@ def main(args=None) -> int:
     fname = output_dir / "V0_Comparison.png"
     slope, intercept, r_squared, p_value, std_err = utils_post.plot_maximums_with_regression(fname.as_posix(), v0_edpvr, v0_sim, case='v0')
 
-    fibrosis = get_fibrosis_data(ids, fibrosis_path)
-    print(fibrosis)
+    fibrosis, fibrosis_slice1, fibrosis_slice2 = get_fibrosis_data(ids, fibrosis_path)
     fname = output_dir / "Fibrosis_Comparison.png"
-    slope_fibrosis, intercept_fibrosis, r_squared_fibrosis, p_value_fibrosis, std_err_fibrosis = utils_post.plot_maximums_with_regression(fname.as_posix(), fibrosis, a_matparam, case='fibrosis')
+    slope_fibrosis, intercept_fibrosis, r_squared_fibrosis, p_value_fibrosis, std_err_fibrosis = utils_post.plot_maximums_with_regression(fname.as_posix(), fibrosis, a_matparam, case='fibrosis', x1=fibrosis_slice1, x2=fibrosis_slice2)
     # Save the results to a csv file
 
     fname = output_dir / "EDPVR_Results.csv"
     with open(fname, 'w', newline='') as csvfile:
         # Define header
-        header = ["Group", "ID", "a_matparam [kPa]", "af_matparam [kPa]", "a_af_matparam", "v0_sim [microL]" , "v0_edpvr [microL]", "Fibrosis [%]","err [kPa]"]
+        header = ["Group", "ID", "a_matparam [kPa]", "af_matparam [kPa]", "a_af_matparam", "v0_sim [microL]" , "v0_edpvr [microL]", "Fibrosis Slice I [%]", "Fibrosis Slice II[%]", "Fibrosis [%]","err [kPa]"]
         writer = csv.writer(csvfile)
         writer.writerow(header)
 
@@ -275,6 +282,8 @@ def main(args=None) -> int:
                     a_af_matparam.get(group, [None])[i] if group in a_af_matparam and len(a_af_matparam[group]) > i else None,
                     v0_sim.get(group, [None])[i] if group in v0_sim and len(v0_sim[group]) > i else None,
                     v0_edpvr.get(group, [None])[i] if group in v0_edpvr and len(v0_edpvr[group]) > i else None,
+                    fibrosis_slice1.get(group, [None])[i] if group in fibrosis_slice1 and len(fibrosis_slice1[group]) > i else None,
+                    fibrosis_slice2.get(group, [None])[i] if group in fibrosis_slice2 and len(fibrosis_slice2[group]) > i else None,
                     fibrosis.get(group, [None])[i] if group in fibrosis and len(fibrosis[group]) > i else None,
                     err.get(group, [None])[i] if group in err and len(err[group]) > i else None,
                 ]

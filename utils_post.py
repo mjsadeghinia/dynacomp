@@ -633,7 +633,7 @@ def get_all_data(results_dict):
                     all_data.update({key : [list for list in results_dict[group][time_key]]})
     return all_data       
 
-def plot_maximums_with_regression(fname, x, y, marker_size=5, case=None):
+def plot_maximums_with_regression(fname, x, y, marker_size=5, case=None, x1=None, x2=None):
     dict_keys = list(x.keys())
     colors_dict, marker_dict = get_colors_styles(dict_keys, marker_flags=True)
 
@@ -658,9 +658,9 @@ def plot_maximums_with_regression(fname, x, y, marker_size=5, case=None):
         ax.scatter(x[key], y[key], s=marker_size,c=colors_dict[key], marker=marker_dict[key], label=key)
 
     if case == 'v0':
-        # Fixed symmetric limits and equal data aspect
-        # Regression line across current x-limits
-        title = f"v0_sim = {slope:.2f} * v0_edpvr + {intercept:.2f} (r²={r_value**2:.2f})" if intercept >= 0 else f"v0_sim = {slope:.2f} * v0_edpvr - {abs(intercept):.2f} (r²={r_value**2:.2f})"
+        title = (f"v0_sim = {slope:.2f} * v0_edpvr + {intercept:.2f} (r²={r_value**2:.2f})"
+                 if intercept >= 0 else
+                 f"v0_sim = {slope:.2f} * v0_edpvr - {abs(intercept):.2f} (r²={r_value**2:.2f})")
         ax.set_title(title)
         x_line = np.linspace(np.min(all_x), np.max(all_x), 200)
         ax.plot(x_line, slope * x_line + intercept, linewidth=0.9, label="Regression", color='r')
@@ -678,7 +678,9 @@ def plot_maximums_with_regression(fname, x, y, marker_size=5, case=None):
         ax.set_xlabel("EDPVR V0 (µL)")
         ax.set_ylabel("Simulation V0 (µL)")
     elif case == 'fibrosis':
-        title = f"a = {slope:.2f} * fibrosis + {intercept:.2f} (r²={r_value**2:.2f})" if intercept >= 0 else f"a = {slope:.2f} * fibrosis - {abs(intercept):.2f} (r²={r_value**2:.2f})"
+        title = (f"a = {slope:.2f} * fibrosis + {intercept:.2f} (r²={r_value**2:.2f})"
+                 if intercept >= 0 else
+                 f"a = {slope:.2f} * fibrosis - {abs(intercept):.2f} (r²={r_value**2:.2f})")
         ax.set_title(title)
         x_line = np.linspace(np.min(all_x), np.max(all_x), 200)
         ax.plot(x_line, slope * x_line + intercept, linewidth=0.9, label="Regression", color='r')
@@ -701,9 +703,17 @@ def plot_maximums_with_regression(fname, x, y, marker_size=5, case=None):
         ax.set_ylabel("Maximum Activation (kPa)")
         title = f"y = {slope:.2f}·x + {intercept:.2f} (r²={r_value**2:.2f})"
 
-    
-
     fig.savefig(fname, dpi=300, bbox_inches='tight')
+
+    # Extra figure for fibrosis: show horizontal ranges between x1 and x2 for each point
+    if (case == 'fibrosis') and (x1 is not None) and (x2 is not None):
+        for key in dict_keys:
+            # Horizontal lines from min(x1, x2) to max(x1, x2) at each y
+            for xi1, xi2, yi in zip(x1[key], x2[key], y[key]):
+                xmin, xmax = (xi1, xi2) if xi1 <= xi2 else (xi2, xi1)
+                ax.hlines(yi, xmin, xmax, linewidth=0.8, alpha=0.9, colors=colors_dict[key])
+        fig.savefig(fname[:-4]+"_errorbar.png", dpi=300, bbox_inches='tight')
+    
     plt.close(fig)
 
     return slope, intercept, r_value**2, p_value, std_err
