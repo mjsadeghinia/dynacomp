@@ -103,7 +103,7 @@
         "volume_smooth_window_length": 15,
         "pressure_smooth_window_length": 15,
         "ED_offset_index": -10,
-        "total_pressure_offset": 2,
+        "total_pressure_offset": 0,
         "skip_redundant_data_flag": false,
         "process_occlusion_flag": true,
         "Occlusion_data_index_i": null,
