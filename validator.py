@@ -413,10 +413,12 @@ def main(args=None) -> int:
         epi_std_error  = np.std(epi_dists)
         endo_avg_error = np.mean(endo_dists)
         endo_std_error  = np.std(endo_dists)
+        total_avg_error = np.mean(np.concatenate([epi_dists, endo_dists]))
+        total_std_error  = np.std(np.concatenate([epi_dists, endo_dists]))
         # Save results to a file
         fname = modeling_dir.parent / f"Fiber_results.csv"
         if not fname.exists():
-            header = "a, a_f, epi_fib, endo_fib, maximum Activation (kPa), epi_distance (mean), epi_distance (STD), endo_distance (mean), endo_distance(STD)\n"
+            header = "a, a_f, epi_fib, endo_fib, maximum Activation (kPa), epi_distance (mean), epi_distance (STD), endo_distance (mean), endo_distance(STD), total_distance (mean), total_distance (STD)\n"
             fname.write_text(header, encoding="utf-8")
         with fname.open("a", encoding="utf-8") as f:
             f.write(f"{settings['matparams']['a']},"
@@ -427,8 +429,9 @@ def main(args=None) -> int:
                     f"{epi_avg_error},"
                     f"{epi_std_error},"
                     f"{endo_avg_error},"
-                    f"{endo_std_error}\n")
-    
+                    f"{endo_std_error},"
+                    f"{total_avg_error},"
+                    f"{total_std_error}\n")
 
 if __name__ == "__main__":
     main()
