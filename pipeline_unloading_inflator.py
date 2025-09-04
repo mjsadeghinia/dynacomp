@@ -4,7 +4,11 @@ from structlog import get_logger
 from pathlib import Path
 import matplotlib.pyplot as plt
 
-import utils
+import ldrb
+import dolfin
+import pulse
+import logging
+
 
 logger = get_logger()
 #%%
@@ -91,10 +95,69 @@ def plot_triangle(a_af_lists, colors=None, labels=None):
     plt.grid()
     return fig, ax
 
+def load_fiber_modeling(sample_ID):
+    sample_dir = Path(f"01_results_coarse_mesh/OP{sample_ID}/TPM")
+    fiber_modeling_fname = sample_dir / "03_Fiber_Modeling" / "Fiber_results.csv"
+    fiber_modeling_data = np.loadtxt(fiber_modeling_fname, delimiter=",", skiprows=1)
+    error = fiber_modeling_data[:, -2]
+    best_fit_ind = np.where(error == np.min(error))[0][0]
+    alpha_endo_lv = fiber_modeling_data[best_fit_ind, 2]
+    alpha_epi_lv = fiber_modeling_data[best_fit_ind, 3]
+    fiber_angles = {
+        "alpha_endo_lv": alpha_endo_lv,
+        "alpha_epi_lv": alpha_epi_lv,
+        "beta_endo_lv": -15,
+        "beta_epi_lv": 15
+    }
+    return fiber_angles
+
+def update_fiber(sample_ID, fiber_angles, results_folder):
+    sample_dir = Path(f"01_results_coarse_mesh/OP{sample_ID}/TPM")
+    results_dir  = sample_dir / results_folder
+    pv_dir = sample_dir / "01_PVCalibration/"
+    geo_dir = pv_dir / "Geometries"
+    geo_fname = geo_dir / "geometry_0.h5"
+    geo = pulse.HeartGeometry.from_file(geo_fname)
+
+    # This is a string on the form {family}_{degree}
+    fiber_space = "DG_0"
+
+    # Convert markers to correct format
+    markers = {
+        "base": geo.markers["BASE"][0],
+        "lv": geo.markers["ENDO"][0],
+        "epi": geo.markers["EPI"][0],
+    }
+
+    # Compute the microstructure
+    logger.info("Computing fiber angles...")
+    fiber, sheet, sheet_normal = ldrb.dolfin_ldrb(
+        mesh=geo.mesh,
+        fiber_space=fiber_space,
+        ffun=geo.ffun,
+        markers=markers,
+        log_level=30,
+        **fiber_angles,
+    )
+
+    pulse_logger = logging.getLogger("pulse")
+    pulse_logger.setLevel(logging.WARNING)
+    geo.microstructure = pulse.Microstructure(f0=fiber, s0=sheet, n0=sheet_normal)
+    geo_fname = results_dir / "geometry_0_modified_fiber.h5"
+    geo.save(geo_fname.as_posix(), overwrite_file=True)
+
+    fname = results_dir / "ffun_0_modified_fiber.xdmf"
+    with dolfin.XDMFFile(fname.as_posix()) as f:
+        f.write(geo.mesh)
+
+    fname = results_dir / "fiber_0_modified_fiber.xdmf"
+    ldrb.fiber_to_xdmf(geo.f0, fname.as_posix())
+
+    return geo_fname.as_posix()
+
 #%%
 sample_nums = [10, 15, 17, 18, 19, 21, 22, 24, 25, 26, 28, 29, 44, 45, 51, 53]
-sample_IDs = ["131_1", "133_1", "136_1", "136_2", "136_3", "138_1"]
-#, "138_2", "139_1", "139_2", "140_2", "142_2", "142_2", "169_1", "169_3", "183_1", "185_1"]
+sample_IDs = ["132_2", "133_1"]
 
 results_folder = f"02_EDPVR_Modeling_v2"
 cpu_num = 8
@@ -104,20 +167,30 @@ fig, ax = plot_triangle(a_af_list,)
 fig.savefig("triangle_grid_points.png", dpi=300)
 a_af_list = a_af_list[::-1]  # Reverse the list to start from the largest a and af
 bf_list = [0.001]
+update_fiber_flag = True
+results_folder = results_folder + "_best_fiber_fit" if update_fiber_flag else results_folder
 
 for bf in bf_list:
     for sample_ID in sample_IDs:
+        if update_fiber_flag:
+            fiber_angles = load_fiber_modeling(sample_ID)
+            geo_fname = update_fiber(sample_ID, fiber_angles, results_folder)
+        else:
+            geo_fname = None
+
         for n, (a, af) in enumerate(a_af_list):
             logger.info(f"Running unloading and inflator for a={a}, af={af}, bf={bf}")
             output_folder = f"{results_folder}/a_{a}_af_{af}_bf_{bf}"
             try:
                 subprocess.run(
                     f"mpirun -n {cpu_num} python3 dynacomp/unloading.py "
+                    # f"python3 dynacomp/unloading.py "
                     f"-i {sample_ID} "
                     f"-o {output_folder} "
                     f"--a_matparam {a} "
                     f"--af_matparam {af} "
-                    f"--bf_matparam {bf} ",
+                    f"--bf_matparam {bf} "
+                    f"--geometry_fname {geo_fname} ",
                     shell=True, check=True
                 )
 
