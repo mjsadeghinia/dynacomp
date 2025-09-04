@@ -154,6 +154,7 @@ def main(args=None) -> int:
     scan_type = args.scan_type
     mesh_quality = args.mesh_quality
     output_folder = args.output_folder
+    geo_fname = args.geometry_fname
     input_matparams = arg_parser.prepare_matparams(args)
     
     if sample_ID is not None:
@@ -185,8 +186,8 @@ def main(args=None) -> int:
         
         atrium_pressure = load_atrium_pressure(pv_dir)
         logger.info(f"Sample {sample_name} atrium pressure: {atrium_pressure:.2f} kPa")
-        geo_fname = geo_dir / "geometry_0.h5"
-
+        if geo_fname is None:
+            geo_fname = geo_dir / "geometry_0.h5"
         # Set material properties
         matparams = settings['matparams']
         for key, value in input_matparams.items():

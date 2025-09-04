@@ -218,6 +218,13 @@ def parse_arguments_unloading(args=None):
     )
 
     parser.add_argument(
+        '--geometry_fname',
+        type=str,
+        default=None,
+        help='Path to the geometry file.'
+    )
+
+    parser.add_argument(
         '-o',
         "--output_folder",
         default="02_Unloading",
@@ -304,6 +311,12 @@ def parse_arguments_processing(args=None):
         default= "03_Active_Modeling",
         type=str,
         help="The result folder name tha would be created in the directory of the sample.",
+    )
+
+    parser.add_argument(
+        "--fiber_modeling_flag",
+        action="store_true",
+        help="Enable fiber modeling, running simulation up to peak systole."
     )
 
     return parser.parse_args(args)
