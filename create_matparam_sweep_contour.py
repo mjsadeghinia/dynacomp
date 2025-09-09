@@ -9,119 +9,132 @@ from scipy.interpolate import griddata
 
 import utils
 
-def _plot_contour_slice(a, a_f, error, output_path, contour_levels, interpolation, manual_bestfit):
+def fit_quadratic_surface(x, y, z):
     """
-    Helper to plot and save a single (a_f, a) vs. error contour slice.
+    Fit z = c0 + c1*x + c2*y + c3*x^2 + c4*x*y + c5*y^2 via least squares.
+    Returns (coeffs, zhat(xv,yv), analytic_xy or None).
     """
-    # Build triangulation and interpolator
-    triang = mtri.Triangulation(a_f, a)
-    if interpolation == 'cubic':
-        interp = mtri.CubicTriInterpolator(triang, error)
+    X = np.column_stack([np.ones_like(x), x, y, x**2, x*y, y**2])
+    coeffs, *_ = np.linalg.lstsq(X, z, rcond=None)
+    c0, c1, c2, c3, c4, c5 = coeffs
+
+    def zhat(xv, yv):
+        return c0 + c1*xv + c2*yv + c3*xv**2 + c4*xv*yv + c5*yv**2
+
+    A = np.array([[2*c3, c4],
+                  [c4,   2*c5]], dtype=float)
+    b = -np.array([c1, c2], dtype=float)
+    analytic_xy = None
+    try:
+        analytic_xy = np.linalg.solve(A, b)
+    except np.linalg.LinAlgError:
+        pass
+    return coeffs, zhat, analytic_xy
+
+def tri_interp_grid(x, y, z, method, nx=200, ny=200):
+    """
+    Triangulation-based interpolation ('linear' or 'cubic').
+    Returns Xi, Yi, Zi.
+    """
+    xi = np.linspace(np.min(x), np.max(x), nx)
+    yi = np.linspace(np.min(y), np.max(y), ny)
+    Xi, Yi = np.meshgrid(xi, yi)
+    triang = mtri.Triangulation(x, y)
+    if method == "cubic":
+        interp = mtri.CubicTriInterpolator(triang, z)
     else:
-        interp = mtri.LinearTriInterpolator(triang, error)
+        interp = mtri.LinearTriInterpolator(triang, z)
+    Zi = interp(Xi, Yi)
+    return Xi, Yi, Zi
 
-    # Create regular grid
-    a_f_lin = np.linspace(np.min(a_f), np.max(a_f), 200)
-    a_lin = np.linspace(np.min(a), np.max(a), 200)
-    a_f_grid, a_grid = np.meshgrid(a_f_lin, a_lin)
-    error_grid = interp(a_f_grid, a_grid)
+def plot_contours(
+    x, y, z, Xi, Yi, Zi, output_path: Path, contour_levels=25,
+    xlabel="a_f", ylabel="a", zlabel="RMS Error (kPa)",
+    mark_analytic=None, manual_bestfit=None
+):
+    # Levels from data range (avoid NaNs)
+    vmin, vmax = np.nanmin(Zi), np.nanmax(Zi)
+    levels = np.linspace(vmin, vmax, contour_levels)
 
-    # Find minimum‐error point in this slice
-    sort_idx = np.argsort(error)
-    min_idx = sort_idx[0]
-    best_a = a[min_idx]
-    best_a_f = a_f[min_idx]
-
-    # Start plotting
+    # Plot base
     fig, ax = plt.subplots(figsize=(8, 6))
-    levels = np.linspace(0, np.nanmax(error), contour_levels)
+    cs = ax.contour(Xi, Yi, Zi, levels=levels, colors='black', linewidths=0.5)
+    if hasattr(cs, "levels") and len(cs.levels) > 0:
+        ax.clabel(cs, levels=cs.levels[:5], fmt="%.2f", fontsize=8)
 
-    # Contour lines (only lowest 5 labeled)
-    cs = ax.contour(a_f_grid, a_grid, error_grid,
-                    levels=levels, colors='black', linewidths=0.25)
-    lowest_levels = cs.levels[:5]
-    ax.clabel(cs, levels=lowest_levels, fmt="%.2f", fontsize=8)
+    cf = ax.contourf(Xi, Yi, Zi, levels=levels, cmap='viridis', alpha=0.7)
 
-    # Filled contour
-    cf = ax.contourf(a_f_grid, a_grid, error_grid,
-                     levels=levels, cmap='viridis', alpha=0.7)
+    # Data points (keep original size/color) + min(data)
+    ax.scatter(x, y, c='white', edgecolor='black', s=10, linewidth=0.5, label='Data points')
+    if np.isfinite(z).any():
+        sort_idx = np.argsort(z)
+        min_idx = sort_idx[0]
+        ax.scatter(x[min_idx], y[min_idx], c='red', edgecolor='black', s=10, linewidth=0.5, label='Best Fit')
+        if manual_bestfit is not None:
+            sel_idx = sort_idx[int(manual_bestfit)-1]
+            ax.scatter(x[sel_idx], y[sel_idx], c='yellow', edgecolor='black', s=10, linewidth=0.5, label='Selected Best Fit')
 
-    ax.scatter(a_f, a, c='white', edgecolor='black', s=10, linewidth=0.5, label='Data points')
-    # Mark best fit
-    ax.scatter(best_a_f, best_a, c='red', edgecolor='black', s=10, linewidth=0.5, label='Best Fit')
-    if manual_bestfit is not None:
-        # If manual best fit is provided, mark it it
-        ax.scatter(a[sort_idx[manual_bestfit-1]], a_f[sort_idx[manual_bestfit-1]], c='yellow', edgecolor='black', s=10, linewidth=0.5, label='Selected Best Fit')
-    # Labels and limits
-    ax.set_xlabel('a_f')
-    ax.set_ylabel('a')
-    ax.set_xlim(0, np.max(a_f) + 1)
-    ax.set_ylim(0, np.max(a) + 1)
+    # Optional analytic minimum marker (x) if provided & in bounds
+    if mark_analytic is not None:
+        xa, ya = mark_analytic
+        if (Xi.min() <= xa <= Xi.max()) and (Yi.min() <= ya <= Yi.max()):
+            ax.scatter(xa, ya, s=30, color='red', marker='x', linewidths=1.0, label='Analytic min (quad)')
+
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
     ax.legend(loc='upper right')
-
-    # Colorbar
     cbar = fig.colorbar(cf, ax=ax)
-    cbar.set_label('RMS Error (kPa)')
+    cbar.set_label(zlabel)
 
-    # Save and close
-    fig.savefig(output_path, dpi=300)
+    fig.tight_layout()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output_path, dpi=300, bbox_inches="tight")
     plt.close(fig)
 
-
-def plot_error_contour(data, output_dir: Path, filename='error_contour.png',
-                       contour_levels=20, interpolation='cubic', bf_flag=False, manual_bestfit=None):
+def process_one_csv(
+    csv_path: Path,
+    output_dir: Path,
+    filename: str,
+    method: str,
+    contour_levels: int,
+    grid_nx: int = 200,
+    grid_ny: int = 200,
+    manual_bestfit=None
+):
     """
-    Creates interpolated contour plot(s) of error over (a_f, a).
-    If bf_flag is False (default), produces a single plot using all data.
-    If bf_flag is True, creates one plot per unique b_f value.
-    Saves files in output_dir with names based on filename.
+    Read inflation_results.txt (CSV-style), build grid by chosen method,
+    and plot contours using script-2-like flow but with original markers.
+    Columns in data: [a, a_f, b, b_f, error]
     """
-    # Ensure output directory exists
-    output_dir.mkdir(parents=True, exist_ok=True)
+    data = np.loadtxt(csv_path, skiprows=1, delimiter=',')
+    a = data[:, 0]
+    a_f = data[:, 1]
+    err = data[:, 4]
 
-    # Columns in data: [a, a_f, b, b_f, error]
-    a     = data[:, 0]
-    a_f   = data[:, 1]
-    b_f   = data[:, 3]
-    error = data[:, 4]
+    # x = a_f, y = a, z = error
+    x = a_f
+    y = a
+    z = err
 
-    if bf_flag:
-        # Generate one plot for each unique b_f
-        for bf in np.unique(b_f):
-            mask = np.isclose(b_f, bf)
-            a_slice     = a[mask]
-            a_f_slice   = a_f[mask]
-            error_slice = error[mask]
-
-            # Build a filename that includes the b_f value
-            stem, ext = Path(filename).stem, Path(filename).suffix
-            safe_bf = str(bf).replace('.', '_')
-            out_name = f"{stem}_bf_{safe_bf}{ext}"
-            out_path = output_dir / out_name
-
-            _plot_contour_slice(
-                a_slice,
-                a_f_slice,
-                error_slice,
-                out_path,
-                contour_levels,
-                interpolation,
-                manual_bestfit
-            )
+    if method == "quadratic":
+        _, zhat, analytic_xy = fit_quadratic_surface(x, y, z)
+        xi = np.linspace(np.min(x), np.max(x), grid_nx)
+        yi = np.linspace(np.min(y), np.max(y), grid_ny)
+        Xi, Yi = np.meshgrid(xi, yi)
+        Zi = zhat(Xi, Yi)
+        mark_xy = analytic_xy
     else:
-        # Single plot using all data
-        out_path = output_dir / filename
-        _plot_contour_slice(
-            a,
-            a_f,
-            error,
-            out_path,
-            contour_levels,
-            interpolation,
-            manual_bestfit
-        )
+        Xi, Yi, Zi = tri_interp_grid(x, y, z, method=method, nx=grid_nx, ny=grid_ny)
+        mark_xy = None
 
-
+    out_path = output_dir / filename
+    plot_contours(
+        x, y, z, Xi, Yi, Zi, out_path,
+        contour_levels=contour_levels,
+        xlabel='a_f', ylabel='a', zlabel='RMS Error (kPa)',
+        mark_analytic=mark_xy, manual_bestfit=manual_bestfit
+    )
+#%% Main function
 def main():
     parser = argparse.ArgumentParser(
         description="2D parameter sweep of (a, a_f) for HeartModelDynaComp"
@@ -174,7 +187,7 @@ def main():
     parser.add_argument(
         '--interpolation',
         type=str,
-        choices=['linear', 'cubic'],
+        choices=['linear', 'cubic', 'quadratic'],
         default='cubic',
         help='Interpolation method for contours.'
     )
@@ -207,17 +220,15 @@ def main():
         data_dir = out_dir
         fname    = data_dir / "inflation_results.txt"
 
-        # Load sweep data
-        data = np.loadtxt(fname, skiprows=1, delimiter=',')
-
-        # Plot and save contours (single or small multiples)
-        plot_error_contour(
-            data,
-            data_dir,
-            filename=f'error_contour.png',
+        # New: process_one_csv flow (quadratic/linear/cubic), plotting like script 2 (markers unchanged)
+        process_one_csv(
+            csv_path=fname,
+            output_dir=data_dir,
+            filename='error_contour.png',
+            method=args.interpolation,
             contour_levels=args.contour_levels,
-            interpolation=args.interpolation,
-            bf_flag=args.bf_flag,
+            grid_nx=200,
+            grid_ny=200,
             manual_bestfit=settings["PV"].get('EDPVR_modeling_manual_bestfit', None)
         )
 
