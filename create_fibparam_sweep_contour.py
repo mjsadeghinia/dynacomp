@@ -66,17 +66,17 @@ def plot_contours(
     x_best, y_best = Xi[min_idx], Yi[min_idx]
 
     fig, ax = plt.subplots(figsize=(8, 6))
-    cs = ax.contour(Xi, Yi, Zi, levels=levels, colors="black", linewidths=0.5)
+    cs = ax.contour(Xi, Yi, Zi, levels=levels, colors="black", linewidths=.5)
     if hasattr(cs, "levels") and len(cs.levels) > 0:
         ax.clabel(cs, levels=cs.levels[:5], fmt="%.2f", fontsize=7)
 
-    cf = ax.contourf(Xi, Yi, Zi, levels=levels, alpha=1.0)
+    cf = ax.contourf(Xi, Yi, Zi, levels=levels, alpha=0.75, cmap='viridis_r')
 
     # Data points (white face, black outline) + minimum (data) in red circles
-    ax.scatter(x, y, s=40, facecolors="white", edgecolors="black",
+    ax.scatter(x, y, s=20, facecolors="white", edgecolors="black",
                linewidths=0.7, marker="o", label="Data points")
     min_mask = np.isfinite(z) & np.isclose(z, np.nanmin(z))
-    ax.scatter(x[min_mask], y[min_mask], s=60, facecolors="red", edgecolors="black",
+    ax.scatter(x[min_mask], y[min_mask], s=20, facecolors="red", edgecolors="black",
                linewidths=0.7, marker="o", label="Minimum (data)")
 
     # Optional analytic minimum marker (if inside bounds)

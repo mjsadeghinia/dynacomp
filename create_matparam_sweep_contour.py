@@ -6,7 +6,9 @@ import matplotlib.pyplot as plt
 import matplotlib.tri as mtri
 import plotly.graph_objects as go
 from scipy.interpolate import griddata
+from structlog import get_logger
 
+logger = get_logger()
 import utils
 
 def fit_quadratic_surface(x, y, z):
@@ -50,29 +52,33 @@ def tri_interp_grid(x, y, z, method, nx=200, ny=200):
 def plot_contours(
     x, y, z, Xi, Yi, Zi, output_path: Path, contour_levels=25,
     xlabel="a_f", ylabel="a", zlabel="RMS Error (kPa)",
-    mark_analytic=None, manual_bestfit=None
+    mark_analytic=None, manual_bestfit=None, clim=None
 ):
     # Levels from data range (avoid NaNs)
-    vmin, vmax = np.nanmin(Zi), np.nanmax(Zi)
+    if clim is None:
+        vmin, vmax = np.nanmin(Zi), np.nanmax(Zi)
+    else:
+        vmin, vmax = clim
     levels = np.linspace(vmin, vmax, contour_levels)
+    Zplot = np.array(Zi, copy=True)
+    Zplot = np.clip(Zplot, vmin, vmax)
 
     # Plot base
     fig, ax = plt.subplots(figsize=(8, 6))
-    cs = ax.contour(Xi, Yi, Zi, levels=levels, colors='black', linewidths=0.5)
+    cs = ax.contour(Xi, Yi, Zplot, levels=levels, colors='black', linewidths=0)
     if hasattr(cs, "levels") and len(cs.levels) > 0:
         ax.clabel(cs, levels=cs.levels[:5], fmt="%.2f", fontsize=8)
 
-    cf = ax.contourf(Xi, Yi, Zi, levels=levels, cmap='viridis', alpha=0.7)
-
+    cf = ax.contourf(Xi, Yi, Zplot, levels=levels, cmap='viridis_r', alpha=0.75)
     # Data points (keep original size/color) + min(data)
-    ax.scatter(x, y, c='white', edgecolor='black', s=10, linewidth=0.5, label='Data points')
+    ax.scatter(x, y, c='white', edgecolor='black', s=20, linewidth=0.7, label='Data points')
     if np.isfinite(z).any():
         sort_idx = np.argsort(z)
         min_idx = sort_idx[0]
-        ax.scatter(x[min_idx], y[min_idx], c='red', edgecolor='black', s=10, linewidth=0.5, label='Best Fit')
+        ax.scatter(x[min_idx], y[min_idx], c='red', edgecolor='black', s=20, linewidth=0.7, label='Best Fit')
         if manual_bestfit is not None:
             sel_idx = sort_idx[int(manual_bestfit)-1]
-            ax.scatter(x[sel_idx], y[sel_idx], c='yellow', edgecolor='black', s=10, linewidth=0.5, label='Selected Best Fit')
+            ax.scatter(x[sel_idx], y[sel_idx], c='yellow', edgecolor='black', s=20, linewidth=0.7, label='Selected Best Fit')
 
     # Optional analytic minimum marker (x) if provided & in bounds
     if mark_analytic is not None:
@@ -84,7 +90,8 @@ def plot_contours(
     ax.set_ylabel(ylabel)
     ax.legend(loc='upper right')
     cbar = fig.colorbar(cf, ax=ax)
-    cbar.set_label(zlabel)
+    cbar.set_label(zlabel + " — contour")
+    ax.grid(False)
 
     fig.tight_layout()
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -99,7 +106,9 @@ def process_one_csv(
     contour_levels: int,
     grid_nx: int = 200,
     grid_ny: int = 200,
-    manual_bestfit=None
+    manual_bestfit=None,
+    bf_value=None,
+    clim=None
 ):
     """
     Read inflation_results.txt (CSV-style), build grid by chosen method,
@@ -107,6 +116,9 @@ def process_one_csv(
     Columns in data: [a, a_f, b, b_f, error]
     """
     data = np.loadtxt(csv_path, skiprows=1, delimiter=',')
+    if bf_value is not None:
+        mask = np.isclose(data[:, 3], bf_value)
+        data = data[mask]
     a = data[:, 0]
     a_f = data[:, 1]
     err = data[:, 4]
@@ -132,7 +144,7 @@ def process_one_csv(
         x, y, z, Xi, Yi, Zi, out_path,
         contour_levels=contour_levels,
         xlabel='a_f', ylabel='a', zlabel='RMS Error (kPa)',
-        mark_analytic=mark_xy, manual_bestfit=manual_bestfit
+        mark_analytic=mark_xy, manual_bestfit=manual_bestfit, clim=clim
     )
 #%% Main function
 def main():
@@ -185,7 +197,7 @@ def main():
         help='The number of contour lines.'
     )
     parser.add_argument(
-        '--interpolation',
+        '--method',
         type=str,
         choices=['linear', 'cubic', 'quadratic'],
         default='cubic',
@@ -195,6 +207,13 @@ def main():
         '--bf_flag',
         action='store_true',
         help='If set, create and save one plot per unique b_f value.'
+    )
+    parser.add_argument(
+        '--clim',
+        nargs=2,
+        type=float,
+        default=None,
+        help='Color limits for contour plot (vmin vmax).'
     )
 
     args = parser.parse_args()
@@ -219,18 +238,41 @@ def main():
         out_dir  = args.results_dir / sample_id / args.scan_type / args.output_folder
         data_dir = out_dir
         fname    = data_dir / "inflation_results.txt"
+        if not fname.exists():
+            logger.warning(f"File does not exist, skipping sample {sample_id}.")
+            continue
+        logger.info(f"Processing sample {sample_id}")
 
         # New: process_one_csv flow (quadratic/linear/cubic), plotting like script 2 (markers unchanged)
-        process_one_csv(
-            csv_path=fname,
-            output_dir=data_dir,
-            filename='error_contour.png',
-            method=args.interpolation,
-            contour_levels=args.contour_levels,
-            grid_nx=200,
-            grid_ny=200,
-            manual_bestfit=settings["PV"].get('EDPVR_modeling_manual_bestfit', None)
-        )
+        if args.bf_flag:
+            data_all = np.loadtxt(fname, skiprows=1, delimiter=',')
+            unique_bf = np.unique(data_all[:, 3])
+            for bf in unique_bf:
+                safe_bf = str(bf).replace('.', '_')
+                process_one_csv(
+                    csv_path=fname,
+                    output_dir=data_dir,
+                    filename=f'error_contour_bf_{safe_bf}.png',
+                    method=args.method,
+                    contour_levels=args.contour_levels,
+                    grid_nx=50,
+                    grid_ny=50,
+                    manual_bestfit=settings["PV"].get('EDPVR_modeling_manual_bestfit', None),
+                    bf_value=bf,
+                    clim=args.clim
+                )
+        else:
+            process_one_csv(
+                csv_path=fname,
+                output_dir=data_dir,
+                filename='error_contour.png',
+                method=args.method,
+                contour_levels=args.contour_levels,
+                grid_nx=500,
+                grid_ny=500,
+                manual_bestfit=settings["PV"].get('EDPVR_modeling_manual_bestfit', None),
+                clim=args.clim
+            )
 
 if __name__ == "__main__":
     main()
