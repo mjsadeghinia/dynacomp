@@ -50,12 +50,15 @@ def tri_interp_grid(x, y, z, method, nx=300, ny=300):
 
 def plot_contours(
     x, y, z, Xi, Yi, Zi, output_path: Path, contour_levels=25,
-    xlabel="epi_fib", ylabel="endo_fib", zlabel="total_distance (mean)",
-    mark_analytic=None
+    xlabel="epi_fib", ylabel="endo_fib", zlabel="total distance (mean)",
+    mark_analytic=None, clim=None
 ):
     # Choose levels (avoid NaN min/max)
-    vmin = np.nanmin(Zi)
-    vmax = np.nanmax(Zi)
+    data_min, data_max = np.nanmin(Zi), np.nanmax(Zi)
+    if clim is None:
+        vmin, vmax = data_min, data_max
+    else:
+        vmin, vmax = clim
     levels = np.linspace(vmin, vmax, contour_levels)
 
     # Best fit (grid min)
@@ -106,7 +109,8 @@ def process_one_csv(
     show_analytic_min: bool,
     xname="epi_fib",
     yname="endo_fib",
-    zname="total_distance (mean)"
+    zname="total_distance (mean)",
+    clim=None
 ):
     data = np.loadtxt(csv_path, skiprows=1, delimiter=',')
     x = data[:, 2]
@@ -129,7 +133,7 @@ def process_one_csv(
         x, y, z, Xi, Yi, Zi, out_path,
         contour_levels=contour_levels,
         xlabel=xname, ylabel=yname, zlabel=zname,
-        mark_analytic=mark_xy
+        mark_analytic=mark_xy, clim=clim
     )
 
 #%%
@@ -234,6 +238,15 @@ def main():
         default="total_distance (mean)", 
         help="Z column name."
     )
+
+    parser.add_argument(
+        "--clim", 
+        nargs=2, 
+        type=float, 
+        default=None,
+        help="Color limits for contour plot (vmin vmax)."
+    )
+
     args = parser.parse_args()   
 
     settings_dir = args.settings_dir
@@ -249,6 +262,7 @@ def main():
     xname = args.xcol
     yname = args.ycol
     zname = args.zcol
+    clim = args.clim
 
     # Determine samples to process
     if args.sample_ID is not None:
@@ -278,7 +292,7 @@ def main():
             grid_nx=nx,
             grid_ny=ny,
             show_analytic_min=show_analytic_min,
-            xname=xname, yname=yname, zname=zname
+            xname=xname, yname=yname, zname=zname, clim=clim
         )
 
 
