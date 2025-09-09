@@ -178,6 +178,9 @@ endo_fibers = [30, 35, 40, 45, 50, 55, 60]
 
 for bf in bf_list:
     for sample_ID in sample_IDs:
+        subprocess.run(f"python3 dynacomp/pv_analyzer.py -i {sample_ID} ", shell=True, check=True)
+        subprocess.run(f"python3 dynacomp/pv_calibrator.py -i {sample_ID} ", shell=True, check=True)
+        subprocess.run(f"python3 dynacomp/pv_shifter.py -i {sample_ID} ", shell=True, check=True)
         if fiber_modeling_flag:
             print("------------------------------")
             print(f"Processing sample {sample_ID}")
