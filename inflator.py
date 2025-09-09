@@ -6,6 +6,7 @@ import structlog
 import scipy.interpolate
 from scipy.stats import linregress
 from matplotlib import pyplot as plt
+import shutil
 
 import utils
 import arg_parser
@@ -344,6 +345,11 @@ def main():
         max_edpvr_vols = settings['PV']["max_edpvr_vols"] if "max_edpvr_vols" in settings['PV'] else None
         error = calculate_error(edpvr_regress, inflation_spline, edpvr_vols, max_edpvr_vols=max_edpvr_vols)
         if comm.rank == 0:
+            # copy the pv data file to the output directory
+            pv_data_source = sample_dir / "01_PVCalibration" / "ordered_calibrated_pv_data.csv"
+            pv_data_dest = output_dir.parent / "ordered_calibrated_pv_data.csv"
+            if not pv_data_dest.exists():
+                shutil.copy(pv_data_source, pv_data_dest)
             logger.info(f"Inflation RMS error: {error:.3f} kPa")
             if plot_flag:
                 fname = output_dir / f"inflation_results.png"
