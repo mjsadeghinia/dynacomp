@@ -41,13 +41,34 @@ def tri_interp_grid(x, y, z, method, nx=200, ny=200):
     xi = np.linspace(np.min(x), np.max(x), nx)
     yi = np.linspace(np.min(y), np.max(y), ny)
     Xi, Yi = np.meshgrid(xi, yi)
+
+    # Clean: remove non-finite and duplicate (x,y)
+    m = np.isfinite(x) & np.isfinite(y) & np.isfinite(z)
+    x = x[m]; y = y[m]; z = z[m]
+    if x.size < 3:
+        Zi = np.full_like(Xi, np.nan, dtype=float)
+        return Xi, Yi, Zi
+    xy = np.column_stack([x, y])
+    _, idx = np.unique(xy, axis=0, return_index=True)
+    x = x[idx]; y = y[idx]; z = z[idx]
+
     triang = mtri.Triangulation(x, y)
-    if method == "cubic":
-        interp = mtri.CubicTriInterpolator(triang, z)
-    else:
-        interp = mtri.LinearTriInterpolator(triang, z)
-    Zi = interp(Xi, Yi)
+    # Mask skinny/flat triangles that can break the trifinder
+    mask = mtri.TriAnalyzer(triang).get_flat_tri_mask(min_circle_ratio=0.01)
+    triang.set_mask(mask)
+
+    try:
+        if method == "cubic":
+            interp = mtri.CubicTriInterpolator(triang, z)
+        else:
+            interp = mtri.LinearTriInterpolator(triang, z)
+        Zi = interp(Xi, Yi)
+    except RuntimeError:
+        # Fallback if triangulation is still invalid on this Matplotlib build
+        Zi = griddata(np.column_stack((x, y)), z, (Xi, Yi),
+                      method="cubic" if method == "cubic" else "linear")
     return Xi, Yi, Zi
+
 
 def plot_contours(
     x, y, z, Xi, Yi, Zi, output_path: Path, contour_levels=25,
@@ -268,8 +289,8 @@ def main():
                 filename='error_contour.png',
                 method=args.method,
                 contour_levels=args.contour_levels,
-                grid_nx=500,
-                grid_ny=500,
+                grid_nx=200,
+                grid_ny=200,
                 manual_bestfit=settings["PV"].get('EDPVR_modeling_manual_bestfit', None),
                 clim=args.clim
             )
