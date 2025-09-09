@@ -157,8 +157,11 @@ def update_fiber(sample_ID, fiber_angles, results_folder):
 
 #%%
 sample_nums = [10, 15, 17, 18, 19, 21, 22, 24, 25, 26, 28, 29, 44, 45, 51, 53]
-sample_IDs = ["132_2", "133_1"]
+sample_IDs = ["135_2", "136_1", "136_2", "136_3", "138_1", "138_2", "139_1", "139_2",
+              "140_2", "141_1", "141_2", "142_2", "163_3", "169_1", "169_3", "172_1", "183_1", "183_2", "185_1",
+              "185_2", "186_2", "187_1"]
 
+sample_IDs = ["135_2"]
 results_folder = f"02_EDPVR_Modeling_v2"
 cpu_num = 8
 
@@ -168,10 +171,40 @@ fig.savefig("triangle_grid_points.png", dpi=300)
 a_af_list = a_af_list[::-1]  # Reverse the list to start from the largest a and af
 bf_list = [0.001]
 update_fiber_flag = True
+fiber_modeling_flag = True
 results_folder = results_folder + "_best_fiber_fit" if update_fiber_flag else results_folder
+epi_fibers = [-30, -35, -40, -45, -50, -55, -60]
+endo_fibers = [30, 35, 40, 45, 50, 55, 60]
 
 for bf in bf_list:
     for sample_ID in sample_IDs:
+        if fiber_modeling_flag:
+            print("------------------------------")
+            print(f"Processing sample {sample_ID}")
+            print("------------------------------")
+            for epi_fiber in epi_fibers:
+                for endo_fiber in endo_fibers:
+                    print("------------------------------")
+                    print(f"Processing {sample_ID} with epi_fiber={epi_fiber} and endo_fiber={endo_fiber}")
+                    print("------------------------------")
+                    output_folder_fiber_modeling = f"03_Fiber_Modeling/epi_{epi_fiber}_endo_{endo_fiber}"
+                    output_dir_fiber_modeling = Path(f"/home/shared/01_results_coarse_mesh/OP{sample_ID}/TPM") / output_folder_fiber_modeling
+                    if output_dir_fiber_modeling.exists():
+                        print(f"Output directory {output_dir_fiber_modeling} already exists. Skipping fiber modeling for this configuration.")
+                        continue
+                    try:
+                        subprocess.run(f"mpirun -n 8 python3 dynacomp/processing.py --fiber_modeling_flag -i {sample_ID} -o {output_folder_fiber_modeling} --epi_fiber {epi_fiber} --endo_fiber {endo_fiber}", shell=True, check=True)
+                    except subprocess.CalledProcessError as e:
+                        print(f"Error processing {sample_ID}: {e}")
+                    try:
+                        subprocess.run(f"python3 dynacomp/validator.py -i {sample_ID} -o {output_folder_fiber_modeling} --logging_flag", shell=True, check=True)
+                    except subprocess.CalledProcessError as e:
+                        print(f"Error validating {sample_ID}: {e}")
+                    try:
+                        subprocess.run(f"python3 dynacomp/create_fibparam_sweep_contour.py -i {sample_ID} -o 03_Fiber_Modeling", shell=True, check=True)
+                    except subprocess.CalledProcessError as e:
+                        print(f"Error creating contour for {sample_ID}: {e}")
+                
         if update_fiber_flag:
             fiber_angles = load_fiber_modeling(sample_ID)
             geo_fname = update_fiber(sample_ID, fiber_angles, results_folder)
