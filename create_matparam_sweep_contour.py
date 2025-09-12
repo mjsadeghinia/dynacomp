@@ -5,7 +5,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import matplotlib.tri as mtri
 import plotly.graph_objects as go
-from scipy.interpolate import griddata
+from scipy.interpolate import griddata, NearestNDInterpolator
+from scipy.spatial import Delaunay
 from structlog import get_logger
 
 logger = get_logger()
@@ -54,7 +55,7 @@ def tri_interp_grid(x, y, z, method, nx=200, ny=200):
 
     triang = mtri.Triangulation(x, y)
     # Mask skinny/flat triangles that can break the trifinder
-    mask = mtri.TriAnalyzer(triang).get_flat_tri_mask(min_circle_ratio=0.01)
+    mask = mtri.TriAnalyzer(triang).get_flat_tri_mask(min_circle_ratio=0.001)
     triang.set_mask(mask)
 
     try:
@@ -63,18 +64,35 @@ def tri_interp_grid(x, y, z, method, nx=200, ny=200):
         else:
             interp = mtri.LinearTriInterpolator(triang, z)
         Zi = interp(Xi, Yi)
+        if np.ma.isMaskedArray(Zi):
+            Zi = Zi.filled(np.nan)
     except RuntimeError:
         # Fallback if triangulation is still invalid on this Matplotlib build
         Zi = griddata(np.column_stack((x, y)), z, (Xi, Yi),
                       method="cubic" if method == "cubic" else "linear")
-    return Xi, Yi, Zi
 
+    # Fill only inside the convex hull so colors reach the boundary without bleeding outside
+    try:
+        hull = Delaunay(np.column_stack((x, y)))
+        inside = hull.find_simplex(np.column_stack((Xi.ravel(), Yi.ravel()))) >= 0
+        inside = inside.reshape(Xi.shape)
+    except Exception:
+        inside = np.ones_like(Xi, dtype=bool)
+
+    if np.isnan(Zi).any():
+        nn = NearestNDInterpolator(np.column_stack((x, y)), z)
+        Zi_nn = nn(Xi, Yi)
+        Zi = np.where(np.isfinite(Zi) | ~inside, Zi, Zi_nn)
+
+    return Xi, Yi, Zi
 
 def plot_contours(
     x, y, z, Xi, Yi, Zi, output_path: Path, contour_levels=25,
     xlabel="a_f", ylabel="a", zlabel="RMS Error (kPa)",
     mark_analytic=None, manual_bestfit=None, clim=None
 ):
+    if np.ma.isMaskedArray(Zi):
+        Zi = Zi.filled(np.nan)
     # Levels from data range (avoid NaNs)
     if clim is None:
         vmin, vmax = np.nanmin(Zi), np.nanmax(Zi)
@@ -209,7 +227,7 @@ def main():
         "--output_folder",
         default="02_EDPVR_Modeling",
         type=str,
-        help="The result folder name tha would be created in the directory of the sample.",
+        help="The result folder name tha would be created in the directory of the sample."
     )
     parser.add_argument(
         '-c', '--contour_levels',
