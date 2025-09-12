@@ -312,6 +312,20 @@ def main(args=None) -> int:
         help="The result folder name tha would be created in the directory of the sample.",
     )
     
+    parser.add_argument(
+        "--epi_fiber",
+        default=None,
+        type=float,
+        help="HeartModel BC: The orientation of the fibers on the epicardium.",
+    )
+
+    parser.add_argument(
+        "--endo_fiber",
+        default=None,
+        type=float,
+        help="HeartModel BC: The orientation of the fibers on the endocardium.",
+    )
+
     args = parser.parse_args(args)
 
     sample_num = args.number
@@ -322,6 +336,8 @@ def main(args=None) -> int:
     output_folder = args.output_folder
     logging_flag = args.logging_flag
     edpvr_folder = args.edpvr_folder
+    epi_fiber = settings['fiber_angles']['alpha_epi_lv'] if args.epi_fiber is None else args.epi_fiber
+    endo_fiber = settings['fiber_angles']['alpha_endo_lv'] if args.endo_fiber is None else args.endo_fiber
 
     if sample_ID is not None:
         sample_num = utils.get_num_from_id(sample_ID, settings_dir)
@@ -432,8 +448,8 @@ def main(args=None) -> int:
         with fname.open("a", encoding="utf-8") as f:
             f.write(f"{settings['matparams']['a']},"
                     f"{settings['matparams']['a_f']},"
-                    f"{settings['fiber_angles']['alpha_epi_lv']},"
-                    f"{settings['fiber_angles']['alpha_endo_lv']},"
+                    f"{epi_fiber},"
+                    f"{endo_fiber},"
                     f"{np.max(sample_data[:,1])},"
                     f"{epi_avg_error},"
                     f"{epi_std_error},"
