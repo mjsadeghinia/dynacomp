@@ -72,7 +72,7 @@ def parse_arguments(args=None):
     parser.add_argument(
         "-o",
         "--output_dir",
-        default="/home/shared/02_post_processing/02_EDPVR_Modeling",
+        default="/home/shared/02_post_processing/02_EDPVR_Modeling_v2",
         type=Path,
         help="The results folder where the processed data should be saved.",
     )
