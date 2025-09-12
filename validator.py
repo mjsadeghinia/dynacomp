@@ -304,6 +304,14 @@ def main(args=None) -> int:
         help='Flag to indicate whether to log the results.'
         )
     
+    parser.add_argument(
+        "-f",
+        "--edpvr_folder",
+        default= "02_EDPVR_Modeling",
+        type=str,
+        help="The result folder name tha would be created in the directory of the sample.",
+    )
+    
     args = parser.parse_args(args)
 
     sample_num = args.number
@@ -313,6 +321,7 @@ def main(args=None) -> int:
     results_dir = args.results_dir
     output_folder = args.output_folder
     logging_flag = args.logging_flag
+    edpvr_folder = args.edpvr_folder
 
     if sample_ID is not None:
         sample_num = utils.get_num_from_id(sample_ID, settings_dir)
@@ -323,14 +332,14 @@ def main(args=None) -> int:
     sample_dir = Path(results_dir) / sample_name / scan_type
     pv_dir = sample_dir / "01_PVCalibration"
     geo_dir = pv_dir / "Geometries"
-    edpvr_dir = sample_dir / "02_EDPVR_Modeling_v2"
+    edpvr_dir = sample_dir / edpvr_folder
     modeling_dir = sample_dir / output_folder
 
     pressures, volumes = utils.load_pressure_volumes(pv_dir)
     peak_sys_ind = np.where(pressures == np.max(pressures))[0][0]
     inflation_time = get_infaltion_time(modeling_dir) 
 
-    result_path = sample_dir / "03_Active_Modeling" / "results_data.csv"
+    result_path = modeling_dir / "results_data.csv"
     sample_data = np.loadtxt(result_path, delimiter=",", skiprows=1)
 
     peak_sys_ind_simulation = peak_sys_ind + inflation_time
