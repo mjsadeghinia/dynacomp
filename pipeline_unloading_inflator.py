@@ -227,7 +227,7 @@ def run_fiber_modeling(sample_ID, epi_fibers, endo_fibers, edpvr_folder,cpu_num=
             except subprocess.CalledProcessError as e:
                 logger.error(f"Error processing {sample_ID}: {e}")
             try:
-                subprocess.run(f"python3 dynacomp/validator.py -i {sample_ID} -o {output_folder_fiber_modeling} --logging_flag", shell=True, check=True)
+                subprocess.run(f"python3 dynacomp/validator.py -i {sample_ID} -o {output_folder_fiber_modeling} -f {edpvr_folder}  --epi_fiber {epi_fiber} --endo_fiber {endo_fiber}  --logging_flag", shell=True, check=True)
             except subprocess.CalledProcessError as e:
                 logger.error(f"Error validating {sample_ID}: {e}")
             try:
@@ -296,8 +296,8 @@ def main():
     endo_fibers = [30, 35, 40, 45, 50, 55, 60]
 
     a_af_list = a_af_list[:2]
-    epi_fibers = [epi_fibers[0]]
-    endo_fibers = [endo_fibers[0]]    
+    epi_fibers = epi_fibers[:2]
+    endo_fibers = endo_fibers[:2]
     # Determine samples to process
     if args.sample_ID:
         sample_nums = []
