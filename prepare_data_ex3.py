@@ -82,8 +82,12 @@ def main():
         if not ex3_geo_dir.exists():
             ex3_geo_dir.mkdir(parents=True, exist_ok=True)
 
-        shutil.copy(geo_dir / "geometry_0.h5", ex3_geo_dir / "geometry_0.h5")
+        for f in geo_dir.iterdir():
+            if f.is_file() and f.suffix == ".h5" and "ffun" not in f.name:
+                shutil.copy(f, ex3_geo_dir / f.name)
+        # shutil.copy(geo_dir / "geometry_0.h5", ex3_geo_dir / "geometry_0.h5")
         shutil.copy(pv_dir / "ordered_calibrated_pv_data.csv", ex3_pv_dir / "ordered_calibrated_pv_data.csv")
+        shutil.copy(pv_dir / "OP131_1_EDPVR_calibrated_shifted.csv", ex3_pv_dir / "OP131_1_EDPVR_calibrated_shifted.csv")
         logger.info(f"Copied data for sample {sample_id} to {ex3_data_dir}")
 
 
