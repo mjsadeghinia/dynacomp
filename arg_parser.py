@@ -171,7 +171,7 @@ def parse_arguments_unloading(args=None):
     parser.add_argument(
         "-r",
         "--results_dir",
-        default="/home/shared/01_results_coarse_mesh",
+        default=Path("/home/shared/01_results_coarse_mesh"),
         type=Path,
         help="The results folder where the processed data should be saved.",
     )

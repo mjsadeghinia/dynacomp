@@ -21,79 +21,34 @@ logger = get_logger()
 # -----------------------------------------------------------------------------
 
 def slurm_ntasks(default: int = 8) -> int:
-    """Return SLURM_NTASKS if present, else a sensible default."""
     try:
         return int(os.environ.get("SLURM_NTASKS", default))
     except (TypeError, ValueError):
         return default
 
 
-def _launch_srun(n: int, script_path: Path, argv: str | list[str]):
-    """Launch a Python script under Slurm with n MPI ranks via srun.
-
-    Parameters
-    ----------
-    n : int
-        Number of ranks (-n for srun).
-    script_path : Path
-        Path to the Python script to execute.
-    argv : str | list[str]
-        Additional CLI arguments; either a single string or a list of tokens.
-    """
-    args = shlex.split(argv) if isinstance(argv, str) else list(argv)
-    cmd = ["srun", "-n", str(n), sys.executable, "-u", str(script_path)] + args
+def _launch_srun(n: int, script_path: Path, argv: list[str]):
+    cmd = ["srun", "-n", str(n), sys.executable, "-u", str(script_path)] + argv
     logger.info("launch_srun", cmd=" ".join(cmd))
     subprocess.run(cmd, check=True)
 
 
-def _run_py(script_path: Path, argv: str | list[str]):
-    """Run a Python script serially with the current interpreter."""
-    args = shlex.split(argv) if isinstance(argv, str) else list(argv)
-    cmd = [sys.executable, "-u", str(script_path)] + args
+def _run_py(script_path: Path, argv: list[str]):
+    cmd = [sys.executable, "-u", str(script_path)] + argv
     logger.info("run_py", cmd=" ".join(cmd))
     subprocess.run(cmd, check=True)
 
-
 # -----------------------------------------------------------------------------
-# Geometry / grids (unchanged)
+# Geometry / grids
 # -----------------------------------------------------------------------------
-
-def grid_triangle(N=30, amin=0.05, amax=5, afmin=0.05, afmax=5):
-    """
-    Generate approximately N equally distributed points inside a triangle
-    with vertices (amin, afmin), (amax, afmin) and (amin, afmax).
-    Returns arrays of a, af.
-    """
-    n = 1
-    while (n + 1) * (n + 2) // 2 < N:
-        n += 1
-
-    V1 = np.array([amin, afmin])
-    V2 = np.array([amax, afmin])
-    V3 = np.array([amin, afmax])
-
-    a_af_list = []
-    for i in range(n + 1):
-        for j in range(n + 1 - i):
-            u = i / n
-            v = j / n
-            w = 1 - u - v
-            pt = w * V1 + u * V2 + v * V3
-            a_af = [round(pt[0], 3), round(pt[1], 3)]
-            a_af_list.append(a_af)
-
-    return a_af_list
-
 
 def biased_linspace(start, stop, N, bias_power=2):
-    """Return N points from start to stop, biased toward start."""
     t = np.linspace(0, 1, N)
     t_biased = t ** bias_power
     return start + (stop - start) * t_biased
 
 
 def grid_triangle_biased(N, amin=0.05, amax=5, afmin=0.05, afmax=5, bias_power=1.3):
-    # Vertical and horizontal edges
     a_edge = biased_linspace(amin, amax, N, bias_power)
     af_edge = np.full(N, afmin)
     af_edge_h = biased_linspace(afmin, afmax, N, bias_power)
@@ -101,53 +56,21 @@ def grid_triangle_biased(N, amin=0.05, amax=5, afmin=0.05, afmax=5, bias_power=1
 
     a_af_list = []
     for i in range(N):
-        n_div = i + 2  # Number of points along this line
+        n_div = i + 2
         for j in range(n_div):
             t = j / (n_div - 1) if n_div > 1 else 0
             a_val = a_edge_h[i] + t * (a_edge[i] - a_edge_h[i])
             af_val = af_edge_h[i] + t * (af_edge[i] - af_edge_h[i])
-            a_af = [round(a_val, 3), round(af_val, 3)]
-            a_af_list.append(a_af)
+            a_af_list.append([round(a_val, 3), round(af_val, 3)])
 
     return a_af_list
-
-
-def plot_triangle(a_af_lists, colors=None, labels=None):
-    """
-    Plot the triangle and the points in a_af_lists (for debugging/local use).
-    """
-    import numpy as np
-    import matplotlib.pyplot as plt
-
-    fig, ax = plt.subplots(figsize=(6, 6))
-    a_af_lists = [a_af_lists]
-    if colors is None:
-        colors = ["blue", "red", "green", "orange"]
-    if labels is None:
-        labels = [f"Grid {i+1}" for i in range(len(a_af_lists))]
-
-    for i, a_af in enumerate(a_af_lists):
-        a_af = np.array(a_af)
-        ax.scatter(a_af[:, 0], a_af[:, 1], color=colors[i % len(colors)], s=15, label=labels[i])
-
-    plt.xlim(0, 5)
-    plt.ylim(0, 5)
-    plt.xlabel("a")
-    plt.ylabel("af")
-    plt.title("Triangle Grid Points")
-    plt.legend()
-    plt.grid()
-    return fig, ax
-
 
 # -----------------------------------------------------------------------------
 # Repo paths
 # -----------------------------------------------------------------------------
 
-# This file lives at <repo_root>/dynacomp/pipeline_unloading_inflator.py
-REPO_ROOT = Path(__file__).resolve().parents[1]
-DYNACOMP = REPO_ROOT / "dynacomp"
-
+REPO_ROOT = Path(__file__).resolve().parents[0]
+DYNACOMP = REPO_ROOT
 
 # -----------------------------------------------------------------------------
 # I/O helpers
@@ -219,7 +142,7 @@ def update_fiber(sample_ID, fiber_angles, results_folder):
 # Main orchestration (MPI via srun)
 # -----------------------------------------------------------------------------
 
-def run_EDPVR(sample_ID, a_af_list, bf, results_folder, geo_fname=None, cpu_num=8):
+def run_EDPVR(sample_ID, a_af_list, bf, results_folder, settings_dir, geo_fname=None, cpu_num=8):
     unloading_py = DYNACOMP / "unloading.py"
     inflator_py = DYNACOMP / "inflator.py"
     contour_py = DYNACOMP / "create_matparam_sweep_contour.py"
@@ -229,19 +152,18 @@ def run_EDPVR(sample_ID, a_af_list, bf, results_folder, geo_fname=None, cpu_num=
         output_folder = f"{results_folder}/a_{a}_af_{af}_bf_{bf}"
 
         try:
-            # --- unloading (MPI) ---
             unload_args = [
                 "-i", str(sample_ID),
                 "-o", output_folder,
                 "--a_matparam", str(a),
                 "--af_matparam", str(af),
                 "--bf_matparam", str(bf),
+                "--settings_dir", str(settings_dir)
             ]
             if geo_fname is not None:
                 unload_args += ["--geometry_fname", geo_fname]
             _launch_srun(cpu_num, unloading_py, unload_args)
 
-            # --- inflator (MPI) ---
             infl_args = [
                 "-i", str(sample_ID),
                 "-o", output_folder,
@@ -249,16 +171,17 @@ def run_EDPVR(sample_ID, a_af_list, bf, results_folder, geo_fname=None, cpu_num=
                 "--af_matparam", str(af),
                 "--bf_matparam", str(bf),
                 "-lp",
+                "--settings_dir", str(settings_dir)
             ]
             _launch_srun(cpu_num, inflator_py, infl_args)
 
-            # --- periodically update contour (serial) ---
             if n > 2:
                 _run_py(contour_py, [
                     "-i", str(sample_ID),
                     "-c", "30",
                     "--bf_flag",
                     "-o", results_folder,
+                    "--settings_dir", str(settings_dir)
                 ])
 
             logger.info("unloading_inflator_done", a=a, af=af, bf=bf)
@@ -267,7 +190,7 @@ def run_EDPVR(sample_ID, a_af_list, bf, results_folder, geo_fname=None, cpu_num=
             continue
 
 
-def run_fiber_modeling(sample_ID, epi_fibers, endo_fibers, edpvr_folder, cpu_num=8):
+def run_fiber_modeling(sample_ID, epi_fibers, endo_fibers, edpvr_folder, settings_dir, cpu_num=8):
     processing_py = DYNACOMP / "processing.py"
     validator_py = DYNACOMP / "validator.py"
     contour_py = DYNACOMP / "create_fibparam_sweep_contour.py"
@@ -281,7 +204,6 @@ def run_fiber_modeling(sample_ID, epi_fibers, endo_fibers, edpvr_folder, cpu_num
                 logger.warning("fiber_modeling_skip_existing", path=str(output_dir))
                 continue
             try:
-                # MPI step
                 _launch_srun(cpu_num, processing_py, [
                     "--fiber_modeling_flag",
                     "-i", str(sample_ID),
@@ -289,12 +211,12 @@ def run_fiber_modeling(sample_ID, epi_fibers, endo_fibers, edpvr_folder, cpu_num
                     "--epi_fiber", str(epi_fiber),
                     "--endo_fiber", str(endo_fiber),
                     "--edpvr_folder", edpvr_folder,
+                    "--settings_dir", str(settings_dir)
                 ])
             except subprocess.CalledProcessError as e:
                 logger.error("fiber_processing_error", sample_ID=sample_ID, error=str(e))
 
             try:
-                # serial steps
                 _run_py(validator_py, [
                     "-i", str(sample_ID),
                     "-o", output_folder,
@@ -302,6 +224,7 @@ def run_fiber_modeling(sample_ID, epi_fibers, endo_fibers, edpvr_folder, cpu_num
                     "--epi_fiber", str(epi_fiber),
                     "--endo_fiber", str(endo_fiber),
                     "--logging_flag",
+                    "--settings_dir", str(settings_dir)
                 ])
             except subprocess.CalledProcessError as e:
                 logger.error("fiber_validation_error", sample_ID=sample_ID, error=str(e))
@@ -310,10 +233,10 @@ def run_fiber_modeling(sample_ID, epi_fibers, endo_fibers, edpvr_folder, cpu_num
                 _run_py(contour_py, [
                     "-i", str(sample_ID),
                     "-o", "03_Fiber_Modeling",
+                    "--settings_dir", str(settings_dir)
                 ])
             except subprocess.CalledProcessError as e:
                 logger.error("fiber_contour_error", sample_ID=sample_ID, error=str(e))
-
 
 # -----------------------------------------------------------------------------
 # CLI
@@ -323,47 +246,12 @@ def main():
     parser = argparse.ArgumentParser(
         description="2D parameter sweep of (a, a_f) for HeartModelDynaComp",
     )
-    parser.add_argument(
-        "-n",
-        "--number",
-        nargs="*",
-        type=int,
-        default=None,
-        help="Sample number(s) to process. If omitted, all samples will be processed.",
-    )
-    parser.add_argument(
-        "-i",
-        "--sample_ID",
-        nargs="+",
-        type=str,
-        help="The sample ID to be processed; if passed in, sample numbers are ignored.",
-    )
-    parser.add_argument(
-        "--settings_dir",
-        type=Path,
-        default=Path("/home/shared/dynacomp/settings"),
-        help="Directory where JSON settings files are stored.",
-    )
-    parser.add_argument(
-        "-s",
-        "--scan_type",
-        type=str,
-        default="TPM",
-        help="Scan type; subdirectories will be named accordingly.",
-    )
-    parser.add_argument(
-        "-r",
-        "--results_folder",
-        type=str,
-        default="02_EDPVR_Modeling_v2",
-        help="Directory where results will be saved.",
-    )
-    parser.add_argument(
-        "--cpu_num",
-        type=int,
-        default=slurm_ntasks(8),
-        help="Number of MPI ranks to use (defaults to SLURM_NTASKS if set).",
-    )
+    parser.add_argument("-n", "--number", nargs="*", type=int, default=None)
+    parser.add_argument("-i", "--sample_ID", nargs="+", type=str)
+    parser.add_argument("--settings_dir", type=Path, default=Path("settings"))
+    parser.add_argument("-s", "--scan_type", type=str, default="TPM")
+    parser.add_argument("-r", "--results_folder", type=str, default="02_EDPVR_Modeling_v2")
+    parser.add_argument("--cpu_num", type=int, default=slurm_ntasks(8))
 
     args = parser.parse_args()
 
@@ -371,19 +259,11 @@ def main():
     cpu_num: int = args.cpu_num
     results_folder: str = args.results_folder
 
-    # Define the material parameter grid and fiber angles
-    a_af_list = grid_triangle_biased(N=10, amin=0.05, amax=5, afmin=0.05, afmax=5, bias_power=1.4)
-    a_af_list = a_af_list[::-1]  # start from the largest a and af
+    a_af_list = np.flipud(grid_triangle_biased(N=10, amin=0.05, amax=5, afmin=0.05, afmax=5, bias_power=1.4))
     bf_list = [0.001]
-    epi_fibers = [-30, -35, -40, -45, -50, -55, -60]
-    endo_fibers = [30, 35, 40, 45, 50, 55, 60]
+    epi_fibers = [-30, -35]
+    endo_fibers = [30, 35]
 
-    # TEMP: limit sweep size (as in your original)
-    a_af_list = a_af_list[:2]
-    epi_fibers = epi_fibers[:2]
-    endo_fibers = endo_fibers[:2]
-
-    # Determine samples to process
     if args.sample_ID:
         sample_nums = []
         for sid in args.sample_ID:
@@ -403,13 +283,12 @@ def main():
             print("------------------------------")
             print(f"Processing sample {sample_ID}")
             print("------------------------------")
-            results_folder_local = "02_EDPVR_Modeling"  # keep your explicit override
-            run_EDPVR(sample_ID, a_af_list, bf, results_folder_local, cpu_num=cpu_num)
-            run_fiber_modeling(sample_ID, epi_fibers, endo_fibers, results_folder_local, cpu_num=cpu_num)
+            results_folder_local = "02_EDPVR_Modeling"
+            run_EDPVR(sample_ID, a_af_list, bf, results_folder_local, settings_dir, cpu_num=cpu_num)
+            run_fiber_modeling(sample_ID, epi_fibers, endo_fibers, results_folder_local, settings_dir, cpu_num=cpu_num)
             fiber_angles = load_fiber_modeling(sample_ID)
             geo_fname = update_fiber(sample_ID, fiber_angles, results_folder_local)
-            run_EDPVR(sample_ID, a_af_list, bf, results_folder_local, geo_fname=geo_fname, cpu_num=cpu_num)
-
+            run_EDPVR(sample_ID, a_af_list, bf, results_folder_local, settings_dir, geo_fname=geo_fname, cpu_num=cpu_num)
 
 if __name__ == "__main__":
     main()
