@@ -2,12 +2,14 @@ import subprocess
 import numpy as np
 from structlog import get_logger
 from pathlib import Path
-import matplotlib.pyplot as plt
+import argparse
 
 import ldrb
 import dolfin
 import pulse
 import logging
+
+import utils
 
 
 logger = get_logger()
@@ -154,73 +156,25 @@ def update_fiber(sample_ID, fiber_angles, results_folder):
     ldrb.fiber_to_xdmf(geo.f0, fname.as_posix())
 
     return geo_fname.as_posix()
-
 #%%
-sample_nums = [10, 15, 17, 18, 19, 21, 22, 24, 25, 26, 28, 29, 44, 45, 51, 53]
-sample_IDs = ["135_2", "136_1", "136_2", "136_3", "138_1", "138_2", "139_1", "139_2",
-              "140_2", "141_1", "141_2", "142_2", "163_3", "169_1", "169_3", "172_1", "183_1", "183_2", "185_1",
-              "185_2", "186_2", "187_1"]
-
-sample_IDs = ["135_2"]
-results_folder = f"02_EDPVR_Modeling_v2"
-cpu_num = 8
-
-a_af_list = grid_triangle_biased(N=10, amin=0.05, amax=5, afmin=0.05, afmax=5, bias_power=1.4)
-fig, ax = plot_triangle(a_af_list,)
-fig.savefig("triangle_grid_points.png", dpi=300)
-a_af_list = a_af_list[::-1]  # Reverse the list to start from the largest a and af
-bf_list = [0.001]
-update_fiber_flag = True
-fiber_modeling_flag = True
-results_folder = results_folder + "_best_fiber_fit" if update_fiber_flag else results_folder
-epi_fibers = [-30, -35, -40, -45, -50, -55, -60]
-endo_fibers = [30, 35, 40, 45, 50, 55, 60]
-
-for bf in bf_list:
-    for sample_ID in sample_IDs:
-        subprocess.run(f"python3 dynacomp/pv_analyzer.py -i {sample_ID} ", shell=True, check=True)
-        subprocess.run(f"python3 dynacomp/pv_calibrator.py -i {sample_ID} ", shell=True, check=True)
-        subprocess.run(f"python3 dynacomp/pv_shifter.py -i {sample_ID} ", shell=True, check=True)
-        if fiber_modeling_flag:
-            print("------------------------------")
-            print(f"Processing sample {sample_ID}")
-            print("------------------------------")
-            for epi_fiber in epi_fibers:
-                for endo_fiber in endo_fibers:
-                    print("------------------------------")
-                    print(f"Processing {sample_ID} with epi_fiber={epi_fiber} and endo_fiber={endo_fiber}")
-                    print("------------------------------")
-                    output_folder_fiber_modeling = f"03_Fiber_Modeling/epi_{epi_fiber}_endo_{endo_fiber}"
-                    output_dir_fiber_modeling = Path(f"/home/shared/01_results_coarse_mesh/OP{sample_ID}/TPM") / output_folder_fiber_modeling
-                    if output_dir_fiber_modeling.exists():
-                        print(f"Output directory {output_dir_fiber_modeling} already exists. Skipping fiber modeling for this configuration.")
-                        continue
-                    try:
-                        subprocess.run(f"mpirun -n 8 python3 dynacomp/processing.py --fiber_modeling_flag -i {sample_ID} -o {output_folder_fiber_modeling} --epi_fiber {epi_fiber} --endo_fiber {endo_fiber}", shell=True, check=True)
-                    except subprocess.CalledProcessError as e:
-                        print(f"Error processing {sample_ID}: {e}")
-                    try:
-                        subprocess.run(f"python3 dynacomp/validator.py -i {sample_ID} -o {output_folder_fiber_modeling} --logging_flag", shell=True, check=True)
-                    except subprocess.CalledProcessError as e:
-                        print(f"Error validating {sample_ID}: {e}")
-                    try:
-                        subprocess.run(f"python3 dynacomp/create_fibparam_sweep_contour.py -i {sample_ID} -o 03_Fiber_Modeling", shell=True, check=True)
-                    except subprocess.CalledProcessError as e:
-                        print(f"Error creating contour for {sample_ID}: {e}")
-                
-        if update_fiber_flag:
-            fiber_angles = load_fiber_modeling(sample_ID)
-            geo_fname = update_fiber(sample_ID, fiber_angles, results_folder)
-        else:
-            geo_fname = None
-
-        for n, (a, af) in enumerate(a_af_list):
-            logger.info(f"Running unloading and inflator for a={a}, af={af}, bf={bf}")
-            output_folder = f"{results_folder}/a_{a}_af_{af}_bf_{bf}"
-            try:
+def run_EDPVR(sample_ID, a_af_list, bf, results_folder, geo_fname=None, cpu_num=8):
+    for n, (a, af) in enumerate(a_af_list):
+        logger.info(f"Running unloading and inflator for a={a}, af={af}, bf={bf}")
+        output_folder = f"{results_folder}/a_{a}_af_{af}_bf_{bf}"
+        try:
+            if geo_fname is None:
                 subprocess.run(
                     f"mpirun -n {cpu_num} python3 dynacomp/unloading.py "
-                    # f"python3 dynacomp/unloading.py "
+                    f"-i {sample_ID} "
+                    f"-o {output_folder} "
+                    f"--a_matparam {a} "
+                    f"--af_matparam {af} "
+                    f"--bf_matparam {bf} ",
+                    shell=True, check=True
+                )
+            else:
+                subprocess.run(
+                    f"mpirun -n {cpu_num} python3 dynacomp/unloading.py "
                     f"-i {sample_ID} "
                     f"-o {output_folder} "
                     f"--a_matparam {a} "
@@ -230,27 +184,148 @@ for bf in bf_list:
                     shell=True, check=True
                 )
 
+            subprocess.run(
+                f"mpirun -n {cpu_num} python3 dynacomp/inflator.py "
+                f"-i {sample_ID} "
+                f"-o {output_folder} "
+                f"--a_matparam {a} "
+                f"--af_matparam {af} "
+                f"--bf_matparam {bf} "
+                f"-lp",
+                shell=True, check=True
+            )
+            if n > 2:
                 subprocess.run(
-                    f"mpirun -n {cpu_num} python3 dynacomp/inflator.py "
-                    f"-i {sample_ID} "
-                    f"-o {output_folder} "
-                    f"--a_matparam {a} "
-                    f"--af_matparam {af} "
-                    f"--bf_matparam {bf} "
-                    f"-lp",
+                    f"python3 dynacomp/create_matparam_sweep_contour.py -i {sample_ID} -c 30 --bf_flag -o {results_folder}",
                     shell=True, check=True
                 )
-                if n > 2:
-                    subprocess.run(
-                        f"python3 dynacomp/create_matparam_sweep_contour.py -i {sample_ID} -c 30 --bf_flag -o {results_folder}",
-                        shell=True, check=True
-                    )
 
-                logger.info("-----------------------------------------")
-                logger.info(f"Unloading-Inflating is done for a={a}, af={af}, bf={bf}")
-                logger.info("-----------------------------------------")
-            except subprocess.CalledProcessError as e:
-                logger.error("=======================================")
-                logger.error(f"Error for a={a}, af={af}, bf={bf}: {e}. Skipping this combination.")
-                logger.error("=======================================")
+            logger.info("-----------------------------------------")
+            logger.info(f"Unloading-Inflating is done for a={a}, af={af}, bf={bf}")
+            logger.info("-----------------------------------------")
+        except subprocess.CalledProcessError as e:
+            logger.error("=======================================")
+            logger.error(f"Error for a={a}, af={af}, bf={bf}: {e}. Skipping this combination.")
+            logger.error("=======================================")
+            continue
+
+    return
+
+def run_fiber_modeling(sample_ID, epi_fibers, endo_fibers, edpvr_folder,cpu_num=8):
+    for epi_fiber in epi_fibers:
+        for endo_fiber in endo_fibers:
+            logger.info("------------------------------")
+            logger.info(f"Processing {sample_ID} with epi_fiber={epi_fiber} and endo_fiber={endo_fiber}")
+            logger.info("------------------------------")
+            output_folder_fiber_modeling = f"03_Fiber_Modeling/epi_{epi_fiber}_endo_{endo_fiber}"
+            output_dir_fiber_modeling = Path(f"/home/shared/01_results_coarse_mesh/OP{sample_ID}/TPM") / output_folder_fiber_modeling
+            if output_dir_fiber_modeling.exists():
+                logger.warning(f"Output directory {output_dir_fiber_modeling} already exists. Skipping fiber modeling for this configuration.")
                 continue
+            try:
+                subprocess.run(f"mpirun -n {cpu_num} python3 dynacomp/processing.py --fiber_modeling_flag -i {sample_ID} -o {output_folder_fiber_modeling} --epi_fiber {epi_fiber} --endo_fiber {endo_fiber} --edpvr_folder {edpvr_folder}", shell=True, check=True)
+            except subprocess.CalledProcessError as e:
+                logger.error(f"Error processing {sample_ID}: {e}")
+            try:
+                subprocess.run(f"python3 dynacomp/validator.py -i {sample_ID} -o {output_folder_fiber_modeling} --logging_flag", shell=True, check=True)
+            except subprocess.CalledProcessError as e:
+                logger.error(f"Error validating {sample_ID}: {e}")
+            try:
+                subprocess.run(f"python3 dynacomp/create_fibparam_sweep_contour.py -i {sample_ID} -o 03_Fiber_Modeling", shell=True, check=True)
+            except subprocess.CalledProcessError as e:
+                logger.error(f"Error creating contour for {sample_ID}: {e}")
+    return
+
+#%%
+#%%
+def main():
+    parser = argparse.ArgumentParser(
+        description="2D parameter sweep of (a, a_f) for HeartModelDynaComp"
+    )
+    parser.add_argument(
+        '-n', '--number',
+        nargs='*',
+        type=int,
+        default=None,
+        help='Sample number(s) to process. If omitted, all samples will be processed.'
+    )
+    parser.add_argument(
+        "-i",
+        "--sample_ID",
+        nargs="+",
+        type=str,
+        help="The sample ID to be processd, if passed in the sample number will be ignored.",
+    )
+    parser.add_argument(
+        '--settings_dir',
+        type=Path,
+        default=Path('/home/shared/dynacomp/settings'),
+        help='Directory where JSON settings files are stored.'
+    )
+    parser.add_argument(
+        '-s', '--scan_type',
+        type=str,
+        default='TPM',
+        help='Scan type; subdirectories will be named accordingly.'
+    )
+    parser.add_argument(
+        '-r', '--results_folder',
+        type=str,
+        default="02_EDPVR_Modeling_v2",
+        help='Directory where results will be saved.'
+    )
+
+    parser.add_argument(
+        '--cpu_num',
+        type=int,
+        default=8,
+        help='Number of CPU cores to use.'
+    )
+
+    args = parser.parse_args()
+
+    settings_dir = args.settings_dir
+    cpu_num = args.cpu_num
+    results_folder = args.results_folder
+
+    # Define the material parameter grid and fiber angles
+    a_af_list = grid_triangle_biased(N=10, amin=0.05, amax=5, afmin=0.05, afmax=5, bias_power=1.4)
+    a_af_list = a_af_list[::-1]  # Reverse the list to start from the largest a and af
+    bf_list = [0.001]
+    epi_fibers = [-30, -35, -40, -45, -50, -55, -60]
+    endo_fibers = [30, 35, 40, 45, 50, 55, 60]
+
+    a_af_list = a_af_list[:2]
+    epi_fibers = [epi_fibers[0]]
+    endo_fibers = [endo_fibers[0]]    
+    # Determine samples to process
+    if args.sample_ID:
+        sample_nums = []
+        for id in args.sample_ID:
+            id_num = utils.get_num_from_id(id, settings_dir)
+            sample_nums.append(id_num)
+    elif args.number:
+        sample_nums = args.number
+    else:
+        files = sorted([f for f in settings_dir.iterdir() if f.suffix == ".json"])
+        sample_nums = list(range(1, len(files) + 1))
+
+    for sample in sample_nums:
+        settings = utils.load_settings(settings_dir, sample)
+        sample_ID = settings['id'][2:] if settings['id'].startswith('OP') else settings['id']
+
+        for bf in bf_list:
+            print("------------------------------")
+            print(f"Processing sample {sample_ID}")
+            print("------------------------------")
+            results_folder = "02_EDPVR_Modeling"
+            run_EDPVR(sample_ID, a_af_list, bf, results_folder, cpu_num=cpu_num)
+            run_fiber_modeling(sample_ID, epi_fibers, endo_fibers, results_folder, cpu_num=cpu_num)
+            fiber_angles = load_fiber_modeling(sample_ID)
+            geo_fname = update_fiber(sample_ID, fiber_angles, results_folder)
+            run_EDPVR(sample_ID, a_af_list, bf, results_folder, geo_fname=geo_fname, cpu_num=cpu_num)
+
+
+#%%
+if __name__ == "__main__":
+    main()
