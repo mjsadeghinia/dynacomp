@@ -314,6 +314,14 @@ def parse_arguments_processing(args=None):
     )
 
     parser.add_argument(
+        "-f",
+        "--edpvr_folder",
+        default= "02_EDPVR_Modeling",
+        type=str,
+        help="The result folder name tha would be created in the directory of the sample.",
+    )
+
+    parser.add_argument(
         "--fiber_modeling_flag",
         action="store_true",
         help="Enable fiber modeling, running simulation up to peak systole."

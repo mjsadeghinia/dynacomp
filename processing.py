@@ -50,6 +50,7 @@ def main(args=None) -> int:
     sample_ID = args.ID
     setting_dir = args.settings_dir
     output_folder = args.output_folder
+    edpvr_folder = args.edpvr_folder
     results_dir = args.results_dir
     scan_type = args.scan_type
     epi_fiber = args.epi_fiber
@@ -67,7 +68,7 @@ def main(args=None) -> int:
     sample_dir = Path(results_dir) / sample_name / scan_type
     pv_dir = sample_dir / "01_PVCalibration"
     geo_dir = pv_dir / "Geometries"
-    edpvr_dir = sample_dir / "02_EDPVR_Modeling_v2"
+    edpvr_dir = sample_dir / edpvr_folder
     outdir = sample_dir / output_folder
 
     # delet files for saving again
