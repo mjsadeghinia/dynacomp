@@ -146,6 +146,7 @@ def run_EDPVR(sample_ID, a_af_list, bf, results_folder, settings_dir, geo_fname=
     unloading_py = DYNACOMP / "unloading.py"
     inflator_py = DYNACOMP / "inflator.py"
     contour_py = DYNACOMP / "create_matparam_sweep_contour.py"
+    results_dir = DYNACOMP / "01_results_coarse_mesh"
 
     for n, (a, af) in enumerate(a_af_list):
         logger.info("unloading_inflator_start", a=a, af=af, bf=bf)
@@ -158,7 +159,8 @@ def run_EDPVR(sample_ID, a_af_list, bf, results_folder, settings_dir, geo_fname=
                 "--a_matparam", str(a),
                 "--af_matparam", str(af),
                 "--bf_matparam", str(bf),
-                "--settings_dir", str(settings_dir)
+                "--settings_dir", str(settings_dir),
+                "--results_dir", str(results_dir)
             ]
             if geo_fname is not None:
                 unload_args += ["--geometry_fname", geo_fname]
@@ -171,7 +173,8 @@ def run_EDPVR(sample_ID, a_af_list, bf, results_folder, settings_dir, geo_fname=
                 "--af_matparam", str(af),
                 "--bf_matparam", str(bf),
                 "-lp",
-                "--settings_dir", str(settings_dir)
+                "--settings_dir", str(settings_dir),
+                "--results_dir", str(results_dir)
             ]
             _launch_srun(cpu_num, inflator_py, infl_args)
 
@@ -181,7 +184,8 @@ def run_EDPVR(sample_ID, a_af_list, bf, results_folder, settings_dir, geo_fname=
                     "-c", "30",
                     "--bf_flag",
                     "-o", results_folder,
-                    "--settings_dir", str(settings_dir)
+                    "--settings_dir", str(settings_dir),
+                    "--results_dir", str(results_dir)
                 ])
 
             logger.info("unloading_inflator_done", a=a, af=af, bf=bf)
@@ -194,6 +198,8 @@ def run_fiber_modeling(sample_ID, epi_fibers, endo_fibers, edpvr_folder, setting
     processing_py = DYNACOMP / "processing.py"
     validator_py = DYNACOMP / "validator.py"
     contour_py = DYNACOMP / "create_fibparam_sweep_contour.py"
+    results_dir = DYNACOMP / "01_results_coarse_mesh"
+
 
     for epi_fiber in epi_fibers:
         for endo_fiber in endo_fibers:
@@ -211,7 +217,8 @@ def run_fiber_modeling(sample_ID, epi_fibers, endo_fibers, edpvr_folder, setting
                     "--epi_fiber", str(epi_fiber),
                     "--endo_fiber", str(endo_fiber),
                     "--edpvr_folder", edpvr_folder,
-                    "--settings_dir", str(settings_dir)
+                    "--settings_dir", str(settings_dir),
+                    "--results_dir", str(results_dir)
                 ])
             except subprocess.CalledProcessError as e:
                 logger.error("fiber_processing_error", sample_ID=sample_ID, error=str(e))
@@ -224,7 +231,8 @@ def run_fiber_modeling(sample_ID, epi_fibers, endo_fibers, edpvr_folder, setting
                     "--epi_fiber", str(epi_fiber),
                     "--endo_fiber", str(endo_fiber),
                     "--logging_flag",
-                    "--settings_dir", str(settings_dir)
+                    "--settings_dir", str(settings_dir),
+                    "--results_dir", str(results_dir)
                 ])
             except subprocess.CalledProcessError as e:
                 logger.error("fiber_validation_error", sample_ID=sample_ID, error=str(e))
@@ -233,7 +241,8 @@ def run_fiber_modeling(sample_ID, epi_fibers, endo_fibers, edpvr_folder, setting
                 _run_py(contour_py, [
                     "-i", str(sample_ID),
                     "-o", "03_Fiber_Modeling",
-                    "--settings_dir", str(settings_dir)
+                    "--settings_dir", str(settings_dir),
+                    "--results_dir", str(results_dir)
                 ])
             except subprocess.CalledProcessError as e:
                 logger.error("fiber_contour_error", sample_ID=sample_ID, error=str(e))
