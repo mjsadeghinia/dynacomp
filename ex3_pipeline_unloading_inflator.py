@@ -146,7 +146,7 @@ def run_EDPVR(sample_ID, a_af_list, bf, results_folder, settings_dir, geo_fname=
     unloading_py = DYNACOMP / "unloading.py"
     inflator_py = DYNACOMP / "inflator.py"
     contour_py = DYNACOMP / "create_matparam_sweep_contour.py"
-    results_dir = DYNACOMP / "01_results_coarse_mesh"
+    results_dir = DYNACOMP.parent / "01_results_coarse_mesh"
 
     for n, (a, af) in enumerate(a_af_list):
         logger.info("unloading_inflator_start", a=a, af=af, bf=bf)
@@ -198,7 +198,7 @@ def run_fiber_modeling(sample_ID, epi_fibers, endo_fibers, edpvr_folder, setting
     processing_py = DYNACOMP / "processing.py"
     validator_py = DYNACOMP / "validator.py"
     contour_py = DYNACOMP / "create_fibparam_sweep_contour.py"
-    results_dir = DYNACOMP / "01_results_coarse_mesh"
+    results_dir = DYNACOMP.parent / "01_results_coarse_mesh"
 
 
     for epi_fiber in epi_fibers:
