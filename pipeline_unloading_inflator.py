@@ -162,7 +162,7 @@ def run_EDPVR(sample_ID, a_af_list, bf, results_folder, results_dir, settings_di
         try:
             if geo_fname is None:
                 subprocess.run(
-                    f"mpirun -n {cpu_num} python3 dynacomp/unloading.py "
+                    f"python3 dynacomp/unloading.py "
                     f"-i {sample_ID} "
                     f"-o {output_folder} "
                     f"--a_matparam {a} "
@@ -174,7 +174,7 @@ def run_EDPVR(sample_ID, a_af_list, bf, results_folder, results_dir, settings_di
                 )
             else:
                 subprocess.run(
-                    f"mpirun -n {cpu_num} python3 dynacomp/unloading.py "
+                    f"python3 dynacomp/unloading.py "
                     f"-i {sample_ID} "
                     f"-o {output_folder} "
                     f"--a_matparam {a} "
@@ -187,7 +187,7 @@ def run_EDPVR(sample_ID, a_af_list, bf, results_folder, results_dir, settings_di
                 )
 
             subprocess.run(
-                f"mpirun -n {cpu_num} python3 dynacomp/inflator.py "
+                f"python3 dynacomp/inflator.py "
                 f"-i {sample_ID} "
                 f"-o {output_folder} "
                 f"--a_matparam {a} "
@@ -227,7 +227,7 @@ def run_fiber_modeling(sample_ID, epi_fibers, endo_fibers, edpvr_folder, results
                 logger.warning(f"Output directory {output_dir_fiber_modeling} already exists. Skipping fiber modeling for this configuration.")
                 continue
             try:
-                subprocess.run(f"mpirun -n {cpu_num} python3 dynacomp/processing.py --fiber_modeling_flag -i {sample_ID} -o {output_folder_fiber_modeling} --epi_fiber {epi_fiber} --endo_fiber {endo_fiber} --edpvr_folder {edpvr_folder} --results_dir {results_dir} --settings_dir {settings_dir}", shell=True, check=True)
+                subprocess.run(f"python3 dynacomp/processing.py --fiber_modeling_flag -i {sample_ID} -o {output_folder_fiber_modeling} --epi_fiber {epi_fiber} --endo_fiber {endo_fiber} --edpvr_folder {edpvr_folder} --results_dir {results_dir} --settings_dir {settings_dir}", shell=True, check=True)
             except subprocess.CalledProcessError as e:
                 logger.error(f"Error processing {sample_ID}: {e}")
             try:
@@ -333,11 +333,11 @@ def main():
             print("------------------------------")
             results_folder = "02_EDPVR_Modeling"
             run_EDPVR(sample_ID, a_af_list, bf, results_folder, results_dir=results_dir, settings_dir=settings_dir, cpu_num=cpu_num)
-            run_fiber_modeling(sample_ID, epi_fibers, endo_fibers, results_folder, results_dir=results_dir, settings_dir=settings_dir, cpu_num=cpu_num)
-            sample_dir = Path(f"{results_dir}/OP{sample_ID}/TPM")
-            fiber_angles = load_fiber_modeling(sample_dir, sample_ID)
-            geo_fname = update_fiber(sample_dir, sample_ID, fiber_angles, results_folder)
-            run_EDPVR(sample_ID, a_af_list, bf, results_folder, results_dir=results_dir, settings_dir=settings_dir, cpu_num=cpu_num, geo_fname=geo_fname)
+            # run_fiber_modeling(sample_ID, epi_fibers, endo_fibers, results_folder, results_dir=results_dir, settings_dir=settings_dir, cpu_num=cpu_num)
+            # sample_dir = Path(f"{results_dir}/OP{sample_ID}/TPM")
+            # fiber_angles = load_fiber_modeling(sample_dir, sample_ID)
+            # geo_fname = update_fiber(sample_dir, sample_ID, fiber_angles, results_folder)
+            # run_EDPVR(sample_ID, a_af_list, bf, results_folder, results_dir=results_dir, settings_dir=settings_dir, cpu_num=cpu_num, geo_fname=geo_fname)
 
 
 #%%
