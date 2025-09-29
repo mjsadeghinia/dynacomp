@@ -19,19 +19,6 @@ dolfin.set_log_level(dolfin.LogLevel.ERROR)
 # Prevent non-root MPI ranks from printing (stops N duplicates)
 dolfin.parameters["std_out_all_processes"] = False
 
-# Structlog: no colors, plain console (or use JSONRenderer)
-structlog.configure(
-    processors=[
-        structlog.processors.TimeStamper(fmt="iso", utc=True),
-        structlog.stdlib.add_log_level,
-        structlog.processors.UnicodeDecoder(),
-        structlog.processors.KeyValueRenderer(key_order=["event"]),  # simple, no ANSI
-        # Alternatively: structlog.processors.JSONRenderer()
-    ],
-    wrapper_class=structlog.stdlib.BoundLogger,
-    logger_factory=structlog.stdlib.LoggerFactory(),
-    cache_logger_on_first_use=True,
-)
 logger = structlog.get_logger()
 
 comm = dolfin.MPI.comm_world
@@ -207,6 +194,7 @@ def main(args=None) -> int:
         
         atrium_pressure = load_atrium_pressure(pv_dir)
         if comm.Get_rank() == 0:
+            logger.info("-----------------------------------")
             logger.info(f"Unloading started for Sample {sample_name} with atrium pressure: {atrium_pressure:.2f} kPa")
         if geo_fname is None:
             geo_fname = geo_dir / "geometry_0.h5"
