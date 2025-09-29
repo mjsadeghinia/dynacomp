@@ -1,28 +1,28 @@
-import argparse
+import os
+import subprocess
 from pathlib import Path
-import shutil
-
+import argparse
 import utils
 
-from structlog import get_logger
+""" 
+Script to copy prepared data to ex3 server
+THIS SHOULD BE RUN LOCALLY NOT ON DOCKER
+"""
 
-logger = get_logger()
-
-#%%
 def main():
-    parser = argparse.ArgumentParser(
-        description="2D parameter sweep of (a, a_f) for HeartModelDynaComp"
-    )
+    parser = argparse.ArgumentParser()
+
     parser.add_argument(
-        '-n', '--number',
+        '-n',
+        '--number',
         nargs='*',
         type=int,
         default=None,
-        help='Sample number(s) to process. If omitted, all samples will be processed.'
+        help='Sample number(s) to process. If omitted, all samples in settings_dir will be processed.'
     )
     parser.add_argument(
         "-i",
-        "--sample_ID",
+        "--ID",
         nargs="+",
         type=str,
         help="The sample ID to be processd, if passed in the sample number will be ignored.",
@@ -32,65 +32,103 @@ def main():
         type=Path,
         default=Path('/home/shared/dynacomp/settings'),
         help='Directory where JSON settings files are stored.'
-    )
+        )
+    
     parser.add_argument(
-        '-s', '--scan_type',
+        '-s',
+        '--scan_type',
         type=str,
         default='TPM',
         help='Scan type; subdirectories will be named accordingly.'
     )
+
     parser.add_argument(
-        '-r', '--results_dir',
+        '--local_results_dir',
         type=Path,
         default=Path('/home/shared/01_results_coarse_mesh'),
         help='Directory where results will be saved.'
     )
 
+    parser.add_argument(
+        '--remote_results_dir',
+        type=str,
+        default="/global/D1/homes/sadeghinia/01_results_coarse_mesh",
+        help='Directory where results will be saved in the remote ex3 server.'
+    )
+
+    parser.add_argument(
+        '--remote_user',
+        type=str,
+        default="sadeghinia",
+        help='Username for the remote ex3 server.'
+    )
+
     args = parser.parse_args()
 
+    number = args.number
+    sample_ID = args.ID
     settings_dir = args.settings_dir
     scan_type = args.scan_type
-    results_dir = args.results_dir
-    
+    local_results_dir = Path(args.local_results_dir)
+    remote_results_dir = args.remote_results_dir
+    remote_user = args.remote_user
+    REMOTE = f"{remote_user}@ex3"
 
-    # Determine samples to process
-    if args.sample_ID:
+
+    if sample_ID is not None:
         sample_nums = []
-        for id in args.sample_ID:
+        for id in sample_ID:
             id_num = utils.get_num_from_id(id, settings_dir)
             sample_nums.append(id_num)
-    elif args.number:
-        sample_nums = args.number
+    elif number:
+        sample_nums = number
     else:
-        files = sorted([f for f in settings_dir.iterdir() if f.suffix == ".json"])
-        sample_nums = list(range(1, len(files) + 1))
+        settings_files = sorted([f for f in settings_dir.iterdir() if f.suffix == ".json"])
+        sample_nums = list(range(1, len(settings_files) + 1))
 
-    for sample in sample_nums:
-        settings = utils.load_settings(settings_dir, sample)
-        sample_id = settings['id']
-        sample_dir = results_dir / sample_id / scan_type
-        pv_dir = sample_dir / "01_PVCalibration"
-        geo_dir = pv_dir / "Geometries"
+    for sample_num in sample_nums:
+        settings = utils.load_settings(settings_dir, sample_num)
+        sample_name = settings["id"]
+        sample_dir = local_results_dir / sample_name / scan_type
 
-        ex3_data_dir = sample_dir / "99_Ex3_Data"
-        if not ex3_data_dir.exists():
-            ex3_data_dir.mkdir(parents=True, exist_ok=True)
-        ex3_pv_dir = ex3_data_dir / "01_PVCalibration"
-        if not ex3_pv_dir.exists():
-            ex3_pv_dir.mkdir(parents=True, exist_ok=True)
-        ex3_geo_dir = ex3_pv_dir / "Geometries"
-        if not ex3_geo_dir.exists():
-            ex3_geo_dir.mkdir(parents=True, exist_ok=True)
+        # Construct relevant paths
+        pvcalib_src = sample_dir / "01_PVCalibration"
+        if not pvcalib_src.exists():
+            continue
+        
+        breakpoint()
+        # Remote destination
+        dest_dir = f"{remote_results_dir}/{sample_name}/TPM/01_PVCalibration/"
+        remote_dest = f"{REMOTE}:{dest_dir}"
+        
+        # Ensure remote destination exists
+        mkdir_cmd = ["ssh", REMOTE, f"mkdir -p {dest_dir}"]
+        print("Ensuring remote dir:", " ".join(mkdir_cmd))
+        subprocess.run(mkdir_cmd, check=True)
+        
+        # Files and dirs to copy
+        items_to_copy = [
+            pvcalib_src / "Geometries",
+            pvcalib_src / f"{sample_name}_EDPVR_calibrated_shifted.csv",
+            pvcalib_src / "ordered_calibrated_pv_data.csv",
+        ]
+        
+        for item in items_to_copy:
+            if not item.exists():
+                print(f"Skipping missing: {item}")
+                continue
+            
+            # Run rsync
+            cmd = [
+                "rsync", "-avh", "--progress",
+                str(item),
+                remote_dest
+            ]
+            print("Running:", " ".join(cmd))
+            subprocess.run(cmd, check=True)
+            list.append(f"Copied {item} to {remote_dest}")
 
-        for f in geo_dir.iterdir():
-            if f.is_file() and f.suffix == ".h5" and "ffun" not in f.name:
-                shutil.copy(f, ex3_geo_dir / f.name)
-        # shutil.copy(geo_dir / "geometry_0.h5", ex3_geo_dir / "geometry_0.h5")
-        shutil.copy(pv_dir / "ordered_calibrated_pv_data.csv", ex3_pv_dir / "ordered_calibrated_pv_data.csv")
-        shutil.copy(pv_dir / "OP131_1_EDPVR_calibrated_shifted.csv", ex3_pv_dir / "OP131_1_EDPVR_calibrated_shifted.csv")
-        logger.info(f"Copied data for sample {sample_id} to {ex3_data_dir}")
 
-
-#%%
 if __name__ == "__main__":
+    breakpoint()
     main()
