@@ -3,6 +3,8 @@ import numpy as np
 from pathlib import Path
 import json
 import structlog
+from structlog.dev import ConsoleRenderer
+
 import scipy.interpolate
 from scipy.stats import linregress
 from matplotlib import pyplot as plt
@@ -19,6 +21,15 @@ from datacollector import DataCollectorInflator
 # Hard-disable color for any well-behaved libs
 os.environ.setdefault("NO_COLOR", "1")
 os.environ.setdefault("FORCE_COLOR", "0")
+
+# Configure structlog to use ConsoleRenderer without colors
+structlog.configure(
+    processors=[
+        structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M:%S", utc=False),
+        structlog.stdlib.add_log_level,
+        structlog.dev.ConsoleRenderer(colors=False)
+    ]
+)
 logger = structlog.get_logger()
 
 comm = dolfin.MPI.comm_world
