@@ -2,7 +2,7 @@ import argparse
 import numpy as np
 from pathlib import Path
 import json
-from structlog import get_logger
+import structlog
 import scipy.interpolate
 from scipy.stats import linregress
 from matplotlib import pyplot as plt
@@ -16,8 +16,22 @@ import dolfin
 from heart_model import HeartModelDynaComp
 from datacollector import DataCollectorInflator
 
+# Structlog: no colors, plain console (or use JSONRenderer)
+structlog.configure(
+    processors=[
+        structlog.processors.TimeStamper(fmt="iso", utc=True),
+        structlog.stdlib.add_log_level,
+        structlog.processors.UnicodeDecoder(),
+        structlog.processors.KeyValueRenderer(key_order=["event"]),  # simple, no ANSI
+        # Alternatively: structlog.processors.JSONRenderer()
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
+)
+logger = structlog.get_logger()
+
 comm = dolfin.MPI.comm_world
-logger = get_logger()
 
 
 os.environ.setdefault("NO_COLOR", "1")
