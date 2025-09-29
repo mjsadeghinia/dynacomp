@@ -2,7 +2,7 @@ import argparse
 import numpy as np
 from pathlib import Path
 import json
-import structlog
+from structlog import get_logger
 import scipy.interpolate
 from scipy.stats import linregress
 from matplotlib import pyplot as plt
@@ -17,7 +17,7 @@ from heart_model import HeartModelDynaComp
 from datacollector import DataCollectorInflator
 
 comm = dolfin.MPI.comm_world
-logger = structlog.get_logger()
+logger = get_logger()
 
 
 os.environ.setdefault("NO_COLOR", "1")
