@@ -7,6 +7,7 @@ import scipy.interpolate
 from scipy.stats import linregress
 from matplotlib import pyplot as plt
 import shutil
+import os
 
 import utils
 import arg_parser
@@ -18,6 +19,9 @@ from datacollector import DataCollectorInflator
 comm = dolfin.MPI.comm_world
 logger = structlog.get_logger()
 
+
+os.environ.setdefault("NO_COLOR", "1")
+os.environ.setdefault("FORCE_COLOR", "0")
 
 def load_pv_data(directory: Path):
     data = np.loadtxt(directory / "ordered_calibrated_pv_data.csv", delimiter=',')

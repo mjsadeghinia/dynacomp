@@ -3,6 +3,7 @@ import numpy as np
 from pathlib import Path
 from structlog import get_logger
 import logging
+import os
 
 import utils
 import arg_parser
@@ -13,10 +14,16 @@ import warnings
 from ffc.quadrature.deprecation import QuadratureRepresentationDeprecationWarning
 
 warnings.filterwarnings("ignore", category=QuadratureRepresentationDeprecationWarning)
-
+# Show only errors from DOLFIN (hides that partition-size warning)
+dolfin.set_log_level(dolfin.LogLevel.ERROR)
+# Prevent non-root MPI ranks from printing (stops N duplicates)
+dolfin.parameters["std_out_all_processes"] = False
 
 logger = get_logger()
 comm = dolfin.MPI.comm_world
+
+os.environ.setdefault("NO_COLOR", "1")
+os.environ.setdefault("FORCE_COLOR", "0")
 
 
 # %%
