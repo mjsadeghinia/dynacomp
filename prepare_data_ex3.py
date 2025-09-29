@@ -30,7 +30,7 @@ def main():
     parser.add_argument(
         '--settings_dir',
         type=Path,
-        default=Path('/home/shared/dynacomp/settings'),
+        default=Path('/Users/javad/Docker/dynacomp/dynacomp/settings'),
         help='Directory where JSON settings files are stored.'
         )
     
@@ -45,7 +45,7 @@ def main():
     parser.add_argument(
         '--local_results_dir',
         type=Path,
-        default=Path('/home/shared/01_results_coarse_mesh'),
+        default=Path('/Users/javad/Docker/dynacomp/01_results_coarse_mesh'),
         help='Directory where results will be saved.'
     )
 
@@ -96,7 +96,6 @@ def main():
         if not pvcalib_src.exists():
             continue
         
-        breakpoint()
         # Remote destination
         dest_dir = f"{remote_results_dir}/{sample_name}/TPM/01_PVCalibration/"
         remote_dest = f"{REMOTE}:{dest_dir}"
@@ -126,9 +125,7 @@ def main():
             ]
             print("Running:", " ".join(cmd))
             subprocess.run(cmd, check=True)
-            list.append(f"Copied {item} to {remote_dest}")
 
 
 if __name__ == "__main__":
-    breakpoint()
     main()
