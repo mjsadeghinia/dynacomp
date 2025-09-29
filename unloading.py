@@ -104,8 +104,6 @@ def recreate_geometry_with_fibers(geo, fiber_angles):
         log_level=logging.WARNING,
         **fiber_angles,
     )
-    if comm.Get_rank() == 0:
-        logger.info("---------- Fibers regenerated ----------")
 
     microstructure = pulse.Microstructure(f0=fiber, s0=sheet, n0=sheet_normal)
     marker_functions = pulse.MarkerFunctions(ffun=geo.ffun)
@@ -188,7 +186,7 @@ def main(args=None) -> int:
         
         atrium_pressure = load_atrium_pressure(pv_dir)
         if comm.Get_rank() == 0:
-            logger.info(f"Sample {sample_name} atrium pressure: {atrium_pressure:.2f} kPa")
+            logger.info(f"Unloading started for Sample {sample_name} with atrium pressure: {atrium_pressure:.2f} kPa")
         if geo_fname is None:
             geo_fname = geo_dir / "geometry_0.h5"
         # Set material properties
@@ -210,6 +208,10 @@ def main(args=None) -> int:
             unloaded_geometry, settings["fiber_angles"]
         )
         export_unloaded_geometry(output_dir, unloaded_geometry_with_corrected_fibers)
+
+        if comm.Get_rank() == 0:
+            logger.info("Unloading completed and the geometry exported.")
+            logger.info("-----------------------------------")
 
 if __name__ == "__main__":
     main()
