@@ -1,12 +1,25 @@
 from pathlib import Path
 from typing import Protocol
 import matplotlib.pyplot as plt
-from structlog import get_logger
+import structlog 
 import csv
+import os
 import numpy as np
 import scipy.stats
 
-logger = get_logger()
+# Hard-disable color for any well-behaved libs
+os.environ.setdefault("NO_COLOR", "1")
+os.environ.setdefault("FORCE_COLOR", "0")
+
+# Configure structlog to use ConsoleRenderer without colors
+structlog.configure(
+    processors=[
+        structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M:%S", utc=False),
+        structlog.stdlib.add_log_level,
+        structlog.dev.ConsoleRenderer(colors=False)
+    ]
+)
+logger = structlog.get_logger()
 
 
 class Problem(Protocol):
