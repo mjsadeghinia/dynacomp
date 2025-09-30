@@ -69,6 +69,8 @@ def main(args=None) -> int:
     epi_fiber = args.epi_fiber
     endo_fiber = args.endo_fiber
     fiber_modeling_flag = args.fiber_modeling_flag
+    minimal_output = args.minimal_output
+    collector_logging = False if minimal_output else True
 
     if sample_ID is not None:
         sample_num = utils.get_num_from_id(sample_ID, setting_dir)
@@ -114,6 +116,7 @@ def main(args=None) -> int:
         )
     if comm.rank == 0:
         logger.info("Updated settings with fiber angles", epi_fiber=epi_fiber, endo_fiber=endo_fiber)
+        logger.info("-----------------------------------")
 
     heart_model = HeartModelDynaComp(
         geo=unloaded_geometry_with_updated_fibers,
@@ -124,13 +127,14 @@ def main(args=None) -> int:
     save_all = False if fiber_modeling_flag else True
     collector = DataCollector(outdir=outdir, model=heart_model, save_all=save_all)
     # Initializing the model
-    v = heart_model.compute_volume(activation_value=0, pressure_value=0)
+    v = heart_model.compute_volume(activation_value=0, pressure_value=0, logging_flag=collector_logging)
     collector.collect(
         time=0,
         pressure=0,
         volume=v,
         target_volume=v,
         activation=0.0,
+        logging_flag=collector_logging,
     )
     ED_index_modeling = 0 if "ED_index_modeling" not in settings else settings["ED_index_modeling"]
     # Pressurizing up to End Diastole with 10 steps
@@ -140,9 +144,10 @@ def main(args=None) -> int:
             time=i,
             pressure=pressures[ED_index_modeling] * i / 10,
             volume=v,
-        target_volume=v,
-        activation=0.0,
-    )
+            target_volume=v,
+            activation=0.0,
+            logging_flag=collector_logging,
+        )
     # Using newton method to find activation parameters based on PV data
     collector = newton_solver(
         heart_model=heart_model,
@@ -151,6 +156,7 @@ def main(args=None) -> int:
         collector=collector,
         start_time=11,
         comm=comm,
+        logging_flag=collector_logging,
     )
 
 if __name__ == "__main__":

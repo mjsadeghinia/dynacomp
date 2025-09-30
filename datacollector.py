@@ -51,8 +51,9 @@ class DataCollector:
         volume: float,
         target_volume: float,
         pressure: float,
+        logging_flag: bool = True
     ) -> None:
-        if self.comm.rank == 0:
+        if self.comm.rank == 0 and logging_flag:
             logger.info(
                 "Collecting data",
                 time=time,
@@ -222,8 +223,8 @@ class DataCollectorInflator:
             self.ax.legend(loc='lower left')
             plt.show()
 
-    def collect(self, time: float, volume: float, pressure: float) -> None:
-        if self.comm.rank == 0:
+    def collect(self, time: float, volume: float, pressure: float, logging_flag: bool = True) -> None:
+        if self.comm.rank == 0 and logging_flag:
             logger.info(f"Inflation step {time}: ", pressure=round(pressure,3), volume=round(volume,3))
         self.times.append(time)
         self.volumes.append(volume)

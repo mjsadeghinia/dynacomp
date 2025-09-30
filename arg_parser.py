@@ -327,6 +327,12 @@ def parse_arguments_processing(args=None):
         help="Enable fiber modeling, running simulation up to peak systole."
     )
 
+    parser.add_argument(
+        "--minimal_output",
+        action="store_true",
+        help="Enable minimal output during processing, useful for ex3."
+    )
+
     return parser.parse_args(args)
 
 def create_bc_params(args):
