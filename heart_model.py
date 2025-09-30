@@ -142,6 +142,7 @@ class HeartModelDynaComp:
         activation_value: float,
         pressure_value: float,
         delta_a_percent: float = 0.01,
+        logging_flag: bool = True,
     ) -> float:
         """
         Computes dV/da, with V is the volume of the model and a is the activation.
@@ -157,7 +158,7 @@ class HeartModelDynaComp:
         Returns:
         float: The computed dV/da .
         """
-        if self.comm.rank == 0:
+        if self.comm.rank == 0 and logging_flag:
             logger.info(
                 "Computing dV/da",
                 activation_value=activation_value,
@@ -185,7 +186,7 @@ class HeartModelDynaComp:
         v_f = self.get_volume()
 
         dV_da = (v_f - v_i) / (a_i * delta_a_percent)
-        if self.comm.rank == 0:
+        if self.comm.rank == 0 and logging_flag:
             logger.info("Computed dV/da", dV_da=dV_da)
 
         # reset the problem to its initial state

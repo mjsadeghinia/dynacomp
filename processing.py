@@ -138,15 +138,16 @@ def main(args=None) -> int:
     )
     ED_index_modeling = 0 if "ED_index_modeling" not in settings else settings["ED_index_modeling"]
     # Pressurizing up to End Diastole with 10 steps
+    if comm.rank == 0:
+        logger.info("Initial pressurization to End Diastole, with 10 steps up to pressure", target_pressure=pressures[ED_index_modeling])
     for i in range(1, 11):
-        v = heart_model.compute_volume(activation_value=0, pressure_value=pressures[ED_index_modeling] * i / 10)
+        v = heart_model.compute_volume(activation_value=0, pressure_value=pressures[ED_index_modeling] * i / 10, logging_flag=collector_logging)
         collector.collect(
             time=i,
             pressure=pressures[ED_index_modeling] * i / 10,
             volume=v,
             target_volume=v,
             activation=0.0,
-            logging_flag=collector_logging,
         )
     # Using newton method to find activation parameters based on PV data
     collector = newton_solver(
