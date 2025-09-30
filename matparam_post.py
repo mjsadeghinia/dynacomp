@@ -248,6 +248,12 @@ def main():
         help='If set, create and save one plot per unique b_f value.'
     )
     parser.add_argument(
+        '--update_settings',
+        action='store_true',
+        help='If set, update the settings matparams based on the data.'
+    )
+
+    parser.add_argument(
         '--clim',
         nargs=2,
         type=float,
@@ -285,6 +291,12 @@ def main():
         # New: process_one_csv flow (quadratic/linear/cubic), plotting like script 2 (markers unchanged)
         if args.bf_flag:
             data_all = np.loadtxt(fname, skiprows=1, delimiter=',')
+            if args.update_settings:
+                best_fit_ind = np.argmin(data_all[:, -1])
+                best_fit_a, best_fit_af = data_all[best_fit_ind, 0], data_all[best_fit_ind, 1]
+                settings["matparams"]['a'] = best_fit_a
+                settings["matparams"]['a_f'] = best_fit_af
+                utils.save_settings(settings, args.settings_dir, sample_id)
             unique_bf = np.unique(data_all[:, 3])
             for bf in unique_bf:
                 safe_bf = str(bf).replace('.', '_')
