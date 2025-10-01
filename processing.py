@@ -1,9 +1,10 @@
 # %%
 import numpy as np
 from pathlib import Path
-from structlog import get_logger
+import structlog 
 import arg_parser
 import json
+import os
 
 import dolfin
 import pulse
@@ -13,7 +14,19 @@ from datacollector import DataCollector
 from coupling_solver import newton_solver
 import utils
 
-logger = get_logger()
+# Hard-disable color for any well-behaved libs
+os.environ.setdefault("NO_COLOR", "1")
+os.environ.setdefault("FORCE_COLOR", "0")
+
+# Configure structlog to use ConsoleRenderer without colors
+structlog.configure(
+    processors=[
+        structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M:%S", utc=False),
+        structlog.stdlib.add_log_level,
+        structlog.dev.ConsoleRenderer(colors=False)
+    ]
+)
+logger = structlog.get_logger()
 
 # %%
 # UNITS:
@@ -56,6 +69,8 @@ def main(args=None) -> int:
     epi_fiber = args.epi_fiber
     endo_fiber = args.endo_fiber
     fiber_modeling_flag = args.fiber_modeling_flag
+    minimal_output = args.minimal_output
+    collector_logging = False if minimal_output else True
 
     if sample_ID is not None:
         sample_num = utils.get_num_from_id(sample_ID, setting_dir)
@@ -101,6 +116,7 @@ def main(args=None) -> int:
         )
     if comm.rank == 0:
         logger.info("Updated settings with fiber angles", epi_fiber=epi_fiber, endo_fiber=endo_fiber)
+        logger.info("-----------------------------------")
 
     heart_model = HeartModelDynaComp(
         geo=unloaded_geometry_with_updated_fibers,
@@ -111,25 +127,28 @@ def main(args=None) -> int:
     save_all = False if fiber_modeling_flag else True
     collector = DataCollector(outdir=outdir, model=heart_model, save_all=save_all)
     # Initializing the model
-    v = heart_model.compute_volume(activation_value=0, pressure_value=0)
+    v = heart_model.compute_volume(activation_value=0, pressure_value=0, logging_flag=collector_logging)
     collector.collect(
         time=0,
         pressure=0,
         volume=v,
         target_volume=v,
         activation=0.0,
+        logging_flag=collector_logging,
     )
     ED_index_modeling = 0 if "ED_index_modeling" not in settings else settings["ED_index_modeling"]
     # Pressurizing up to End Diastole with 10 steps
+    if comm.rank == 0:
+        logger.info("Initial pressurization to End Diastole, with 10 steps up to pressure", target_pressure=pressures[ED_index_modeling])
     for i in range(1, 11):
-        v = heart_model.compute_volume(activation_value=0, pressure_value=pressures[ED_index_modeling] * i / 10)
+        v = heart_model.compute_volume(activation_value=0, pressure_value=pressures[ED_index_modeling] * i / 10, logging_flag=collector_logging)
         collector.collect(
             time=i,
             pressure=pressures[ED_index_modeling] * i / 10,
             volume=v,
-        target_volume=v,
-        activation=0.0,
-    )
+            target_volume=v,
+            activation=0.0,
+        )
     # Using newton method to find activation parameters based on PV data
     collector = newton_solver(
         heart_model=heart_model,
@@ -138,6 +157,7 @@ def main(args=None) -> int:
         collector=collector,
         start_time=11,
         comm=comm,
+        logging_flag=collector_logging,
     )
 
 if __name__ == "__main__":

@@ -1,12 +1,25 @@
 from pathlib import Path
 from typing import Protocol
 import matplotlib.pyplot as plt
-from structlog import get_logger
+import structlog 
 import csv
+import os
 import numpy as np
 import scipy.stats
 
-logger = get_logger()
+# Hard-disable color for any well-behaved libs
+os.environ.setdefault("NO_COLOR", "1")
+os.environ.setdefault("FORCE_COLOR", "0")
+
+# Configure structlog to use ConsoleRenderer without colors
+structlog.configure(
+    processors=[
+        structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M:%S", utc=False),
+        structlog.stdlib.add_log_level,
+        structlog.dev.ConsoleRenderer(colors=False)
+    ]
+)
+logger = structlog.get_logger()
 
 
 class Problem(Protocol):
@@ -38,8 +51,9 @@ class DataCollector:
         volume: float,
         target_volume: float,
         pressure: float,
+        logging_flag: bool = True
     ) -> None:
-        if self.comm.rank == 0:
+        if self.comm.rank == 0 and logging_flag:
             logger.info(
                 "Collecting data",
                 time=time,
@@ -209,8 +223,8 @@ class DataCollectorInflator:
             self.ax.legend(loc='lower left')
             plt.show()
 
-    def collect(self, time: float, volume: float, pressure: float) -> None:
-        if self.comm.rank == 0:
+    def collect(self, time: float, volume: float, pressure: float, logging_flag: bool = True) -> None:
+        if self.comm.rank == 0 and logging_flag:
             logger.info(f"Inflation step {time}: ", pressure=round(pressure,3), volume=round(volume,3))
         self.times.append(time)
         self.volumes.append(volume)

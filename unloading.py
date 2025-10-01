@@ -1,8 +1,9 @@
 # %%
 import numpy as np
 from pathlib import Path
-from structlog import get_logger
+import structlog
 import logging
+import os
 
 import utils
 import arg_parser
@@ -13,10 +14,17 @@ import warnings
 from ffc.quadrature.deprecation import QuadratureRepresentationDeprecationWarning
 
 warnings.filterwarnings("ignore", category=QuadratureRepresentationDeprecationWarning)
+# Show only errors from DOLFIN (hides that partition-size warning)
+dolfin.set_log_level(dolfin.LogLevel.ERROR)
+# Prevent non-root MPI ranks from printing (stops N duplicates)
+dolfin.parameters["std_out_all_processes"] = False
 
+logger = structlog.get_logger()
 
-logger = get_logger()
 comm = dolfin.MPI.comm_world
+
+os.environ.setdefault("NO_COLOR", "1")
+os.environ.setdefault("FORCE_COLOR", "0")
 
 
 # %%
@@ -104,8 +112,6 @@ def recreate_geometry_with_fibers(geo, fiber_angles):
         log_level=logging.WARNING,
         **fiber_angles,
     )
-    if comm.Get_rank() == 1:
-        logger.info("---------- Fibers regenerated ----------")
 
     microstructure = pulse.Microstructure(f0=fiber, s0=sheet, n0=sheet_normal)
     marker_functions = pulse.MarkerFunctions(ffun=geo.ffun)
@@ -174,18 +180,22 @@ def main(args=None) -> int:
         sample_name = settings["id"]
         sample_dir = results_dir / sample_name / scan_type
         output_dir = sample_dir / output_folder
-        output_dir.mkdir(parents=True, exist_ok=True)
+        if comm.Get_rank() == 0:
+            output_dir.mkdir(parents=True, exist_ok=True)
+        dolfin.MPI.barrier(comm)
 
         if not sample_dir.exists():
             continue
         pv_dir = sample_dir / "01_PVCalibration/"
         geo_dir = pv_dir / "Geometries"
-        if not geo_dir.exists():
+        if not geo_dir.exists() and comm.Get_rank() == 0:
             logger.warning(f"Geometries not found for {sample_name}")
             continue
         
         atrium_pressure = load_atrium_pressure(pv_dir)
-        logger.info(f"Sample {sample_name} atrium pressure: {atrium_pressure:.2f} kPa")
+        if comm.Get_rank() == 0:
+            logger.info("-----------------------------------")
+            logger.info(f"Unloading started for Sample {sample_name} with atrium pressure: {atrium_pressure:.2f} kPa")
         if geo_fname is None:
             geo_fname = geo_dir / "geometry_0.h5"
         # Set material properties
@@ -207,6 +217,10 @@ def main(args=None) -> int:
             unloaded_geometry, settings["fiber_angles"]
         )
         export_unloaded_geometry(output_dir, unloaded_geometry_with_corrected_fibers)
+
+        if comm.Get_rank() == 0:
+            logger.info("Unloading completed and the geometry exported.")
+            logger.info("-----------------------------------")
 
 if __name__ == "__main__":
     main()

@@ -3,10 +3,13 @@ import numpy as np
 from pathlib import Path
 import json
 import structlog
+from structlog.dev import ConsoleRenderer
+
 import scipy.interpolate
 from scipy.stats import linregress
 from matplotlib import pyplot as plt
 import shutil
+import os
 
 import utils
 import arg_parser
@@ -15,9 +18,25 @@ import dolfin
 from heart_model import HeartModelDynaComp
 from datacollector import DataCollectorInflator
 
-comm = dolfin.MPI.comm_world
+# Hard-disable color for any well-behaved libs
+os.environ.setdefault("NO_COLOR", "1")
+os.environ.setdefault("FORCE_COLOR", "0")
+
+# Configure structlog to use ConsoleRenderer without colors
+structlog.configure(
+    processors=[
+        structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M:%S", utc=False),
+        structlog.stdlib.add_log_level,
+        structlog.dev.ConsoleRenderer(colors=False)
+    ]
+)
 logger = structlog.get_logger()
 
+comm = dolfin.MPI.comm_world
+
+
+os.environ.setdefault("NO_COLOR", "1")
+os.environ.setdefault("FORCE_COLOR", "0")
 
 def load_pv_data(directory: Path):
     data = np.loadtxt(directory / "ordered_calibrated_pv_data.csv", delimiter=',')
@@ -302,6 +321,9 @@ def main():
         edpvr_pres, edpvr_vols = load_edpvr_calibrated_shifted(sample_dir / "01_PVCalibration")
         edpvr_regress = linregress(edpvr_vols, edpvr_pres)
 
+        if comm.Get_rank() == 0:
+            logger.info(f"Inflation started for Sample {sample_name} up to {pv_pres[0] * pressure_multiplier:.2f} kPa with {pressure_steps} steps")
+
         # Creating FE model
         geometry = pulse.HeartGeometry.from_file(
         (output_dir / 'unloaded_geometry_0_with_fibers.h5').as_posix(), comm=comm
@@ -337,8 +359,8 @@ def main():
                 if comm.rank == 0:
                     logger.warning(f"Volume exceeded three times of EDV at pressure {p:.2f} kPa. Stopping inflation.")
                 break
-            if comm.rank == 0:
-                logger.info(f"Inflation step {i}: ", pressure=round(p,3), volume=round(v,3))
+            # if comm.rank == 0:
+            #     logger.info(f"Inflation step {i}: ", pressure=round(p,3), volume=round(v,3))
 
         inflation_spline = scipy.interpolate.UnivariateSpline(inflation_vols, inflation_pres, s=spline_smoothness, k=3)
         
@@ -366,6 +388,9 @@ def main():
                             f"{model.material.parameters['b']},"
                             f"{model.material.parameters['b_f']},"
                             f"{round(error,3)}\n")
+            
+            logger.info("Inflation completed and the results exported.")
+            logger.info("-----------------------------------")
 
 if __name__ == '__main__':
     main()

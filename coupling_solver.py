@@ -45,6 +45,7 @@ def newton_solver(
     collector: DataCollector | None = None,
     start_time: int = 0,
     comm=None,
+    logging_flag: bool = True,
 ):
     """
     Solves a heart_model for a specific PV loop to find activation .
@@ -84,9 +85,9 @@ def newton_solver(
         iter = 0
         v_diff = 1.0
         while abs(v_diff) > tol and iter < 20:
-            v_current = heart_model.compute_volume(a_current, p_current)
+            v_current = heart_model.compute_volume(a_current, p_current, logging_flag=logging_flag)
             v_diff = v_current - vols[i]
-            if comm.rank == 0:
+            if comm.rank == 0 and logging_flag:
                 logger.info(
                     "Iteration",
                     v_diff=v_diff,
@@ -107,7 +108,7 @@ def newton_solver(
                 #     dVda_iter += 1
                 #     if comm.rank == 0:
                 #         logger.info(f'Recalculating the derivative, delta_a update as {delta_a}')
-                dVda_val = heart_model.dVda(a_current, p_current, delta_a_percent = 0.01)
+                dVda_val = heart_model.dVda(a_current, p_current, delta_a_percent = 0.01, logging_flag=logging_flag)
                 J = dVda_val
                 a_current = a_current - v_diff / J
                 iter += 1
