@@ -70,6 +70,12 @@ def main():
     )
 
     parser.add_argument(
+        '--export_data_flag',
+        action='store_true',
+        help='If set, the PV data will be exported to the remote server.'
+    )
+
+    parser.add_argument(
         "-f",
         "--folders",
         nargs="+",
@@ -86,6 +92,7 @@ def main():
     local_results_dir = Path(args.local_results_dir)
     remote_results_dir = args.remote_results_dir
     import_flag = args.import_flag
+    export_data_flag = args.export_data_flag
     remote_user = args.remote_user
     REMOTE = f"{remote_user}@ex3"
 
@@ -105,7 +112,6 @@ def main():
         settings = utils.load_settings(settings_dir, sample_num)
         sample_name = settings["id"]
         sample_dir = local_results_dir / sample_name / scan_type
-
         if import_flag:
             if args.folders is None:
                 print("Please specify folders to import using --folders")
@@ -128,41 +134,62 @@ def main():
                 subprocess.run(cmd, check=True)
 
         else:
-            # Construct relevant paths
-            pvcalib_src = sample_dir / "01_PVCalibration"
-            if not pvcalib_src.exists():
-                continue
-            
-            # Remote destination
-            dest_dir = f"{remote_results_dir}/{sample_name}/{scan_type}/01_PVCalibration/"
-            remote_dest = f"{REMOTE}:{dest_dir}"
-            
-            # Ensure remote destination exists
-            mkdir_cmd = ["ssh", REMOTE, f"mkdir -p {dest_dir}"]
-            print("Ensuring remote dir:", " ".join(mkdir_cmd))
-            subprocess.run(mkdir_cmd, check=True)
-            
-            # Files and dirs to copy
-            items_to_copy = [
-                pvcalib_src / "Geometries",
-                pvcalib_src / f"{sample_name}_EDPVR_calibrated_shifted.csv",
-                pvcalib_src / "ordered_calibrated_pv_data.csv",
-            ]
-            
-            for item in items_to_copy:
-                if not item.exists():
-                    print(f"Skipping missing: {item}")
+            if export_data_flag:
+                # Construct relevant paths
+                pvcalib_src = sample_dir / "01_PVCalibration"
+                if not pvcalib_src.exists():
                     continue
                 
-                # Run rsync
+                # Remote destination
+                dest_dir = f"{remote_results_dir}/{sample_name}/{scan_type}"
+                remote_dest = f"{REMOTE}:{dest_dir}"
+                
+                # Ensure remote destination exists
+                mkdir_cmd = ["ssh", REMOTE, f"mkdir -p {dest_dir}"]
+                print("Ensuring remote dir:", " ".join(mkdir_cmd))
+                subprocess.run(mkdir_cmd, check=True)
+                
+                # Files and dirs to copy
+                items_to_copy = [
+                    pvcalib_src / "Geometries",
+                    pvcalib_src / f"{sample_name}_EDPVR_calibrated_shifted.csv",
+                    pvcalib_src / "ordered_calibrated_pv_data.csv",
+                ]
+                
+                for item in items_to_copy:
+                    if not item.exists():
+                        print(f"Skipping missing: {item}")
+                        continue
+                    
+                    # Run rsync
+                    cmd = [
+                        "rsync", "-avh", "--progress",
+                        str(item),
+                        f"{remote_dest}/01_PVCalibration/"
+                    ]
+                    print("Running:", " ".join(cmd))
+                    subprocess.run(cmd, check=True)
+                
+            if args.folders is None:
+                print("Please specify folders to export, if any, using --folders")
+                continue
+
+
+            
+            for folder in args.folders:
+                folder_path = sample_dir / folder
+                if not folder_path.exists():
+                    print(f"Skipping missing folder: {folder_path}")
+                    continue
+                # Run rsync for the entire folder
                 cmd = [
                     "rsync", "-avh", "--progress",
-                    str(item),
-                    remote_dest
+                    str(folder_path) + "/",  # Trailing slash to copy contents
+                    f"{remote_dest}/{folder}/"
                 ]
                 print("Running:", " ".join(cmd))
                 subprocess.run(cmd, check=True)
-
+                
 
 if __name__ == "__main__":
     main()
