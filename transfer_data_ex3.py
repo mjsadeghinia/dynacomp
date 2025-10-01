@@ -125,7 +125,6 @@ def main():
                     str(local_dest)
                 ]
                 print("Running:", " ".join(cmd))
-                breakpoint()
                 subprocess.run(cmd, check=True)
 
         else:
