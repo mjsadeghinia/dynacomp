@@ -94,9 +94,9 @@ def main(args=None) -> int:
     pressures, volumes = utils.load_pressure_volumes(pv_dir)
     if fiber_modeling_flag:
         peak_sys_ind = np.where(pressures == np.max(pressures))[0][0]
-        pressures = pressures[:peak_sys_ind + 5]
+        pressures = pressures[:peak_sys_ind + 1]
         if comm.rank == 0:
-            logger.warning(f"Fiber modeling enabled, using pressures up to peak systole (+5) peak_systole_pressure = {np.round(pressures[peak_sys_ind], 2)}.")
+            logger.warning(f"Fiber modeling enabled, using pressures up to peak systole pressure = {np.round(pressures[peak_sys_ind], 2)}.")
     
     
     unloaded_geometry_fname, a_matparam, af_matparam = load_edpvr_results(edpvr_dir)
