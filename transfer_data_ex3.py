@@ -134,16 +134,15 @@ def main():
                 subprocess.run(cmd, check=True)
 
         else:
+            # Remote destination
+            dest_dir = f"{remote_results_dir}/{sample_name}/{scan_type}"
+            remote_dest = f"{REMOTE}:{dest_dir}"
+            
             if export_data_flag:
                 # Construct relevant paths
                 pvcalib_src = sample_dir / "01_PVCalibration"
                 if not pvcalib_src.exists():
-                    continue
-                
-                # Remote destination
-                dest_dir = f"{remote_results_dir}/{sample_name}/{scan_type}"
-                remote_dest = f"{REMOTE}:{dest_dir}"
-                
+                    continue    
                 # Ensure remote destination exists
                 mkdir_cmd = ["ssh", REMOTE, f"mkdir -p {dest_dir}"]
                 print("Ensuring remote dir:", " ".join(mkdir_cmd))
