@@ -78,7 +78,9 @@
     "TPM": {
         "is_inverted": false,
         "remove_slice": false,
-        "remove_slice_num" : [0],
+        "remove_slice_num": [
+            0
+        ],
         "shift_slice_mask": true,
         "shift_slice_mask_num": 2,
         "close_apex": false,
@@ -95,25 +97,73 @@
                 1,
                 1
             ],
-            "26": [
+            "40": [
+                2,
+                2,
+                1,
+                1,
                 3,
-                3,
-                1,
-                1,
-                1,
                 1,
                 1,
                 1,
                 1,
                 1
             ],
-            "27": [
+            "41": [
+                2,
+                2,
+                1,
+                1,
                 3,
+                1,
+                1,
+                1,
+                1,
+                1
+            ],
+            "42": [
+                2,
+                2,
+                1,
+                1,
                 3,
                 1,
                 1,
                 1,
                 1,
+                1
+            ],
+            "43": [
+                2,
+                2,
+                1,
+                1,
+                2,
+                1,
+                1,
+                1,
+                1,
+                1
+            ],
+            "44": [
+                2,
+                2,
+                1,
+                1,
+                2,
+                1,
+                1,
+                1,
+                1,
+                1
+            ],
+            "45": [
+                2,
+                2,
+                1,
+                1,
+                1,
+                2,
                 1,
                 1,
                 1,
@@ -123,69 +173,27 @@
         "mesh": {
             "coarse": {
                 "seed_num_base_epi": 100,
-                "seed_num_base_endo": 50,
+                "seed_num_base_endo": 100,
                 "num_z_sections_epi": 50,
                 "num_z_sections_endo": 50,
-                "num_mid_layers_base": 3,
-                "smooth_level_epi": 0.1,
-                "smooth_level_endo": 0.1,
-                "num_lax_points": 32,
-                "lax_smooth_level_epi": 0.6,
-                "lax_smooth_level_endo": 0.4,
+                "num_mid_layers_base": 7,
+                "smooth_level_epi": 0.12,
+                "smooth_level_endo": 0.12,
+                "num_lax_points": 64,
+                "lax_smooth_level_epi": 0.5,
+                "lax_smooth_level_endo": 0.5,
                 "z_sections_flag_epi": 1,
                 "z_sections_flag_endo": 1,
                 "seed_num_threshold_epi": 25,
-                "seed_num_threshold_endo": 20,
+                "seed_num_threshold_endo": 35,
                 "scale_for_delauny": 1.5,
                 "t_mesh": -1,
                 "MeshSizeMin": 0.5,
                 "MeshSizeMax": 1,
                 "SurfaceMeshSizeEndo": 1,
-                "SurfaceMeshSizeEpi": 1
-            },
-            "fine": {
-                "seed_num_base_epi": 100,
-                "seed_num_base_endo": 100,
-                "num_z_sections_epi": 50,
-                "num_z_sections_endo": 50,
-                "num_mid_layers_base": 7,
-                "smooth_level_epi": 0.01,
-                "smooth_level_endo": 0.01,
-                "num_lax_points": 64,
-                "lax_smooth_level_epi": 0.2,
-                "lax_smooth_level_endo": 0.2,
-                "z_sections_flag_epi": 1,
-                "z_sections_flag_endo": 1,
-                "seed_num_threshold_epi": 25,
-                "seed_num_threshold_endo": 20,
-                "scale_for_delauny": 1.5,
-                "t_mesh": -1,
-                "MeshSizeMin": 0.2,
-                "MeshSizeMax": 0.5,
-                "SurfaceMeshSizeEndo": 1,
-                "SurfaceMeshSizeEpi": 1
-            },
-            "very_fine": {
-                "seed_num_base_epi": 100,
-                "seed_num_base_endo": 100,
-                "num_z_sections_epi": 50,
-                "num_z_sections_endo": 50,
-                "num_mid_layers_base": 5,
-                "smooth_level_epi": 0.01,
-                "smooth_level_endo": 0.01,
-                "num_lax_points": 128,
-                "lax_smooth_level_epi": 0.2,
-                "lax_smooth_level_endo": 0.2,
-                "z_sections_flag_epi": 1,
-                "z_sections_flag_endo": 1,
-                "seed_num_threshold_epi": 25,
-                "seed_num_threshold_endo": 20,
-                "scale_for_delauny": 1.5,
-                "t_mesh": -1,
-                "MeshSizeMin": 0.1,
-                "MeshSizeMax": 0.3,
-                "SurfaceMeshSizeEndo": 0.5,
-                "SurfaceMeshSizeEpi": 0.5
+                "SurfaceMeshSizeEpi": 1,
+                "normals_base_ind_epi": 0,
+                "normals_base_ind_endo": 0
             }
         }
     },
@@ -209,6 +217,8 @@
         "recording_num": 3,
         "volume_smooth_window_length": 15,
         "pressure_smooth_window_length": 15,
+        "ED_offset_index": -3,
+        "ED_pressure_offset": 5,
         "skip_redundant_data_flag": false,
         "process_occlusion_flag": true,
         "Occlusion_data_index_i": null,
@@ -216,8 +226,16 @@
         "Occlusion_recording_num": null,
         "Occlusion_data_skip_index": 1,
         "calibration": {
-            "a": 837789.3873487705,
-            "b": -1719.9979465500278
+            "a": 813544.3614813423,
+            "b": -1709.441865380595
+        },
+        "EDPVR_shift_flags": {
+            "volume": true,
+            "pressure": true
+        },
+        "EDPVR_shift": {
+            "volume": 149.40001728771495,
+            "pressure": 2.4909583320472435
         }
     }
 }
