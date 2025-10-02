@@ -99,7 +99,7 @@ def plot_contours(
 
 
 def process_one_csv(
-    csv_path: Path,
+    data: np.ndarray,
     output_dir: Path,
     filename: str,
     method: str,
@@ -112,11 +112,9 @@ def process_one_csv(
     zname="total_distance (mean)",
     clim=None
 ):
-    data = np.loadtxt(csv_path, skiprows=1, delimiter=',')
     x = data[:, 2]
     y = data[:, 3]
     z = data[:, 9]
-
     if method == "quadratic":
         _, zhat, analytic_xy = fit_quadratic_surface(x, y, z)
         xi = np.linspace(np.min(x), np.max(x), grid_nx)
@@ -247,6 +245,12 @@ def main():
         help="Color limits for contour plot (vmin vmax)."
     )
 
+    parser.add_argument(
+        "--update_settings", 
+        action="store_true",
+        help="Update settings file with best-fit parameters."
+    )
+
     args = parser.parse_args()   
 
     settings_dir = args.settings_dir
@@ -283,8 +287,17 @@ def main():
         out_dir = results_dir / sample_id / scan_type / output_folder
         csv_path = out_dir / csv_name
 
+        data = np.loadtxt(csv_path, skiprows=1, delimiter=',')
+
+        if args.update_settings:
+            best_fit_ind = np.argmin(data[:, 9])
+            best_fit_epi, best_fit_endo = data[best_fit_ind, 2], data[best_fit_ind, 3]
+            settings["fiber_angles"]['alpha_endo_lv'] = best_fit_endo
+            settings["fiber_angles"]['alpha_epi_lv'] = best_fit_epi
+            utils.save_settings(settings, args.settings_dir, sample_id)
+
         process_one_csv(
-            csv_path=csv_path,
+            data=data,
             output_dir=out_dir,
             filename="Fiber_contour.png",
             method=method,
