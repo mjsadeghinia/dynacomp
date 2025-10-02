@@ -61,16 +61,20 @@ def plot_contours(
         vmin, vmax = clim
     levels = np.linspace(vmin, vmax, contour_levels)
 
+    Zplot = np.array(Zi, copy=True)
+    Zplot = np.clip(Zplot, vmin, vmax)
+    
+
     # Best fit (grid min)
     min_idx = np.unravel_index(np.nanargmin(Zi), Zi.shape)
     x_best, y_best = Xi[min_idx], Yi[min_idx]
 
     fig, ax = plt.subplots(figsize=(8, 6))
-    cs = ax.contour(Xi, Yi, Zi, levels=levels, colors="black", linewidths=.5)
+    cs = ax.contour(Xi, Yi, Zplot, levels=levels, colors="black", linewidths=.5)
     if hasattr(cs, "levels") and len(cs.levels) > 0:
         ax.clabel(cs, levels=cs.levels[:5], fmt="%.2f", fontsize=7)
 
-    cf = ax.contourf(Xi, Yi, Zi, levels=levels, alpha=0.75, cmap='viridis_r')
+    cf = ax.contourf(Xi, Yi, Zplot, levels=levels, alpha=0.75, cmap='viridis_r')
 
     # Data points (white face, black outline) + minimum (data) in red circles
     ax.scatter(x, y, s=20, facecolors="white", edgecolors="black",
