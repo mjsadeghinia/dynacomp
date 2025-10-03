@@ -136,7 +136,7 @@ def main():
                 dst=f"{drive_sample_base}/{folder}",
                 use_sync=args.use_sync,
                 dry_run=args.dry_run,
-                extra=["--checksum"]
+                extra=["--no-traverse","--fast-list","--transfers=16","--checkers=32"]
             )
 
 if __name__ == "__main__":
