@@ -77,6 +77,191 @@
             }
         }
     },
+    "TPM": {
+        "is_inverted": true,
+        "remove_slice": true,
+        "remove_slice_num": [
+            0
+        ],
+        "shift_slice_mask": true,
+        "shift_slice_mask_num": [
+            2
+        ],
+        "close_apex": false,
+        "close_apex_itr_dilation": 5,
+        "close_apex_itr_erosion": 2,
+        "mask": {
+            "default": [
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1
+            ],
+            "1": [
+                1,
+                1,
+                1,
+                3,
+                3,
+                1,
+                3,
+                3,
+                1,
+                1,
+                1
+            ],
+            "25": [
+                1,
+                1,
+                3,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1
+            ],
+            "37": [
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                2,
+                3,
+                2,
+                1,
+                1
+            ],
+            "38": [
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                3,
+                3,
+                1,
+                1
+            ],
+            "39": [
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                3,
+                3,
+                1,
+                1
+            ],
+            "40": [
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                3,
+                3,
+                1,
+                1
+            ],
+            "41": [
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                3,
+                3,
+                1,
+                1
+            ],
+            "42": [
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                3,
+                3,
+                1,
+                1
+            ],
+            "43": [
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                3,
+                3,
+                1,
+                1
+            ],
+            "44": [
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                3,
+                3,
+                1,
+                1
+            ]
+        },
+        "mesh": {
+            "coarse": {
+                "seed_num_base_epi": 100,
+                "seed_num_base_endo": 100,
+                "num_z_sections_epi": 50,
+                "num_z_sections_endo": 50,
+                "num_mid_layers_base": 7,
+                "smooth_level_epi": 0.2,
+                "smooth_level_endo": 0.2,
+                "num_lax_points": 64,
+                "lax_smooth_level_epi": 1,
+                "lax_smooth_level_endo": 1,
+                "z_sections_flag_epi": 1,
+                "z_sections_flag_endo": 1,
+                "seed_num_threshold_epi": 25,
+                "seed_num_threshold_endo": 35,
+                "scale_for_delauny": 1.5,
+                "t_mesh": -1,
+                "MeshSizeMin": 0.5,
+                "MeshSizeMax": 1,
+                "SurfaceMeshSizeEndo": 1,
+                "SurfaceMeshSizeEpi": 1,
+                "normals_base_ind_epi": 0,
+                "normals_base_ind_endo": 0
+            }
+        }
+    },
     "matparams": {
         "a": 10.726,
         "a_f": 7.048,
@@ -97,11 +282,25 @@
         "recording_num": 2,
         "volume_smooth_window_length": 15,
         "pressure_smooth_window_length": 15,
+        "ED_offset_index": -5,
+        "total_pressure_offset": -3,
         "skip_redundant_data_flag": false,
         "process_occlusion_flag": true,
         "Occlusion_data_index_i": null,
         "Occlusion_data_index_f": null,
         "Occlusion_recording_num": null,
-        "Occlusion_data_skip_index": 1
+        "Occlusion_data_skip_index": 1,
+        "calibration": {
+            "a": 50.96623349685354,
+            "b": -1036.0846727615033
+        },
+        "EDPVR_shift_flags": {
+            "volume": true,
+            "pressure": false
+        },
+        "EDPVR_shift": {
+            "volume": 173.19072454851187,
+            "pressure": 0.03217035358731346
+        }
     }
 }
