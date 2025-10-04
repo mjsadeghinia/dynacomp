@@ -42,6 +42,24 @@ def rclone_copy(src, dst, use_sync=False, dry_run=False, extra=None):
         base.append("--dry-run")
     run(base)
 
+def rclone_rcat_from_tar(src_folder: Path, drive_dest_file: str, compress: str = "none", dry_run: bool = False):
+    if compress == "zstd":
+        tar_cmd = ["tar", "-I", "zstd -T0 -19", "-cf", "-", "-C", str(src_folder.parent), src_folder.name]
+    else:
+        tar_cmd = ["tar", "-cf", "-", "-C", str(src_folder.parent), src_folder.name]
+    rcat_cmd = ["rclone", "rcat", drive_dest_file, "-P"]
+    if dry_run:
+        rcat_cmd.append("--dry-run")
+    print("Running (producer):", shlex_join(tar_cmd))
+    print("Running (consumer):", shlex_join(rcat_cmd))
+    with subprocess.Popen(tar_cmd, stdout=subprocess.PIPE) as tar_p:
+        try:
+            subprocess.run(rcat_cmd, stdin=tar_p.stdout, check=True)
+        finally:
+            if tar_p.stdout:
+                tar_p.stdout.close()
+            tar_p.wait()
+
 def main():
     parser = argparse.ArgumentParser()
 
@@ -94,6 +112,14 @@ def main():
         "--dry_run", action="store_true",
         help="Append `--dry-run` to rclone to preview actions.",
     )
+    parser.add_argument(
+        "--archive", action="store_true",
+        help="Stream each folder as a single .tar (much faster for many small files).",
+    )
+    parser.add_argument(
+        "--archive_compress", choices=["none","zstd"], default="none",
+        help="On-the-fly compression for archive streaming (zstd is smaller but CPU intensive).",
+    )
 
     args = parser.parse_args()
     require_rclone()
@@ -131,13 +157,21 @@ def main():
                 print(f"Skipping missing folder: {folder_path}")
                 continue
 
-            rclone_copy(
-                src=str(folder_path),
-                dst=f"{drive_sample_base}/{folder}",
-                use_sync=args.use_sync,
-                dry_run=args.dry_run,
-                extra=["--no-traverse","--fast-list","--transfers=16","--checkers=32"]
-            )
+            if args.archive:
+                dest_file = f"{drive_sample_base}/{folder}.tar" if args.archive_compress=="none" else f"{drive_sample_base}/{folder}.tar.zst"
+                try:
+                    rclone_rcat_from_tar(folder_path, dest_file, compress=args.archive_compress, dry_run=args.dry_run)
+                except subprocess.CalledProcessError as e:
+                    print(f"[WARN] Archive upload failed for {folder_path} ({e}). Continuing…")
+                    continue
+            else:
+                rclone_copy(
+                    src=str(folder_path),
+                    dst=f"{drive_sample_base}/{folder}",
+                    use_sync=args.use_sync,
+                    dry_run=args.dry_run,
+                    extra=["--no-traverse","--fast-list","--transfers=16","--checkers=32"]
+                )
 
 if __name__ == "__main__":
     main()
