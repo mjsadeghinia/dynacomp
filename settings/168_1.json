@@ -75,6 +75,70 @@
             }
         }
     },
+    "TPM": {
+        "is_inverted": false,
+        "remove_slice": false,
+        "remove_slice_num": [
+            0
+        ],
+        "shift_slice_mask": false,
+        "shift_slice_mask_num": [],
+        "close_apex": true,
+        "close_apex_itr_dilation": 5,
+        "close_apex_itr_erosion": 2,
+        "mask": {
+            "default": [
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1
+            ],
+            "100": [
+                1,
+                1,
+                1,
+                1,
+                3,
+                1,
+                3,
+                3,
+                3,
+                1
+            ]
+        },
+        "mesh": {
+            "coarse": {
+                "seed_num_base_epi": 100,
+                "seed_num_base_endo": 100,
+                "num_z_sections_epi": 50,
+                "num_z_sections_endo": 50,
+                "num_mid_layers_base": 7,
+                "smooth_level_epi": 0.15,
+                "smooth_level_endo": 0.1,
+                "num_lax_points": 64,
+                "lax_smooth_level_epi": 1,
+                "lax_smooth_level_endo": 0.75,
+                "z_sections_flag_epi": 1,
+                "z_sections_flag_endo": 1,
+                "seed_num_threshold_epi": 25,
+                "seed_num_threshold_endo": 35,
+                "scale_for_delauny": 1.5,
+                "t_mesh": -1,
+                "MeshSizeMin": 0.5,
+                "MeshSizeMax": 1,
+                "SurfaceMeshSizeEndo": 1,
+                "SurfaceMeshSizeEpi": 1,
+                "normals_base_ind_epi": 0,
+                "normals_base_ind_endo": 0
+            }
+        }
+    },
     "matparams": {
         "a": 10.726,
         "a_f": 7.048,
@@ -100,6 +164,18 @@
         "Occlusion_data_index_i": null,
         "Occlusion_data_index_f": null,
         "Occlusion_recording_num": null,
-        "Occlusion_data_skip_index": 1
+        "Occlusion_data_skip_index": 1,
+        "EDPVR_shift_flags": {
+            "volume": true,
+            "pressure": true
+        },
+        "calibration": {
+            "a": 425354.72956660244,
+            "b": -640.1051846863963
+        },
+        "EDPVR_shift": {
+            "volume": 12.72747275582833,
+            "pressure": 0.9009636322590193
+        }
     }
 }
