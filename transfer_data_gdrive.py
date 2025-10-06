@@ -147,7 +147,9 @@ def main():
         settings = utils.load_settings(settings_dir, sample_num)
         sample_name = settings["id"]
         sample_dir = local_results_dir / sample_name / scan_type
-
+        if not sample_dir.exists():
+            print(f"Skipping missing sample directory: {sample_dir}")
+            continue
         # Destination base in Drive:
         # gdrive:01_results_coarse_mesh/<sample>/<scan_type>/
         drive_sample_base = f"{DRIVE_ROOT}/{sample_name}/{scan_type}"
