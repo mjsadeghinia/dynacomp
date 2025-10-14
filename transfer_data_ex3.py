@@ -1,4 +1,5 @@
 import os
+import numpy as np
 import subprocess
 from pathlib import Path
 import argparse
@@ -118,20 +119,62 @@ def main():
                 continue
             
             for folder in args.folders:
-                remote_src = f"{REMOTE}:{remote_results_dir}/{sample_name}/{scan_type}/{folder}/"
-                local_dest = sample_dir / folder
-                
-                # Ensure local destination exists
-                local_dest.mkdir(parents=True, exist_ok=True)
-                
-                # Run rsync
-                cmd = [
-                    "rsync", "-avh", "--progress",
-                    remote_src,
-                    str(local_dest)
-                ]
-                print("Running:", " ".join(cmd))
-                subprocess.run(cmd, check=True)
+                if folder == "02_Fiber_Modeling":
+                    #Transfer only the Fiber_results.csv and contour file
+                    files = ["Fiber_results.csv", "Fiber_contour.png"]
+                    for file in files:
+                        remote_src = f"{REMOTE}:{remote_results_dir}/{sample_name}/{scan_type}/{folder}/{file}"
+                        local_dest = sample_dir / folder
+                        # Ensure local destination exists
+                        local_dest.mkdir(parents=True, exist_ok=True)
+                        # Run rsync
+                        cmd = [
+                            "rsync", "-avh", "--progress",
+                            remote_src,
+                            str(local_dest)
+                        ]
+                        print("Running:", " ".join(cmd))
+                        subprocess.run(cmd, check=True)
+
+                    # Also transfer the best fit and -60 +60 files
+                    fiber_results = np.loadtxt(local_dest / "Fiber_results.csv", delimiter=',', skiprows=1)
+                    ind_best = np.argmin(fiber_results[:,9])
+                    best_fit_epi = fiber_results[ind_best,2]
+                    best_fit_endo = fiber_results[ind_best,3]
+                    best_fit_folder = f"epi_{best_fit_epi:.0f}_endo_{best_fit_endo:.0f}"
+                    initial_fiber_folder = f"epi_-60_endo_60"
+                    fiber_folders = [best_fit_folder, initial_fiber_folder]
+                    for fiber_folder in fiber_folders:
+                        remote_src = f"{REMOTE}:{remote_results_dir}/{sample_name}/{scan_type}/{folder}/{fiber_folder}/"
+                        local_dest = sample_dir / folder / fiber_folder
+                        # Ensure local destination exists
+                        local_dest.mkdir(parents=True, exist_ok=True)
+                        
+                        # Run rsync
+                        cmd = [
+                            "rsync", "-avh", "--progress",
+                            remote_src,
+                            str(local_dest)
+                        ]
+                        print("Running:", " ".join(cmd))
+                        subprocess.run(cmd, check=True)
+
+
+                else:
+                    remote_src = f"{REMOTE}:{remote_results_dir}/{sample_name}/{scan_type}/{folder}/"
+                    local_dest = sample_dir / folder
+                    
+                    # Ensure local destination exists
+                    local_dest.mkdir(parents=True, exist_ok=True)
+                    
+                    # Run rsync
+                    cmd = [
+                        "rsync", "-avh", "--progress",
+                        remote_src,
+                        str(local_dest)
+                    ]
+                    print("Running:", " ".join(cmd))
+                    subprocess.run(cmd, check=True)
 
         else:
             # Remote destination
