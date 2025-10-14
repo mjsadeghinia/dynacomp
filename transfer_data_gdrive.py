@@ -60,6 +60,39 @@ def rclone_rcat_from_tar(src_folder: Path, drive_dest_file: str, compress: str =
                 tar_p.stdout.close()
             tar_p.wait()
 
+def rclone_path_exists(remote_path: str) -> bool:
+    # quiet existence check on remote
+    res = subprocess.run(
+        ["rclone", "lsf", remote_path, "--max-depth", "0"],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+    )
+    return res.returncode == 0
+
+
+def download_and_extract_tar(drive_sample_base: str, folder: str, dest_dir: Path, dry_run: bool = False):
+    candidates = [f"{drive_sample_base}/{folder}.tar.zst", f"{drive_sample_base}/{folder}.tar"]
+    for remote_file in candidates:
+        if not rclone_path_exists(remote_file):
+            continue
+        local_tar = dest_dir / Path(remote_file).name
+        cmd = ["rclone", "copyto", remote_file, str(local_tar), "-P"]
+        if dry_run:
+            cmd.append("--dry-run")
+        run(cmd)
+        ext = local_tar.suffix
+        if dry_run:
+            print(f"[DRY-RUN] Would extract {local_tar} into {dest_dir} and delete it afterwards")
+            return
+        if ext == ".zst":
+            extract_cmd = ["tar", "-I", "zstd -d", "-xf", str(local_tar), "-C", str(dest_dir)]
+        else:
+            extract_cmd = ["tar", "-xf", str(local_tar), "-C", str(dest_dir)]
+        run(extract_cmd)
+        local_tar.unlink()
+        return
+    raise subprocess.CalledProcessError(1, "rclone copyto")
+
+
 def main():
     parser = argparse.ArgumentParser()
 
@@ -120,6 +153,10 @@ def main():
         "--archive_compress", choices=["none","zstd"], default="none",
         help="On-the-fly compression for archive streaming (zstd is smaller but CPU intensive).",
     )
+    parser.add_argument(
+        "--download", action="store_true",
+        help="Download <folder>.tar(.zst) from Drive, extract into local sample dir, then delete the archive.",
+    )
 
     args = parser.parse_args()
     require_rclone()
@@ -155,6 +192,12 @@ def main():
         drive_sample_base = f"{DRIVE_ROOT}/{sample_name}/{scan_type}"
         for folder in args.folders:
             folder_path = sample_dir / folder
+            if args.download:
+                try:
+                    download_and_extract_tar(drive_sample_base, folder, sample_dir, args.dry_run)
+                except subprocess.CalledProcessError as e:
+                    print(f"[WARN] Download/extract failed for {folder} ({e}). Continuing…")
+                continue
             if not folder_path.exists():
                 print(f"Skipping missing folder: {folder_path}")
                 continue
