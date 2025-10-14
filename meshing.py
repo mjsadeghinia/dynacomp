@@ -127,6 +127,18 @@ def create_mesh(
         )
         fnmae = outdir.as_posix() + "/" + fname_prefix + ".html"
         fig.write_html(fnmae)
+        # mesh_utils.plot_3d_contours(
+        #     fig=None,
+        #     tck_shax_epi=tck_shax_epi,
+        #     tck_lax_epi=tck_lax_epi,
+        #     tck_shax_endo=tck_shax_endo,
+        #     tck_lax_endo=tck_lax_endo,
+        #     out_svg_path=(output_dir / "contours_3d_skip5.svg").as_posix(),
+        #     skip_every_shax=5,
+        #     skip_every_lax=4,
+        #     elev=20,
+        #     azim=-165
+        # )
     points_cloud_epi, k_apex_epi = mu.create_point_cloud(
         tck_shax_epi,
         apex_epi,

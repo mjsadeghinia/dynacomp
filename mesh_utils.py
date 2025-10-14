@@ -6,6 +6,7 @@ from scipy.interpolate import splprep
 from ventric_mesh.mesh_utils import interpolate_splines, equally_spaced_points_on_spline
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+from scipy.interpolate import splev
 
 from pathlib import Path
 import pymatreader
@@ -868,3 +869,55 @@ def generate_voxel_mesh_meshio(voxel_array, resolution, slice_thickness):
     cells = [("hexahedron", np.array(cells))]
 
     return vertices, cells
+
+def plot_3d_contours(
+    fig, tck_shax_epi, tck_lax_epi, tck_shax_endo=None, tck_lax_endo=None,
+    skip_every_shax=1, skip_every_lax=1, out_svg_path="contours_3d.svg", n_points=1000, transparent=True,
+    elev=20, azim=35
+):
+    # Create a Matplotlib 3D figure/axes (ignore incoming plotly fig)
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")
+
+    if transparent:
+        fig.patch.set_alpha(0.0)
+        ax.patch.set_alpha(0.0)
+        for pane in (ax.xaxis.pane, ax.yaxis.pane, ax.zaxis.pane):
+            pane.set_edgecolor((0,0,0,0))
+            pane.set_facecolor((1,1,1,0))
+
+    # --- SHAX curves ---
+    k_shax = len(tck_shax_epi)
+    for k in range(0, k_shax, skip_every_shax):
+        tck_epi_k = tck_shax_epi[k]
+        new_points_epi = splev(np.linspace(0, 1, n_points), tck_epi_k)
+        ax.plot(new_points_epi[0], new_points_epi[1], new_points_epi[2], "-", lw=1.2)  # red by default theme
+
+        if tck_shax_endo and len(tck_shax_endo) > k:
+            tck_endo_k = tck_shax_endo[k]
+            new_points_endo = splev(np.linspace(0, 1, n_points), tck_endo_k)
+            ax.plot(new_points_endo[0], new_points_endo[1], new_points_endo[2], "-", lw=1.2)
+
+    # --- LAX splines ---
+    n_lax = len(tck_lax_epi)
+    for n in range(0, n_lax, skip_every_lax):
+        lax_tck_epi_n = tck_lax_epi[n]
+        lax_new_points_epi = splev(np.linspace(0, 1, n_points), lax_tck_epi_n)
+        ax.plot(lax_new_points_epi[0], lax_new_points_epi[1], lax_new_points_epi[2], "-", lw=1.5)
+
+        if tck_lax_endo and n < len(tck_lax_endo):
+            lax_tck_endo_n = tck_lax_endo[n]
+            lax_new_points_endo = splev(np.linspace(0, 1, n_points), lax_tck_endo_n)
+            ax.plot(lax_new_points_endo[0], lax_new_points_endo[1], lax_new_points_endo[2], "-", lw=1.5)
+
+    # Match the old plotly camera-ish view
+    ax.view_init(elev=elev, azim=azim)
+    ax.grid(False)
+    # ax.set_xticks([]); ax.set_yticks([]); ax.set_zticks([])  # uncomment for publication
+    ax.set_xlabel("x"); ax.set_ylabel("y"); ax.set_zlabel("z")
+
+    # Save as true vector SVG with transparent background
+    plt.savefig(out_svg_path, format="svg", transparent=transparent,
+                bbox_inches="tight", pad_inches=0)
+    plt.close(fig)
+    return None  # kept function signature close; plotly version returned fig
