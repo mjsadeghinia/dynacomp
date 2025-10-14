@@ -68,7 +68,7 @@ def parse_arguments(args=None):
     parser.add_argument(
         "-o",
         "--output_dir",
-        default="/home/shared/02_post_processing/02_EDPVR_Results_v2",
+        default="/home/shared/02_post_processing/02_EDPVR_Results",
         type=Path,
         help="The results folder where the processed data should be saved.",
     )
@@ -76,7 +76,7 @@ def parse_arguments(args=None):
     parser.add_argument(
         "-f",
         "--folder",
-        default="02_EDPVR_Modeling_v2",
+        default="02_EDPVR_Modeling",
         type=str,
         help="The folder containing the EDPVR results."
     )
@@ -133,14 +133,14 @@ def get_fibrosis_data(ids, fibrosis_path):
     fibrosis_slice2 = dict()
     data = np.loadtxt(fibrosis_path, delimiter=',', skiprows=1, dtype=str)
     for key in ids.keys():
+        if key not in fibrosis:
+            fibrosis[key] = []
+            fibrosis_slice1[key] = []
+            fibrosis_slice2[key] = []
         if ids[key]:
             for id in ids[key]:
                 try:
                     ind = np.where(data[:,0]==id[2:])[0][0]
-                    if key not in fibrosis:
-                        fibrosis[key] = []
-                        fibrosis_slice1[key] = []
-                        fibrosis_slice2[key] = []
                     fibrosis[key].append(float(data[ind][-1]))
                     fibrosis_slice1[key].append(float(data[ind][-3]))
                     fibrosis_slice2[key].append(float(data[ind][-2]))
@@ -177,7 +177,7 @@ def main(args=None) -> int:
 
     # Initialize the results dicts
     group_list = ["SHAM", "AS"]
-    time_list = [6, 12, 20]
+    time_list = [6, 12]
     diameter_list = [107, 130, 150]
 
     ids = utils_post.initialize_results_dict(group_list, time_list, diameter_list)
