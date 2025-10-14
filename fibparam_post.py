@@ -290,6 +290,9 @@ def main():
 
         out_dir = results_dir / sample_id / scan_type / output_folder
         csv_path = out_dir / csv_name
+        if not csv_path.exists():
+            print(f"CSV file {csv_path} does not exist, skipping sample {sample_id}.")
+            continue
 
         data = np.loadtxt(csv_path, skiprows=1, delimiter=',')
 
