@@ -4,11 +4,25 @@ import subprocess
 from pathlib import Path
 import argparse
 import utils
+import shlex
 
 """ 
 Script to copy prepared data to ex3 server
 THIS SHOULD BE RUN LOCALLY NOT ON DOCKER
 """
+
+def remote_exists(remote_host: str, remote_path: str, kind: str = "any") -> bool:
+    """
+    kind: "file" -> test -f, "dir" -> test -d, "any" -> test -e
+    """
+    flag = {"file": "-f", "dir": "-d", "any": "-e"}[kind]
+    cmd = [
+        "ssh",
+        remote_host,
+        f"bash -lc 'test {flag} {shlex.quote(remote_path)}'"
+    ]
+    res = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return res.returncode == 0
 
 def main():
     parser = argparse.ArgumentParser()
@@ -97,7 +111,6 @@ def main():
     remote_user = args.remote_user
     REMOTE = f"{remote_user}@ex3"
 
-
     if sample_ID is not None:
         sample_nums = []
         for id in sample_ID:
@@ -120,24 +133,28 @@ def main():
             
             for folder in args.folders:
                 if folder == "02_Fiber_Modeling":
-                    #Transfer only the Fiber_results.csv and contour file
+                    # Transfer only the Fiber_results.csv and contour file
                     files = ["Fiber_results.csv", "Fiber_contour.png"]
                     for file in files:
-                        remote_src = f"{REMOTE}:{remote_results_dir}/{sample_name}/{scan_type}/{folder}/{file}"
+                        # --- CHANGED: check path-only on remote ---
+                        remote_path_only = f"{remote_results_dir}/{sample_name}/{scan_type}/{folder}/{file}"
+                        if not remote_exists(REMOTE, remote_path_only, kind="file"):
+                            print(f"Skipping missing file on ex3: {remote_path_only}")
+                            continue
+                        remote_src = f"{REMOTE}:{remote_path_only}"
+
                         local_dest = sample_dir / folder
-                        # Ensure local destination exists
                         local_dest.mkdir(parents=True, exist_ok=True)
-                        # Run rsync
-                        cmd = [
-                            "rsync", "-avh", "--progress",
-                            remote_src,
-                            str(local_dest)
-                        ]
+                        cmd = ["rsync", "-avh", "--progress", remote_src, str(local_dest)]
                         print("Running:", " ".join(cmd))
                         subprocess.run(cmd, check=True)
 
                     # Also transfer the best fit and -60 +60 files
-                    fiber_results = np.loadtxt(local_dest / "Fiber_results.csv", delimiter=',', skiprows=1)
+                    csv_local = sample_dir / folder / "Fiber_results.csv"
+                    if not csv_local.exists():
+                        print(f"Missing local file: {csv_local}")
+                        continue
+                    fiber_results = np.loadtxt(csv_local, delimiter=',', skiprows=1)
                     ind_best = np.argmin(fiber_results[:,9])
                     best_fit_epi = fiber_results[ind_best,2]
                     best_fit_endo = fiber_results[ind_best,3]
@@ -145,34 +162,30 @@ def main():
                     initial_fiber_folder = f"epi_-60_endo_60"
                     fiber_folders = [best_fit_folder, initial_fiber_folder]
                     for fiber_folder in fiber_folders:
-                        remote_src = f"{REMOTE}:{remote_results_dir}/{sample_name}/{scan_type}/{folder}/{fiber_folder}/"
+                        # --- CHANGED: check remote dir existence ---
+                        remote_folder_path = f"{remote_results_dir}/{sample_name}/{scan_type}/{folder}/{fiber_folder}"
+                        if not remote_exists(REMOTE, remote_folder_path, kind="dir"):
+                            print(f"Skipping missing remote folder on ex3: {remote_folder_path}")
+                            continue
+                        remote_src = f"{REMOTE}:{remote_folder_path}/"
+
                         local_dest = sample_dir / folder / fiber_folder
-                        # Ensure local destination exists
                         local_dest.mkdir(parents=True, exist_ok=True)
-                        
-                        # Run rsync
-                        cmd = [
-                            "rsync", "-avh", "--progress",
-                            remote_src,
-                            str(local_dest)
-                        ]
+                        cmd = ["rsync", "-avh", "--progress", remote_src, str(local_dest)]
                         print("Running:", " ".join(cmd))
                         subprocess.run(cmd, check=True)
 
-
                 else:
-                    remote_src = f"{REMOTE}:{remote_results_dir}/{sample_name}/{scan_type}/{folder}/"
+                    # --- CHANGED: check remote dir existence before rsync ---
+                    remote_folder_path = f"{remote_results_dir}/{sample_name}/{scan_type}/{folder}"
+                    if not remote_exists(REMOTE, remote_folder_path, kind="dir"):
+                        print(f"Skipping missing remote folder on ex3: {remote_folder_path}")
+                        continue
+                    remote_src = f"{REMOTE}:{remote_folder_path}/"
+
                     local_dest = sample_dir / folder
-                    
-                    # Ensure local destination exists
                     local_dest.mkdir(parents=True, exist_ok=True)
-                    
-                    # Run rsync
-                    cmd = [
-                        "rsync", "-avh", "--progress",
-                        remote_src,
-                        str(local_dest)
-                    ]
+                    cmd = ["rsync", "-avh", "--progress", remote_src, str(local_dest)]
                     print("Running:", " ".join(cmd))
                     subprocess.run(cmd, check=True)
 
@@ -182,16 +195,13 @@ def main():
             remote_dest = f"{REMOTE}:{dest_dir}"
             
             if export_data_flag:
-                # Construct relevant paths
                 pvcalib_src = sample_dir / "01_PVCalibration"
                 if not pvcalib_src.exists():
                     continue    
-                # Ensure remote destination exists
                 mkdir_cmd = ["ssh", REMOTE, f"mkdir -p {dest_dir}"]
                 print("Ensuring remote dir:", " ".join(mkdir_cmd))
                 subprocess.run(mkdir_cmd, check=True)
                 
-                # Files and dirs to copy
                 items_to_copy = [
                     pvcalib_src / "Geometries",
                     pvcalib_src / f"{sample_name}_EDPVR_calibrated_shifted.csv",
@@ -202,13 +212,7 @@ def main():
                     if not item.exists():
                         print(f"Skipping missing: {item}")
                         continue
-                    
-                    # Run rsync
-                    cmd = [
-                        "rsync", "-avh", "--progress",
-                        str(item),
-                        f"{remote_dest}/01_PVCalibration/"
-                    ]
+                    cmd = ["rsync", "-avh", "--progress", str(item), f"{remote_dest}/01_PVCalibration/"]
                     print("Running:", " ".join(cmd))
                     subprocess.run(cmd, check=True)
                 
@@ -216,14 +220,11 @@ def main():
                 print("Please specify folders to export, if any, using --folders")
                 continue
 
-
-            
             for folder in args.folders:
                 folder_path = sample_dir / folder
                 if not folder_path.exists():
                     print(f"Skipping missing folder: {folder_path}")
                     continue
-                # Run rsync for the entire folder
                 cmd = [
                     "rsync", "-avh", "--progress",
                     str(folder_path) + "/",  # Trailing slash to copy contents
@@ -231,7 +232,6 @@ def main():
                 ]
                 print("Running:", " ".join(cmd))
                 subprocess.run(cmd, check=True)
-                
 
 if __name__ == "__main__":
     main()
