@@ -3,8 +3,11 @@ import numpy as np
 from pathlib import Path
 import matplotlib.pyplot as plt
 import matplotlib.tri as mtri
-
 import utils
+from structlog import get_logger
+
+logger = get_logger()
+
 
 #%%
 def fit_quadratic_surface(x, y, z):
@@ -291,9 +294,10 @@ def main():
         out_dir = results_dir / sample_id / scan_type / output_folder
         csv_path = out_dir / csv_name
         if not csv_path.exists():
-            print(f"CSV file {csv_path} does not exist, skipping sample {sample_id}.")
+            logger.warning(f"CSV file {csv_path} does not exist, skipping sample {sample_id}.")
             continue
 
+        logger.info(f"Processing sample {sample_id}")
         data = np.loadtxt(csv_path, skiprows=1, delimiter=',')
 
         if args.update_settings:
