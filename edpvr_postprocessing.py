@@ -88,6 +88,13 @@ def parse_arguments(args=None):
         help="The path to the fibrosis data file (csv)."
     )
 
+    parser.add_argument(
+        "--version",
+        type=int,
+        default=None,
+        help="Version number (e.g., 3)",
+    )
+
     return parser.parse_args(args)
 
 def load_edpvr_calibrated_shifted(pv_directory: Path):
@@ -169,10 +176,12 @@ def main(args=None) -> int:
     exclusion_flag = args.exclusion
     error_threshold = args.error_threshold
     settings_dir = args.settings_dir
-    results_dir = args.results_dir
-    edpvr_folder = args.folder
+    v = f"_{args.version}" if args.version else ""
+    results_dir = f"{args.results_dir}{v}"
+    edpvr_folder = f"{args.folder}{v}"
     fibrosis_path = args.fibrosis_path
     output_dir = args.output_dir
+    output_dir = output_dir.parent / (output_dir.name + v)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Initialize the results dicts

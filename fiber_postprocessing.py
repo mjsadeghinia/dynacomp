@@ -82,6 +82,13 @@ def parse_arguments(args=None):
         help="The folder containing the Fiber results."
     )
 
+    parser.add_argument(
+        "--version",
+        type=int,
+        default=None,
+        help="Version number (e.g., 3)",
+    )
+
     return parser.parse_args(args)
 
 def prepare_results_dict(data_dict, ordered_keys=None, round_flag=True):
@@ -154,9 +161,11 @@ def main(args=None) -> int:
     exclusion_flag = args.exclusion
     error_threshold = args.error_threshold
     settings_dir = args.settings_dir
-    results_dir = args.results_dir
-    fiber_folder = args.folder
+    v = f"_{args.version}" if args.version else ""
+    results_dir = f"{args.results_dir}{v}"
+    fiber_folder = f"{args.folder}{v}"
     output_dir = args.output_dir
+    output_dir = output_dir.parent / (output_dir.name + v)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Initialize the results dicts
