@@ -172,12 +172,32 @@ def main(args=None) -> int:
         type=Path,
         help="The results folder where the processed data should be saved.",
     )
+
+    parser.add_argument(
+        "-pv",
+        "--pv_folder",
+        default="PV Data",
+        type=Path,
+        help="The folder where PV data is stored.",
+    )
+
+    parser.add_argument(
+        '-o',
+        "--output_folder",
+        default="01_PVCalibration",
+        type=str,
+        help="The result folder name tha would be created in the directory of the sample.",
+    )
+
+
     args = parser.parse_args(args)
 
     sample_nums = args.number
     sample_ID = args.ID
     settings_dir = args.settings_dir
     results_dir = args.results_dir
+    pv_folder = args.pv_folder
+    output_folder = args.output_folder
 
     if sample_ID is not None:
         sample_nums = [get_num_from_id(sample_ID, settings_dir)]
@@ -191,9 +211,9 @@ def main(args=None) -> int:
         settings = load_settings(settings_dir, sample_num)
         sample_name = settings["id"]
 
-        pv_data_dir = results_dir / sample_name / "PV Data"
+        pv_data_dir = results_dir / sample_name / pv_folder
         tpm_data_dir = results_dir / sample_name / "TPM"
-        pv_calibrated_data_dir = tpm_data_dir / "01_PVCalibration"
+        pv_calibrated_data_dir = tpm_data_dir / output_folder
 
         if not pv_calibrated_data_dir.exists():
             continue

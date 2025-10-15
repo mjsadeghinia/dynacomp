@@ -254,6 +254,22 @@ def main(args=None) -> int:
     )
 
     parser.add_argument(
+        "-pv",
+        "--pv_folder",
+        default="PV Data",
+        type=Path,
+        help="The folder where PV data is stored.",
+    )
+
+    parser.add_argument(
+        '-o',
+        "--output_folder",
+        default="01_PVCalibration",
+        type=str,
+        help="The result folder name tha would be created in the directory of the sample.",
+    )
+
+    parser.add_argument(
         "-r",
         "--results_dir",
         default="/home/shared/01_results_coarse_mesh",
@@ -267,6 +283,8 @@ def main(args=None) -> int:
     settings_dir = args.settings_dir
     data_dir = args.data_dir
     results_dir = args.results_dir
+    pv_folder = args.pv_folder
+    output_folder = args.output_folder
 
     if sample_ID is not None:
         sample_nums = [get_num_from_id(sample_ID, settings_dir)]
@@ -282,11 +300,11 @@ def main(args=None) -> int:
         if "TPM" not in settings:
             logger.warning(f"TPM not found in settings for {sample_name}")
             continue
-        pv_data_dir = results_dir / sample_name / "PV Data"
+        pv_data_dir = results_dir / sample_name / pv_folder
         tpm_data_dir = results_dir / sample_name / "TPM"
         meshes_data_dir = tpm_data_dir / "00_Meshes"
         h5_dir = data_dir / sample_name / "TPM"
-        output_dir = results_dir / sample_name / "TPM" / "01_PVCalibration"
+        output_dir = results_dir / sample_name / "TPM" / output_folder
         output_dir = arg_parser.prepare_outdir(output_dir)
 
         pv_time, pv_pressures, pv_volumes = load_pressure_volumes(pv_data_dir)

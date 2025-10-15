@@ -10,6 +10,8 @@ from scipy.ndimage import gaussian_filter1d
 from scipy.signal import savgol_filter
 from scipy.stats import linregress
 
+import arg_parser
+
 from structlog import get_logger
 
 logger = get_logger()
@@ -231,6 +233,14 @@ def parse_arguments(args=None):
         help="The results folder where the processed data should be saved.",
     )
 
+    parser.add_argument(
+        '-o',
+        "--output_folder",
+        default="PV Data",
+        type=str,
+        help="The result folder name tha would be created in the directory of the sample.",
+    )
+
     return parser.parse_args(args)
 
 
@@ -268,6 +278,7 @@ def main(args=None) -> int:
     settings_dir = args.settings_dir
     data_dir = args.data_dir
     results_dir = args.results_dir
+    output_folder = args.output_folder
     # Get the list of .json files in the directory and sort them by name
     sorted_files = sorted(
         [
@@ -287,8 +298,9 @@ def main(args=None) -> int:
         settings = load_settings(settings_dir, sample_num)
         sample_name = settings["id"]
         pv_data_dir = data_dir / sample_name / "PV Data"
-        output_dir = results_dir / sample_name / "PV Data"
-        output_dir.mkdir(exist_ok=True, parents=True)
+        output_dir = results_dir / sample_name / output_folder
+        output_dir = arg_parser.prepare_outdir(output_dir)
+        # output_dir.mkdir(exist_ok=True, parents=True)
 
         logger.info(f"Sample {sample_name} is being processed...")
 
