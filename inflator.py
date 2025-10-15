@@ -272,6 +272,13 @@ def main():
         help='Flag to indicate whether to save stress results.'
     )
 
+    parser.add_argument(
+        "--pv_calibration_folder",
+        default="01_PVCalibration",
+        type=str,
+        help="The folder where PV data is stored.",
+    )
+
     args = parser.parse_args()
 
     number = args.number
@@ -288,6 +295,7 @@ def main():
     plot_flag = args.plot_flag
     logging_flag = args.logging_flag
     save_stress = args.save_stress
+    pv_calibration_folder = args.pv_calibration_folder
     # Determine sample list
     if sample_ID is not None:
         sample_nums = []
@@ -316,9 +324,9 @@ def main():
         # comm.Barrier()
 
         # Load PV and EDPVR data
-        _, pv_pres, pv_vols = load_pv_data(sample_dir / "01_PVCalibration")
+        _, pv_pres, pv_vols = load_pv_data(sample_dir / pv_calibration_folder)
         EDV = pv_vols[0]
-        edpvr_pres, edpvr_vols = load_edpvr_calibrated_shifted(sample_dir / "01_PVCalibration")
+        edpvr_pres, edpvr_vols = load_edpvr_calibrated_shifted(sample_dir / pv_calibration_folder)
         edpvr_regress = linregress(edpvr_vols, edpvr_pres)
 
         if comm.Get_rank() == 0:
@@ -368,7 +376,7 @@ def main():
         error = calculate_error(edpvr_regress, inflation_spline, edpvr_vols, max_edpvr_vols=max_edpvr_vols)
         if comm.rank == 0:
             # copy the pv data file to the output directory
-            pv_data_source = sample_dir / "01_PVCalibration" / "ordered_calibrated_pv_data.csv"
+            pv_data_source = sample_dir / pv_calibration_folder / "ordered_calibrated_pv_data.csv"
             pv_data_dest = output_dir.parent / "ordered_calibrated_pv_data.csv"
             if not pv_data_dest.exists():
                 shutil.copy(pv_data_source, pv_data_dest)

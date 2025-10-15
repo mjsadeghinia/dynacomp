@@ -160,6 +160,7 @@ def main(args=None) -> int:
     scan_type = args.scan_type
     mesh_quality = args.mesh_quality
     output_folder = args.output_folder
+    pv_calibration_folder = args.pv_calibration_folder
     geo_fname = args.geometry_fname
     input_matparams = arg_parser.prepare_matparams(args)
     
@@ -186,7 +187,7 @@ def main(args=None) -> int:
 
         if not sample_dir.exists():
             continue
-        pv_dir = sample_dir / "01_PVCalibration/"
+        pv_dir = sample_dir / f"{pv_calibration_folder}/"
         geo_dir = pv_dir / "Geometries"
         if not geo_dir.exists() and comm.Get_rank() == 0:
             logger.warning(f"Geometries not found for {sample_name}")
