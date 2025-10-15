@@ -231,6 +231,14 @@ def parse_arguments_unloading(args=None):
         type=str,
         help="The result folder name tha would be created in the directory of the sample.",
     )
+
+    parser.add_argument(
+        "--pv_calibration_folder",
+        default="01_PVCalibration",
+        type=str,
+        help="The folder where PV data is stored.",
+    )
+
     return parser.parse_args(args)
 
 
