@@ -260,7 +260,7 @@ def main(args=None) -> int:
                 registered_calibrated_volumes, registered_pressures,
                 calibrated_edpvr_volumes_all, edpvr_pressures_all
             )
-        logger.info(f"Cycle number {cycle_num} selected based on correlation.")
+            logger.info(f"Cycle number {cycle_num} selected based on correlation.")
 
         # Get the end-diastole index
         ED_index = 0
