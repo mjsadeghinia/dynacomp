@@ -98,6 +98,13 @@ def main():
         help="The folders to be imported processed.",
     )
 
+    parser.add_argument(
+        "--pv_folder",
+        default="01_PVCalibration",
+        type=str,
+        help="The result folder name tha would be created in the directory of the sample.",
+    )
+
     args = parser.parse_args()
 
     number = args.number
@@ -106,6 +113,7 @@ def main():
     scan_type = args.scan_type
     local_results_dir = Path(args.local_results_dir)
     remote_results_dir = args.remote_results_dir
+    pv_folder = args.pv_folder
     import_flag = args.import_flag
     export_data_flag = args.export_data_flag
     remote_user = args.remote_user
@@ -195,7 +203,7 @@ def main():
             remote_dest = f"{REMOTE}:{dest_dir}"
             
             if export_data_flag:
-                pvcalib_src = sample_dir / "01_PVCalibration"
+                pvcalib_src = sample_dir / pv_folder
                 if not pvcalib_src.exists():
                     continue    
                 mkdir_cmd = ["ssh", REMOTE, f"mkdir -p {dest_dir}"]
@@ -212,7 +220,7 @@ def main():
                     if not item.exists():
                         print(f"Skipping missing: {item}")
                         continue
-                    cmd = ["rsync", "-avh", "--progress", str(item), f"{remote_dest}/01_PVCalibration/"]
+                    cmd = ["rsync", "-avh", "--progress", str(item), f"{remote_dest}/{pv_folder}/"]
                     print("Running:", " ".join(cmd))
                     subprocess.run(cmd, check=True)
                 
