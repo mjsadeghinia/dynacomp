@@ -149,13 +149,13 @@ def parse_arguments_unloading(args=None):
     # Arguments for HeartModel boundary conditions
     parser.add_argument(
         "--pericardium_spring",
-        default=0.0001,
+        default=0.2,
         type=float,
         help="HeartModel BC: The stiffness of the spring on the pericardium.",
     )
     parser.add_argument(
         "--base_spring",
-        default=1,
+        default=0,
         type=float,
         help="HeartModel BC: The stiffness of the spring at the base.",
     )
@@ -288,13 +288,13 @@ def parse_arguments_processing(args=None):
     # Arguments for HeartModel boundary conditions
     parser.add_argument(
         "--pericardium_spring",
-        default=0.0001,
+        default=0.2,
         type=float,
         help="HeartModel BC: The stiffness of the spring on the pericardium.",
     )
     parser.add_argument(
         "--base_spring",
-        default=1,
+        default=0,
         type=float,
         help="HeartModel BC: The stiffness of the spring at the base.",
     )
