@@ -1,10 +1,7 @@
 import json
 from pathlib import Path
 import numpy as np
-
-from structlog import get_logger
-
-logger = get_logger()
+import logging
 
 def load_settings(settings_dir: Path, sample_num: int) -> dict:
     files = sorted([f for f in settings_dir.iterdir() if f.is_file() and f.suffix == ".json"])
@@ -32,7 +29,7 @@ def load_pressure_volumes(pv_dir):
 def read_edpvr_data(edpvr_dir):
     fname = edpvr_dir / "inflation_results.txt"
     if not fname.exists():
-        logger.error(FileNotFoundError(f"EDPVR data file {fname} does not exist."))
+        logging.error(FileNotFoundError(f"EDPVR data file {fname} does not exist."))
         return None
     edpvr_data = np.loadtxt(fname, delimiter=',', skiprows=1)
     return edpvr_data
@@ -40,7 +37,7 @@ def read_edpvr_data(edpvr_dir):
 def read_fiber_data(fiber_dir):
     fname = fiber_dir / "Fiber_results.csv"
     if not fname.exists():
-        logger.error(FileNotFoundError(f"Fiber data file {fname} does not exist."))
+        logging.error(FileNotFoundError(f"Fiber data file {fname} does not exist."))
         return None
     fiber_data = np.loadtxt(fname, delimiter=',', skiprows=1)
     return fiber_data
