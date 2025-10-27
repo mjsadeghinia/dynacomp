@@ -181,6 +181,15 @@ def main(args=None) -> int:
         sample_name = settings["id"]
         sample_dir = results_dir / sample_name / scan_type
         output_dir = sample_dir / output_folder
+
+        unloaded_geo_fname = output_dir / "unloaded_geometry_0_with_fibers.h5"
+        if unloaded_geo_fname.exists():
+            if comm.Get_rank() == 0:
+                logger.info("-----------------------------------")
+                logger.info(f"Unloaded geometry already exists for {output_folder}, skipping...")
+                logger.info("-----------------------------------")
+            continue
+
         if comm.Get_rank() == 0:
             output_dir.mkdir(parents=True, exist_ok=True)
         dolfin.MPI.barrier(comm)

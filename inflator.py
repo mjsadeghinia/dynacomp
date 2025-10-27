@@ -319,6 +319,14 @@ def main():
 
         # Prepare output directory
         output_dir = sample_dir / output_folder
+
+        inflation_results_fname = output_dir / "inflation_results.png"
+        if inflation_results_fname.exists():
+            if comm.Get_rank() == 0:
+                logger.info("-----------------------------------")
+                logger.info(f"Inflation results already exist for {output_folder}, skipping...")
+                logger.info("-----------------------------------")
+            continue
         # if comm.rank == 0:
         #     arg_parser.prepare_oudir_processing(output_dir, comm)
         # comm.Barrier()
