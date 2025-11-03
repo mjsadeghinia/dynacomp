@@ -109,7 +109,8 @@
         "recording_num": 1,
         "volume_smooth_window_length": 15,
         "pressure_smooth_window_length": 15,
-        "total_pressure_offset": 3,
+        "total_pressure_offset": 0.0,
+        "manual_pv_to_edpvr": 0,
         "ED_offset_index": -4,
         "skip_redundant_data_flag": false,
         "process_occlusion_flag": true,
@@ -122,12 +123,12 @@
             "b": -1232.0382662530747
         },
         "EDPVR_shift_flags": {
-            "volume": false,
-            "pressure": false
+            "volume": true,
+            "pressure": true
         },
         "EDPVR_shift": {
-            "volume": 0,
-            "pressure": 0.44647753801968904
+            "volume": -49.31884539501857,
+            "pressure": 0.44647801314055435
         }
     }
 }

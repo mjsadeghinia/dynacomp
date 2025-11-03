@@ -283,7 +283,8 @@
         "volume_smooth_window_length": 15,
         "pressure_smooth_window_length": 15,
         "ED_offset_index": -5,
-        "total_pressure_offset": -3,
+        "total_pressure_offset": 0.0,
+        "manual_pv_to_edpvr": 0,
         "skip_redundant_data_flag": false,
         "process_occlusion_flag": true,
         "Occlusion_data_index_i": null,
@@ -296,11 +297,11 @@
         },
         "EDPVR_shift_flags": {
             "volume": true,
-            "pressure": false
+            "pressure": true
         },
         "EDPVR_shift": {
-            "volume": 173.19072454851187,
-            "pressure": 0.03217035358731346
+            "volume": 183.19415826813486,
+            "pressure": -0.6631693261306841
         }
     }
 }

@@ -140,8 +140,8 @@
         }
     },
     "matparams": {
-        "a": 10.726,
-        "a_f": 7.048,
+        "a": 0.412,
+        "a_f": 1.862,
         "b": 2.118,
         "b_f": 0.001,
         "a_s": 0.0,
@@ -159,7 +159,8 @@
         "recording_num": 2,
         "volume_smooth_window_length": 15,
         "pressure_smooth_window_length": 15,
-        "total_pressure_offset": -10,
+        "total_pressure_offset": 0.0,
+        "manual_pv_to_edpvr": 0,
         "skip_redundant_data_flag": false,
         "process_occlusion_flag": true,
         "Occlusion_data_index_i": 0,
@@ -175,8 +176,8 @@
             "b": -206.35267688851619
         },
         "EDPVR_shift": {
-            "volume": 14.321034536777915,
-            "pressure": 7.3748161481734025
+            "volume": -2.2417810038736263,
+            "pressure": 3.272861688029426
         }
     }
 }
