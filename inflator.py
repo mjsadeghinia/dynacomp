@@ -112,6 +112,70 @@ def plot_results(fname, error, matparams, inflation_pres, inflation_vols, edpvr_
     ax.legend(loc='upper left')
     fig.savefig(fname, dpi=300)
 
+def plot_results_svg(fname, error, matparams, inflation_pres, inflation_vols,
+                     edpvr_pres, edpvr_vols, edpvr_regress, inflation_spline,
+                     pv_vols, pv_pres):
+    width_cm = 5.0
+    width_in = width_cm / 2.54
+    aspect = 6/8  # original 8x6 => height/width = 0.75
+    height_in = width_in * aspect
+
+    rc_local = {
+        'svg.fonttype': 'none',         # keep text as text in SVG
+        'axes.labelsize': 8,            # x/y label size (pt)
+        'xtick.labelsize': 5,           # tick label size (pt)
+        'ytick.labelsize': 5,
+        'legend.fontsize': 5,
+    }
+
+    with plt.rc_context(rc_local):
+        fig, ax = plt.subplots(figsize=(width_in, height_in), constrained_layout=True)
+
+        # PV data
+        ax.plot(pv_vols, pv_pres, 'k', linewidth=0.2)
+        ax.scatter(pv_vols, pv_pres, s=2, c='k', label='PV Data')
+        ax.scatter(pv_vols[0], pv_pres[0], s=2, c='m')
+
+        # EDPVR points + regression line
+        ax.scatter(edpvr_vols, edpvr_pres, s=2, c='r', label='EDPVR')
+        edpvr_vols_spline = np.linspace(min(edpvr_vols), max(edpvr_vols), 100)
+        m, b = edpvr_regress.slope, edpvr_regress.intercept
+        edpvr_pres_spline = m * edpvr_vols_spline + b
+        ax.plot(edpvr_vols_spline, edpvr_pres_spline, 'b', linewidth=0.2)
+
+        # V0 based on the regression line (for reference, not displayed)
+        res = linregress(edpvr_vols_spline, edpvr_pres_spline)
+        v_0 = -res.intercept / res.slope if res.slope != 0 else float('nan')
+
+        # Zero-pressure line
+        ax.axhline(0, color='gray', linestyle='--', linewidth=0.2)
+
+        # Simulation
+        ax.plot(inflation_vols, inflation_pres, 'g-', linewidth=0.2, label='Simulation')
+        ax.scatter(inflation_vols, inflation_pres, c='g', s=2)
+
+        # Labels, limits, legend
+        ax.set_xlabel('Volume [µL]')
+        ax.set_ylabel('LV Pressure [kPa]')
+        ax.set_xlim(0, np.max(pv_vols) * 1.1)
+        ax.set_ylim(-0.5, 18)
+        # ax.legend(loc='upper left', frameon=False)
+
+        # Save figure
+        fig.savefig(fname, format='svg', dpi=300, bbox_inches='tight')
+        plt.close(fig)
+
+    # --- Save inflation data to CSV (same basename as SVG) ---
+    csv_path = os.path.splitext(fname)[0] + ".csv"
+    np.savetxt(
+        csv_path,
+        np.column_stack((inflation_vols, inflation_pres)),
+        delimiter=",",
+        header="Volume [µL],Pressure [kPa]",
+        comments="",
+        fmt="%.6f"
+    )
+
 def save_model(model, t: float, outdir: Path = Path("results")):
         """
         Saves the current state of the heart model at a given time to a specified file.
@@ -392,6 +456,7 @@ def main():
             if plot_flag:
                 fname = output_dir / f"inflation_results.png"
                 plot_results(fname, error, matparams, inflation_pres, inflation_vols, edpvr_pres, edpvr_vols, edpvr_regress, inflation_spline, pv_vols, pv_pres)
+                # plot_results_svg(fname.with_suffix('.svg'), error, matparams, inflation_pres, inflation_vols, edpvr_pres, edpvr_vols, edpvr_regress, inflation_spline, pv_vols, pv_pres)
             if logging_flag:
                 # Save results to a file
                 fname = output_dir.parent / f"inflation_results.txt"
