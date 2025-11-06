@@ -165,6 +165,7 @@
         "Occlusion_data_index_f": null,
         "Occlusion_recording_num": 4,
         "Occlusion_data_skip_index": 1,
+        "manual_pv_to_edpvr": 0,
         "EDPVR_shift_flags": {
             "volume": true,
             "pressure": true
