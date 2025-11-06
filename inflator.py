@@ -111,6 +111,16 @@ def plot_results(fname, error, matparams, inflation_pres, inflation_vols, edpvr_
     ax.set_ylim(-0.5, 18)
     ax.legend(loc='upper left')
     fig.savefig(fname, dpi=300)
+    # --- Save inflation data to CSV (same basename as SVG) ---
+    csv_path = os.path.splitext(fname)[0] + ".csv"
+    np.savetxt(
+        csv_path,
+        np.column_stack((inflation_vols, inflation_pres)),
+        delimiter=",",
+        header="Volume [µL],Pressure [kPa]",
+        comments="",
+        fmt="%.6f"
+    )
 
 def plot_results_svg(fname, error, matparams, inflation_pres, inflation_vols,
                      edpvr_pres, edpvr_vols, edpvr_regress, inflation_spline,
