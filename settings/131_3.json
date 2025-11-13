@@ -126,8 +126,8 @@
         }
     },
     "matparams": {
-        "a": 10.726,
-        "a_f": 7.048,
+        "a": 0.05,
+        "a_f": 0.05,
         "b": 2.118,
         "b_f": 0.001,
         "a_s": 0.0,
@@ -145,7 +145,7 @@
         "recording_num": 3,
         "volume_smooth_window_length": 15,
         "pressure_smooth_window_length": 15,
-        "ED_offset_index": -8,
+        "ED_offset_index": -6,
         "ED_pressure_offset": -5,
         "skip_redundant_data_flag": false,
         "process_occlusion_flag": true,
@@ -158,11 +158,11 @@
             "pressure": true
         },
         "calibration": {
-            "a": 502555.90482729394,
-            "b": -731.1032121005462
+            "a": 615780.0281756619,
+            "b": -993.5750663509066
         },
         "EDPVR_shift": {
-            "volume": 10.302780632203167,
+            "volume": 12.623961806131774,
             "pressure": 1.3789094496614602
         }
     }

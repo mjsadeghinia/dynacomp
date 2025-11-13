@@ -179,8 +179,8 @@
         "b_fs": 0.0
     },
     "fiber_angles": {
-        "alpha_endo_lv": 55.0,
-        "alpha_epi_lv": -40.0,
+        "alpha_endo_lv": 50.0,
+        "alpha_epi_lv": -50.0,
         "beta_endo_lv": -15,
         "beta_epi_lv": 15
     },
