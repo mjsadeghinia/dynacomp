@@ -159,6 +159,7 @@ def compile_h5_TPM(directory_path, overwrite, is_inverted):
     else:
         logger.warning(f"The End diastolic time and cardiac cycle lenght (CCL) are not consistent!!!, \n TED: {TED} \n CCL: {cardiac_cycle_length}")
         logger.warning("Only End systole to end diasotle in being used")
+        T_array = append_T_array(TES, T_array)
 
     # Generate and populate datasets
     datasets = prepare_datasets(K, I, S, T_array, data)
