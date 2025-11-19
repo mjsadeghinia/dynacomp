@@ -143,6 +143,48 @@ def plot_angles(ids, epi_angles, endo_angles, output_dir):
     plt.savefig(fname, dpi=300)
     plt.close()
     
+def export_total_distance_csv(fname, avg_total_distance, key):
+    epi_fiber_values = np.array([-20, -25, -30, -35, -40, -45, -50, -55, -60, -65, -70])
+    endo_fiber_values = np.array([20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70])
+    with open(fname, "w", newline="") as csvfile:
+            writer = csv.writer(csvfile)
+            header = [
+                "a",
+                "a_f",
+                "epi_fib",
+                "endo_fib",
+                "maximum Activation (kPa)",
+                "epi_distance (mean)",
+                "epi_distance (STD)",
+                "endo_distance (mean)",
+                "endo_distance (STD)",
+                "total_distance (mean)",
+                "total_distance (STD)",
+            ]
+            writer.writerow(header)
+            for i, epi_val in enumerate(epi_fiber_values):
+                for j, endo_val in enumerate(endo_fiber_values):
+                    td_mean = avg_total_distance[key][i, j]
+
+                    # Skip row entirely if total_distance (mean) is NaN
+                    if np.isnan(td_mean):
+                        continue
+
+                    row = [
+                        0,          # a
+                        0,          # a_f
+                        epi_val,    # epi_fib
+                        endo_val,   # endo_fib
+                        0,          # maximum Activation (kPa)
+                        0,          # epi_distance (mean)
+                        0,          # epi_distance (STD)
+                        0,          # endo_distance (mean)
+                        0,          # endo_distance (STD)
+                        td_mean,    # total_distance (mean)
+                        0,          # total_distance (STD)
+                    ]
+                    writer.writerow(row)
+
 # %%
 def main(args=None) -> int:
     if args is None:
@@ -173,12 +215,17 @@ def main(args=None) -> int:
     time_list = [6, 12]
     diameter_list = [107, 130, 150]
 
+    epi_fiber_values = np.array([-20, -25, -30, -35, -40, -45, -50, -55, -60, -65, -70])
+    endo_fiber_values = np.array([20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70])
+
     ids = utils_post.initialize_results_dict(group_list, time_list, diameter_list)
     epi_angles = utils_post.initialize_results_dict(group_list, time_list, diameter_list)
     endo_angles = utils_post.initialize_results_dict(group_list, time_list, diameter_list)
     delta_angles = utils_post.initialize_results_dict(group_list, time_list, diameter_list)
     errors = utils_post.initialize_results_dict(group_list, time_list, diameter_list)
     errors_std = utils_post.initialize_results_dict(group_list, time_list, diameter_list)
+    total_distance = utils_post.initialize_results_dict(group_list, time_list, diameter_list)
+
 
 
     # Load settings
@@ -209,6 +256,14 @@ def main(args=None) -> int:
         error = fiber_data_sorted[0][-2]
         error_std = fiber_data_sorted[0][-1]
 
+        X = np.full((len(epi_fiber_values), len(endo_fiber_values)), np.nan)
+        for row in fiber_data:
+            epi_val = row[2]
+            endo_val = row[3]
+            i = np.where(epi_fiber_values == epi_val)[0]
+            j = np.where(endo_fiber_values == endo_val)[0]
+            if i.size > 0 and j.size > 0:
+                X[i[0], j[0]] = row[-2]
         if exclusion_flag and error>error_threshold :
             logger.warning(f"Sample {sample_name} with the error of {error} is ignored")
             continue
@@ -219,6 +274,7 @@ def main(args=None) -> int:
             delta_angles[group][time].append(endo_angle - epi_angle)
             errors[group][time].append(error)
             errors_std[group][time].append(error_std)
+            total_distance[group][time].append(X)
         else:
             ids[group][time][diameter].append(sample_name)
             epi_angles[group][time][diameter].append(epi_angle)
@@ -226,6 +282,7 @@ def main(args=None) -> int:
             delta_angles[group][time][diameter].append(endo_angle - epi_angle)
             errors[group][time][diameter].append(error)
             errors_std[group][time][diameter].append(error_std)
+            total_distance[group][time][diameter].append(X)
 
     # Save the results
     ordered_keys = ["SHAM_6", "SHAM_12", "SHAM_20", "AS_6_150", "AS_12_150", "AS_6_130", "AS_12_130", "AS_12_107"]
@@ -246,6 +303,37 @@ def main(args=None) -> int:
     errors = prepare_results_dict(errors, ordered_keys=ordered_keys)
     errors_std = prepare_results_dict(errors_std, ordered_keys=ordered_keys)
     plot_angles(ids, epi_angles, endo_angles, output_dir)
+
+    total_distance_flat = utils_post.flatten_data_dict(total_distance)
+    if ordered_keys is not None:
+        relevant_keys = [k for k in ordered_keys if k in total_distance_flat]
+    else:
+        relevant_keys = list(total_distance_flat.keys())
+
+    avg_total_distance = {}
+    for key in relevant_keys:
+        matrices_list = total_distance_flat[key]
+        if not matrices_list:
+            continue
+        stacked = np.stack(matrices_list, axis=0)
+        avg_total_distance[key] = np.nanmean(stacked, axis=0)
+        fname = output_dir / f"Total_Distance_Mean_{key}.csv"
+        export_total_distance_csv(fname, avg_total_distance, key)
+        from fibparam_post import process_one_csv
+        data = np.loadtxt(fname, skiprows=1, delimiter=',')
+        process_one_csv(data=data,
+                        output_dir=output_dir,
+                        filename=f"Total_Distance_Contour_{key}.png",
+                        method="cubic",
+                        contour_levels=30,
+                        grid_nx=300,
+                        grid_ny=300,
+                        show_analytic_min=False,
+                        xname="epi_fib",
+                        yname="endo_fib",
+                        zname="total_distance (mean)",
+                        clim=(0.3, 1.0)
+                        )
 
     fname = output_dir / "EDPVR_Results.csv"
     with open(fname, 'w', newline='') as csvfile:
