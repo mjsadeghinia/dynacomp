@@ -208,6 +208,8 @@ def main(args=None) -> int:
             logger.info(f"Unloading started for Sample {sample_name} with atrium pressure: {atrium_pressure:.2f} kPa")
         if geo_fname is None:
             geo_fname = geo_dir / "geometry_0.h5"
+        else:
+            geo_fname = geo_dir / geo_fname
         # Set material properties
         matparams = settings['matparams']
         for key, value in input_matparams.items():
