@@ -166,6 +166,27 @@ def get_fibrosis_data(ids, fibrosis_path):
                     fibrosis_slice2[key].append(np.nan)
     return fibrosis, fibrosis_slice1, fibrosis_slice2
 
+def sum_nested_dicts(d1, d2):
+    if isinstance(d1, list) and isinstance(d2, list):
+        # elementwise sum of lists
+        return [x + y for x, y in zip(d1, d2)]
+
+    elif isinstance(d1, dict) and isinstance(d2, dict):
+        out = {}
+        for key in set(d1.keys()) | set(d2.keys()):
+            v1 = d1.get(key)
+            v2 = d2.get(key)
+            if v1 is not None and v2 is not None:
+                out[key] = sum_nested_dicts(v1, v2)
+            else:
+                # if one dict doesn't contain the key: keep whichever exists
+                out[key] = v1 if v1 is not None else v2
+        return out
+
+    else:
+        # fallback: cannot sum mismatched types → return whatever exists
+        return d1 if d1 is not None else d2
+
 # %%
 def main(args=None) -> int:
     if args is None:
@@ -274,6 +295,9 @@ def main(args=None) -> int:
     utils_post.plot_bar_with_data(a_af_matparam, fname, ylabel="ECM/Myocyte Stiffness Ratio", ordered_keys=ordered_keys)
     fname = output_dir / "EDPVR_Error.png"
     utils_post.plot_bar_with_data(err, fname, ylabel="EDPVR Error", ordered_keys=ordered_keys, ylim=(0, 1))
+    fname = output_dir / "Total_Stiffness.png"
+    tot_matparam = sum_nested_dicts(a_matparam, af_matparam)
+    utils_post.plot_bar_with_data(tot_matparam, fname, ylabel="Total Stiffness [kPa]", ordered_keys=ordered_keys)
 
     ids = prepare_results_dict(ids, ordered_keys=ordered_keys, round_flag=False)
     a_matparam = prepare_results_dict(a_matparam, ordered_keys=ordered_keys)
@@ -282,13 +306,14 @@ def main(args=None) -> int:
     v0_edpvr = prepare_results_dict(v0_edpvr, ordered_keys=ordered_keys)
     v0_sim = prepare_results_dict(v0_sim, ordered_keys=ordered_keys)
     err = prepare_results_dict(err, ordered_keys=ordered_keys)
+    tot_matparam = prepare_results_dict(tot_matparam, ordered_keys=ordered_keys)
 
     fname = output_dir / "V0_Comparison.png"
     slope, intercept, r_squared, p_value, std_err = utils_post.plot_maximums_with_regression(fname.as_posix(), v0_edpvr, v0_sim, case='v0')
 
     fibrosis, fibrosis_slice1, fibrosis_slice2 = get_fibrosis_data(ids, fibrosis_path)
     fname = output_dir / "Fibrosis_Comparison.png"
-    slope_fibrosis, intercept_fibrosis, r_squared_fibrosis, p_value_fibrosis, std_err_fibrosis = utils_post.plot_maximums_with_regression(fname.as_posix(), fibrosis, a_matparam, case='fibrosis', x1=fibrosis_slice1, x2=fibrosis_slice2)
+    slope_fibrosis, intercept_fibrosis, r_squared_fibrosis, p_value_fibrosis, std_err_fibrosis = utils_post.plot_maximums_with_regression(fname.as_posix(), fibrosis, tot_matparam, case='fibrosis', x1=fibrosis_slice1, x2=fibrosis_slice2)
     # Save the results to a csv file
 
     fname = output_dir / "EDPVR_Results.csv"
