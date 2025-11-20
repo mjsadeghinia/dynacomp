@@ -68,8 +68,19 @@ def rclone_path_exists(remote_path: str) -> bool:
     )
     return res.returncode == 0
 
+def clean_import_folder(folder_root: Path, keep: str = "Geometry", dry_run: bool = False):
+    if not folder_root.exists():
+        return
+    for p in folder_root.iterdir():
+        if p.is_dir():
+            for subfolder in p.iterdir():
+                if subfolder.is_dir() and subfolder.name != keep:
+                    if dry_run:
+                        print(f"[DRY-RUN] Would remove: {subfolder}")
+                    else:
+                        shutil.rmtree(subfolder)
 
-def download_and_extract_tar(drive_sample_base: str, folder: str, dest_dir: Path, dry_run: bool = False):
+def download_and_extract_tar(drive_sample_base: str, folder: str, dest_dir: Path, dry_run: bool = False, clean_import: bool = False):
     candidates = [f"{drive_sample_base}/{folder}.tar.zst", f"{drive_sample_base}/{folder}.tar"]
     for remote_file in candidates:
         if not rclone_path_exists(remote_file):
@@ -89,9 +100,10 @@ def download_and_extract_tar(drive_sample_base: str, folder: str, dest_dir: Path
             extract_cmd = ["tar", "-xf", str(local_tar), "-C", str(dest_dir)]
         run(extract_cmd)
         local_tar.unlink()
+        if clean_import:
+            clean_import_folder(dest_dir / folder, keep="Geometry", dry_run=dry_run)
         return
     raise subprocess.CalledProcessError(1, "rclone copyto")
-
 
 def main():
     parser = argparse.ArgumentParser()
@@ -157,6 +169,10 @@ def main():
         "--download", action="store_true",
         help="Download <folder>.tar(.zst) from Drive, extract into local sample dir, then delete the archive.",
     )
+    parser.add_argument(
+        "--clean_import", action="store_true",
+        help="After extracting, remove all subfolders inside the extracted folder except 'Geometry'.",
+    )
 
     args = parser.parse_args()
     require_rclone()
@@ -194,7 +210,7 @@ def main():
             folder_path = sample_dir / folder
             if args.download:
                 try:
-                    download_and_extract_tar(drive_sample_base, folder, sample_dir, args.dry_run)
+                    download_and_extract_tar(drive_sample_base, folder, sample_dir, args.dry_run, args.clean_import)
                 except subprocess.CalledProcessError as e:
                     print(f"[WARN] Download/extract failed for {folder} ({e}). Continuing…")
                 continue
