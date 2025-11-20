@@ -258,6 +258,14 @@ def main():
         help="Update settings file with best-fit parameters."
     )
 
+    parser.add_argument(
+        '--exclude',
+        nargs='*',
+        type=str,
+        default=None,
+        help='Sample ID(s) to exclude from processing.'
+    )
+
     args = parser.parse_args()   
 
     settings_dir = args.settings_dir
@@ -286,6 +294,16 @@ def main():
     else:
         files = sorted([f for f in settings_dir.iterdir() if f.suffix == ".json"])
         sample_nums = list(range(1, len(files) + 1))
+
+    if args.exclude:
+        exclude_nums = []
+        for ex in args.exclude:
+            ex_num = utils.get_num_from_id(ex, args.settings_dir)
+            exclude_nums.append(ex_num)
+        sample_nums = [s for s in sample_nums if s not in exclude_nums]
+        print("--------------------------")
+        logger.warning(f"Excluding samples: {args.exclude}")
+        print("--------------------------")
 
     for sample in sample_nums:
         settings = utils.load_settings(settings_dir, sample)

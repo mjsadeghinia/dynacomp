@@ -95,6 +95,14 @@ def parse_arguments(args=None):
         help="Version number (e.g., 3)",
     )
 
+    parser.add_argument(
+        '--exclude',
+        nargs='*',
+        type=str,
+        default=None,
+        help='Sample ID(s) to exclude from processing.'
+    )
+
     return parser.parse_args(args)
 
 def load_edpvr_calibrated_shifted(pv_directory: Path):
@@ -207,6 +215,16 @@ def main(args=None) -> int:
         sample_nums = [sample_num]
     elif sample_num is None:
         sample_nums = range(1, len(sorted_files) + 1)
+
+    if args.exclude:
+        exclude_nums = []
+        for ex in args.exclude:
+            ex_num = utils.get_num_from_id(ex, args.settings_dir)
+            exclude_nums.append(ex_num)
+        sample_nums = [s for s in sample_nums if s not in exclude_nums]
+        print("--------------------------")
+        logger.warning(f"Excluding samples: {args.exclude}")
+        print("--------------------------")
 
     for n in sample_nums:
         settings = utils.load_settings(settings_dir, n)
