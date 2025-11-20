@@ -193,6 +193,25 @@ def export_total_distance_csv(fname, avg_total_distance, key):
                     ]
                     writer.writerow(row)
 
+
+def get_error_matrix(fiber_data, epi_fiber_values, endo_fiber_values):
+    error_matrix = np.full((len(epi_fiber_values), len(endo_fiber_values)), np.nan)
+    for row in fiber_data:
+        epi_val = row[2]
+        endo_val = row[3]
+        i = np.where(epi_fiber_values == epi_val)[0]
+        j = np.where(endo_fiber_values == endo_val)[0]
+        if i.size > 0 and j.size > 0:
+            error_matrix[i[0], j[0]] = row[-2]
+    return error_matrix
+
+def get_default_error(fiber_data, default_epi_angle, default_endo_angle):
+    for row in fiber_data:
+        epi_val = row[2]
+        endo_val = row[3]
+        if epi_val == default_epi_angle and endo_val == default_endo_angle:
+            return row[-2]
+    return np.nan
 # %%
 def main(args=None) -> int:
     if args is None:
@@ -225,6 +244,8 @@ def main(args=None) -> int:
 
     epi_fiber_values = np.array([-20, -25, -30, -35, -40, -45, -50, -55, -60, -65, -70])
     endo_fiber_values = np.array([20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70])
+    default_epi_angle = -55
+    default_endo_angle = 40
 
     ids = utils_post.initialize_results_dict(group_list, time_list, diameter_list)
     epi_angles = utils_post.initialize_results_dict(group_list, time_list, diameter_list)
@@ -233,9 +254,7 @@ def main(args=None) -> int:
     errors = utils_post.initialize_results_dict(group_list, time_list, diameter_list)
     errors_std = utils_post.initialize_results_dict(group_list, time_list, diameter_list)
     total_distance = utils_post.initialize_results_dict(group_list, time_list, diameter_list)
-
-
-
+    default_distance = utils_post.initialize_results_dict(group_list, time_list, diameter_list)
     # Load settings
     # Get the list of .json files in the directory and sort them by name
     sorted_files = sorted([file for file in settings_dir.iterdir() if file.is_file() and file.suffix == ".json"])
@@ -273,15 +292,11 @@ def main(args=None) -> int:
         endo_angle = fiber_data_sorted[0][3]
         error = fiber_data_sorted[0][-2]
         error_std = fiber_data_sorted[0][-1]
+        error_matrix = get_error_matrix(fiber_data, epi_fiber_values, endo_fiber_values)
+        default_error = get_default_error(fiber_data, default_epi_angle, default_endo_angle)
+        if np.isnan(default_error):
+            logger.warning(f"{sample_name}: Default fiber angles of Epi: {default_epi_angle}, Endo: {default_endo_angle} not found in the data.")
 
-        X = np.full((len(epi_fiber_values), len(endo_fiber_values)), np.nan)
-        for row in fiber_data:
-            epi_val = row[2]
-            endo_val = row[3]
-            i = np.where(epi_fiber_values == epi_val)[0]
-            j = np.where(endo_fiber_values == endo_val)[0]
-            if i.size > 0 and j.size > 0:
-                X[i[0], j[0]] = row[-2]
         if exclusion_flag and error>error_threshold :
             logger.warning(f"Sample {sample_name} with the error of {error} is ignored")
             continue
@@ -292,7 +307,8 @@ def main(args=None) -> int:
             delta_angles[group][time].append(endo_angle - epi_angle)
             errors[group][time].append(error)
             errors_std[group][time].append(error_std)
-            total_distance[group][time].append(X)
+            total_distance[group][time].append(error_matrix)
+            default_distance[group][time].append(default_error)
         else:
             ids[group][time][diameter].append(sample_name)
             epi_angles[group][time][diameter].append(epi_angle)
@@ -300,26 +316,30 @@ def main(args=None) -> int:
             delta_angles[group][time][diameter].append(endo_angle - epi_angle)
             errors[group][time][diameter].append(error)
             errors_std[group][time][diameter].append(error_std)
-            total_distance[group][time][diameter].append(X)
+            total_distance[group][time][diameter].append(error_matrix)
+            default_distance[group][time][diameter].append(default_error)
 
     # Save the results
     ordered_keys = ["SHAM_6", "SHAM_12", "SHAM_20", "AS_6_150", "AS_12_150", "AS_6_130", "AS_12_130", "AS_12_107"]
-    fname = output_dir / "Epi_Angle.png"
-    utils_post.plot_bar_with_data(epi_angles, fname, ylabel="Epi Angle [degrees]", ordered_keys=ordered_keys)
-    fname = output_dir / "Endo_Angle.png"
-    utils_post.plot_bar_with_data(endo_angles, fname, ylabel="Endo Angle [degrees]", ordered_keys=ordered_keys)
-    fname = output_dir / "Delta_Angle.png"
-    utils_post.plot_bar_with_data(delta_angles, fname, ylabel="Delta Angle [degrees]", ordered_keys=ordered_keys)
-    fname = output_dir / "Angle_Error.png"
-    utils_post.plot_bar_with_data(errors, fname, ylabel="Error [mm]", ordered_keys=ordered_keys, ylim=(0, 1))
-    fname = output_dir / "Angle_Error_Std.png"
-    utils_post.plot_bar_with_data(errors_std, fname, ylabel="Error Std [mm]", ordered_keys=ordered_keys, ylim=(0, 1))
+    # fname = output_dir / "Epi_Angle.png"
+    # utils_post.plot_bar_with_data(epi_angles, fname, ylabel="Epi Angle [degrees]", ordered_keys=ordered_keys)
+    # fname = output_dir / "Endo_Angle.png"
+    # utils_post.plot_bar_with_data(endo_angles, fname, ylabel="Endo Angle [degrees]", ordered_keys=ordered_keys)
+    # fname = output_dir / "Delta_Angle.png"
+    # utils_post.plot_bar_with_data(delta_angles, fname, ylabel="Delta Angle [degrees]", ordered_keys=ordered_keys)
+    # fname = output_dir / "Angle_Error.png"
+    # utils_post.plot_bar_with_data(errors, fname, ylabel="Error [mm]", ordered_keys=ordered_keys, ylim=(0, 1))
+    # fname = output_dir / "Angle_Error_Std.png"
+    # utils_post.plot_bar_with_data(errors_std, fname, ylabel="Error Std [mm]", ordered_keys=ordered_keys, ylim=(0, 1))
+    fname = output_dir / "Default_Error.png"
+    utils_post.plot_bar_with_data(default_distance, fname, ylabel=f"Default Error [mm] (Epi = {default_epi_angle}, Endo = {default_endo_angle})", ordered_keys=ordered_keys, ylim=(0, 1))
 
     ids = prepare_results_dict(ids, ordered_keys=ordered_keys, round_flag=False)
     epi_angles = prepare_results_dict(epi_angles, ordered_keys=ordered_keys)
     endo_angles = prepare_results_dict(endo_angles, ordered_keys=ordered_keys)
     errors = prepare_results_dict(errors, ordered_keys=ordered_keys)
     errors_std = prepare_results_dict(errors_std, ordered_keys=ordered_keys)
+    default_distance = prepare_results_dict(default_distance, ordered_keys=ordered_keys)
     plot_angles(ids, epi_angles, endo_angles, output_dir)
 
     total_distance_flat = utils_post.flatten_data_dict(total_distance)
@@ -356,7 +376,7 @@ def main(args=None) -> int:
     fname = output_dir / "EDPVR_Results.csv"
     with open(fname, 'w', newline='') as csvfile:
         # Define header
-        header = ["Group", "ID", "epi_angle [degrees]", "endo_angle [degrees]", "error [-]", "error_std [-]"]
+        header = ["Group", "ID", "epi_angle [degrees]", "endo_angle [degrees]", "error [-]", "error_std [-]", f"default_distance (Epi={default_epi_angle}, Endo={default_endo_angle}) [-]"]
         writer = csv.writer(csvfile)
         writer.writerow(header)
         # Loop over groups
@@ -369,6 +389,7 @@ def main(args=None) -> int:
                     endo_angles.get(group, [None])[i] if group in endo_angles and len(endo_angles[group]) > i else None,
                     errors.get(group, [None])[i] if group in errors and len(errors[group]) > i else None,
                     errors_std.get(group, [None])[i] if group in errors_std and len(errors_std[group]) > i else None,
+                    default_distance.get(group, [None])[i] if group in default_distance and len(default_distance[group]) > i else None,
                 ]
                 writer.writerow(row)
              
